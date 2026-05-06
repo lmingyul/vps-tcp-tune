@@ -8,6 +8,7 @@
 # 1. 大版本更新时修改 SCRIPT_VERSION，并更新版本备注（保留最新5条）
 # 2. 小修复时只修改 SCRIPT_LAST_UPDATE，用于快速识别脚本是否已更新
 #=============================================================================
+# v5.0.2 更新: 修复 Debian 12 bookworm 仅提供 XanMod LTS 元包导致功能 66 安装失败；保留 66 阶段日志 (by lmingyul)
 # v5.0.1 更新: 修复 XanMod 官方 apt 源 codename 变更导致找不到内核包；兼容远端未知 TERM 清屏提示 (by lmingyul)
 # v5.0.0 更新: 新增 Cloudflare Tunnel 管理模块 (菜单 32-7)：12 项子功能 + 6 步向导含失败自动回滚；修复 Sub-Store 6 个历史 bug；统一配置到 /etc/cloudflared/ 并自动迁移老路径 (by Eric86777)
 # v4.9.8 更新: 修复Snell/VLESS/OAI2节点随机掉线：Restart=always+systemd健壮性加固；XanMod内核安装增加本地CPU检测兜底 (by Eric86777)
@@ -15,8 +16,8 @@
 # v4.9.4 更新: 修复Responses API转换代理：兼容SSE流式响应格式，解决502 JSON解析失败 (by Eric86777)
 # v4.9.3 更新: 修复Responses API转换代理：system消息正确提取为instructions字段，修复无system消息时报错 (by Eric86777)
 
-SCRIPT_VERSION="5.0.1"
-SCRIPT_LAST_UPDATE="修复 XanMod 官方 apt 源 codename 变更导致找不到内核包; 兼容远端未知 TERM 清屏提示"
+SCRIPT_VERSION="5.0.2"
+SCRIPT_LAST_UPDATE="修复 Debian 12 bookworm 仅提供 XanMod LTS 元包导致功能 66 安装失败; 保留 66 阶段日志"
 #=============================================================================
 
 #=============================================================================
@@ -2828,18 +2829,29 @@ add_xanmod_repository() {
     echo -e "${gl_lv}已添加 XanMod 源: ${codename} main${gl_bai}"
 }
 
-select_xanmod_kernel_package() {
+list_xanmod_kernel_package_candidates() {
     local cpu_level="$1"
 
     case "$cpu_level" in
         1)
             printf '%s\n' "linux-xanmod-lts-x64v1"
             ;;
-        2|3)
+        2)
             printf '%s\n' "linux-xanmod-x64v${cpu_level}"
+            printf '%s\n' "linux-xanmod-lts-x64v${cpu_level}"
+            printf '%s\n' "linux-xanmod-lts-x64v1"
+            ;;
+        3)
+            printf '%s\n' "linux-xanmod-x64v${cpu_level}"
+            printf '%s\n' "linux-xanmod-lts-x64v${cpu_level}"
+            printf '%s\n' "linux-xanmod-lts-x64v2"
+            printf '%s\n' "linux-xanmod-lts-x64v1"
             ;;
         4)
             printf '%s\n' "linux-xanmod-x64v3"
+            printf '%s\n' "linux-xanmod-lts-x64v3"
+            printf '%s\n' "linux-xanmod-lts-x64v2"
+            printf '%s\n' "linux-xanmod-lts-x64v1"
             ;;
         *)
             return 1
@@ -2847,15 +2859,22 @@ select_xanmod_kernel_package() {
     esac
 }
 
-check_xanmod_package_available() {
-    local package_name="$1"
+resolve_xanmod_kernel_package() {
+    local cpu_level="$1"
+    local package_name
 
-    if apt-cache show "$package_name" >/dev/null 2>&1; then
-        return 0
-    fi
+    while IFS= read -r package_name; do
+        [ -z "$package_name" ] && continue
+        if apt-cache show "$package_name" >/dev/null 2>&1; then
+            printf '%s\n' "$package_name"
+            return 0
+        fi
+    done < <(list_xanmod_kernel_package_candidates "$cpu_level")
 
-    echo -e "${gl_hong}错误: 当前 XanMod apt 源没有提供 ${package_name}${gl_bai}"
-    echo "请检查系统发行版是否仍被 XanMod 官方源支持, 或稍后等待官方仓库同步。"
+    echo -e "${gl_hong}错误: 当前 XanMod apt 源没有提供适合 x86-64-v${cpu_level} 的内核元包${gl_bai}" >&2
+    echo "已尝试以下包名:" >&2
+    list_xanmod_kernel_package_candidates "$cpu_level" | sed 's/^/  - /' >&2
+    echo "请检查系统发行版是否仍被 XanMod 官方源支持, 或稍后等待官方仓库同步。" >&2
     return 1
 }
 
@@ -3059,20 +3078,9 @@ install_xanmod_kernel() {
         echo -e "${gl_lv}本地检测结果: CPU 支持 x86-64-v${version}${gl_bai}"
     fi
 
-    local xanmod_package
-    xanmod_package=$(select_xanmod_kernel_package "$version") || {
-        echo -e "${gl_hong}错误: 无法匹配 CPU 架构等级 x86-64-v${version}${gl_bai}"
-        rm -f "$xanmod_repo_file"
-        return 1
-    }
-
     if [ "$version" = "4" ]; then
         echo -e "${gl_huang}检测到 x86-64-v4; XanMod MAIN 最高提供 x64v3, 将使用 x64v3 包${gl_bai}"
-    elif [ "$version" = "1" ]; then
-        echo -e "${gl_huang}检测到 x86-64-v1; XanMod MAIN 不提供 v1, 将使用 LTS x64v1 包${gl_bai}"
     fi
-
-    echo -e "${gl_lv}将安装: ${xanmod_package}${gl_bai}"
 
     # 安装 XanMod 内核
     echo "正在更新软件包列表..."
@@ -3080,9 +3088,15 @@ install_xanmod_kernel() {
         echo -e "${gl_huang}⚠️  apt-get update 部分失败，尝试继续安装...${gl_bai}"
     fi
 
-    if ! check_xanmod_package_available "$xanmod_package"; then
+    local xanmod_package
+    if ! xanmod_package=$(resolve_xanmod_kernel_package "$version"); then
         rm -f "$xanmod_repo_file"
         return 1
+    fi
+
+    echo -e "${gl_lv}将安装: ${xanmod_package}${gl_bai}"
+    if echo "$xanmod_package" | grep -q -- '-lts-'; then
+        echo -e "${gl_huang}当前发行版源未提供 MAIN 元包，已自动选择 XanMod LTS 元包${gl_bai}"
     fi
 
     apt-get install -y "$xanmod_package"
@@ -6493,8 +6507,19 @@ one_click_optimize() {
         echo "重启后再次执行 66 即可进入阶段2（全自动优化）"
         echo ""
 
-        install_xanmod_kernel
-        if [ $? -eq 0 ]; then
+        echo -e "${gl_kjlan}本阶段输出会追加保存到: ${LOG_FILE}${gl_bai}"
+        echo "===== $(date '+%Y-%m-%d %H:%M:%S') one_click_optimize stage1 install kernel =====" >> "$LOG_FILE" 2>/dev/null || true
+
+        local install_status=0
+        if command -v tee >/dev/null 2>&1; then
+            install_xanmod_kernel 2>&1 | tee -a "$LOG_FILE"
+            install_status=${PIPESTATUS[0]}
+        else
+            install_xanmod_kernel
+            install_status=$?
+        fi
+
+        if [ $install_status -eq 0 ]; then
             echo ""
             echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
             echo -e "${gl_lv}  ✅ 内核安装完成！${gl_bai}"
@@ -6502,6 +6527,16 @@ one_click_optimize() {
             echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
             echo ""
             server_reboot
+        else
+            echo ""
+            echo -e "${gl_hong}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+            echo -e "${gl_hong}  ❌ 阶段 1 失败：XanMod 内核未安装${gl_bai}"
+            echo -e "${gl_hong}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+            echo -e "${gl_huang}上方为失败原因；完整日志可查看: ${LOG_FILE}${gl_bai}"
+            echo ""
+            check_bbr_status
+            break_end
+            return $install_status
         fi
     else
         # ===== 阶段2：全自动优化 =====
