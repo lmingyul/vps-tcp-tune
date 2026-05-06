@@ -5033,7 +5033,7 @@ PERSIST_SCRIPT_BODY
     cat > /etc/systemd/system/dns-purify-persist.service << 'PERSIST_SERVICE'
 [Unit]
 Description=DNS Purify - Restore DNS Configuration on Boot
-Documentation=https://github.com/Eric86777/vps-tcp-tune
+Documentation=https://github.com/lmingyul/vps-tcp-tune
 After=systemd-resolved.service network-online.target
 Wants=network-online.target
 Wants=systemd-resolved.service

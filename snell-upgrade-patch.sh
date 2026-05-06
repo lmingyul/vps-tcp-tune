@@ -6,7 +6,7 @@
 # 不会卸载/重装任何 Snell 实例，不影响 BBR/DNS/IPv6 等其他配置
 #
 # 用法（VPS root 上跑）：
-#   bash <(curl -fsSL https://raw.githubusercontent.com/Eric86777/vps-tcp-tune/main/snell-upgrade-patch.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/snell-upgrade-patch.sh)
 #
 # 卸载本补丁带来的改动：
 #   rm -rf /etc/systemd/system/snell-*.service.d/99-net-tcp-tune-fix.conf

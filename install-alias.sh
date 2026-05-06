@@ -122,7 +122,7 @@ install_alias() {
 # net-tcp-tune 快捷别名 (自动添加)
 # 使用时间戳参数确保每次都获取最新版本，避免缓存
 # ========================================
-alias bbr="bash <(curl -fsSL \"https://raw.githubusercontent.com/Eric86777/vps-tcp-tune/main/net-tcp-tune.sh?\$(date +%s)\")"
+alias bbr="bash <(curl -fsSL \"https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/net-tcp-tune.sh?\$(date +%s)\")"
 '
     
     # 检查别名是否已存在
@@ -190,4 +190,3 @@ case "$MODE" in
         uninstall_alias
         ;;
 esac
-
