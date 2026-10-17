@@ -5,19 +5,32 @@
 # 特点：安全性 + 性能 双优化
 #=============================================================================
 # 版本管理规则：
-# 1. 大版本更新时修改 SCRIPT_VERSION，并更新版本备注（保留最新5条）
-# 2. 小修复时只修改 SCRIPT_LAST_UPDATE，用于快速识别脚本是否已更新
+# 1. 正式版本迭代时修改 SCRIPT_VERSION，并更新版本备注（保留最新5条）
+# 2. 临时热修/不发版时只修改 SCRIPT_LAST_UPDATE，用于快速识别脚本是否已更新
 #=============================================================================
-# v5.0.2 更新: 修复 Debian 12 bookworm 仅提供 XanMod LTS 元包导致功能 66 安装失败；保留 66 阶段日志 (by lmingyul)
-# v5.0.1 更新: 修复 XanMod 官方 apt 源 codename 变更导致找不到内核包；兼容远端未知 TERM 清屏提示 (by lmingyul)
-# v5.0.0 更新: 新增 Cloudflare Tunnel 管理模块 (菜单 32-7)：12 项子功能 + 6 步向导含失败自动回滚；修复 Sub-Store 6 个历史 bug；统一配置到 /etc/cloudflared/ 并自动迁移老路径 (by Eric86777)
-# v4.9.8 更新: 修复Snell/VLESS/OAI2节点随机掉线：Restart=always+systemd健壮性加固；XanMod内核安装增加本地CPU检测兜底 (by Eric86777)
-# v4.9.5 更新: 修复Responses API代理SSE解析，解决502报错，重新部署生效 (by Eric86777)
-# v4.9.4 更新: 修复Responses API转换代理：兼容SSE流式响应格式，解决502 JSON解析失败 (by Eric86777)
-# v4.9.3 更新: 修复Responses API转换代理：system消息正确提取为instructions字段，修复无system消息时报错 (by Eric86777)
+# v5.4.14 更新: 修复 resolved/D-Bus 启动依赖环，DNS失败返回失败并重试；Snell/Xray等待DNS，有限恢复Snell错误解析器；IPv6禁用前检查ifupdown冲突 (by Eric86777)
+# v5.4.13 更新: Xray 卸载改为内置固定范围事务，校验服务联动/目录归属/挂载与 Snell 基线，失败可恢复、残缺安装可检查；
+#   保留公共日志模板及共享依赖，增加只读/继续/恢复入口。菜单启动不再自动清理 MTU 或迁移 CF，依赖仅在安装/更新时准备 (by Eric86777)
+# v5.4.12 更新: 修复 Sub-Store 新版 CORS 白名单兼容——安装可配置页面来源，隧道向导自动追加实际域名；更新保留已有白名单，
+#   缺失时按实例隧道识别域名并备份迁移；拉取失败不停止旧容器，更新后带 Origin 校验接口，失败不再误报成功 (by Eric86777)
+# v5.4.11 更新: 修复功能3配置被镜像预置参数文件覆盖——sysctl.d 按文件名顺序加载、同名参数后加载者生效，旧文件名
+#   99-bbr-ultimate.conf 排在字母开头的文件之前(如商家镜像预置的 local.conf)，其中的同名参数在重启或 sysctl --system 后
+#   盖掉功能3的取值，而冲突检查只识别数字开头的文件名。现配置文件改名为 zzz-bbr-ultimate.conf 保证最后加载；重新执行
+#   功能3时自动迁移并删除旧文件，卸载功能同时清理新旧两个文件名；/etc/sysctl.conf 中与功能3同名的参数由只注释6项
+#   扩为全部注释(sysctl --system 总是最后加载该文件)。注意：此后功能3的配置优先于 sysctl.d 下其它文件 (by Eric86777)
+# v5.4.10 更新: 功能3/功能6/31菜单调优逻辑修正4项——①带宽档位消除「带宽变大缓冲区反而变小」的断点：实测值离预设档不足10%时
+#   按该档计算(千兆口实测9xx原落入500-1000档，亚太12MB/美欧48MB，现按1Gbps档16MB/64MB)，各区间取值均不低于旧版，9个预设档
+#   取值不变；②tcp_max_tw_buckets 不再固定写5000(在≥2G内存机器上低于内核默认值，内核文档要求不得调低)，改为
+#   max(5000, 内核默认值)，31菜单 Reality 终极优化同步修正；③功能6不再向 Realm 配置写入 resolve/nodelay/reuse_port
+#   (非 Realm 配置项，从未生效)，监听改IPv4/句柄上限/conntrack 不变；④功能3完成提示按内核模块版本区分 BBR v3 与
+#   系统自带 BBR，不再在非 v3 内核上显示「BBR v3 已生效」 (by Eric86777)
+# v5.4.9 更新: 修复菜单33端口流量用满后状态仍显示🟢——读 nft 配额时按 "over N bytes" 解析文本，但 nft 会把能被1024整除的值
+#   换单位打印(如 over 102400 mbytes)，到量时内核还把 used 封顶成阈值(同样打印成 mbytes)，两个数都取不到，
+#   「🔴配额用尽」「🟡即将用尽」从不显示(实际限流与每月重置不受影响)；现改读 nft -j 的原始字节，读不到配额对象时
+#   仍按计数器估算 (by Eric86777)
 
-SCRIPT_VERSION="5.0.2"
-SCRIPT_LAST_UPDATE="修复 Debian 12 bookworm 仅提供 XanMod LTS 元包导致功能 66 安装失败; 保留 66 阶段日志"
+SCRIPT_VERSION="5.4.14"
+SCRIPT_LAST_UPDATE="修复开机DNS依赖与恢复、Snell/Xray启动保护、IPv6与ifupdown冲突检查"
 #=============================================================================
 
 #=============================================================================
@@ -65,15 +78,6 @@ clear() {
 
     TERM="$term_name" command clear "$@" 2>/dev/null || printf '\033[H\033[2J'
 }
-
-# 英文别名（供新代码使用）
-readonly COLOR_RED="$gl_hong"
-readonly COLOR_GREEN="$gl_lv"
-readonly COLOR_YELLOW="$gl_huang"
-readonly COLOR_RESET="$gl_bai"
-readonly COLOR_CYAN="$gl_kjlan"
-readonly COLOR_PURPLE="$gl_zi"
-readonly COLOR_GRAY="$gl_hui"
 
 # 显示宽度计算（中文占2列，ASCII占1列）
 get_display_width() {
@@ -123,7 +127,12 @@ format_fixed_width() {
 gh_proxy="https://"
 
 # 配置文件路径（使用独立文件，不破坏系统配置）
-SYSCTL_CONF="/etc/sysctl.d/99-bbr-ultimate.conf"
+# sysctl.d 下的文件按文件名顺序加载，同名参数后加载者生效。旧文件名 99-bbr-ultimate.conf
+# 排在字母开头的文件之前，会被其覆盖（如商家镜像预置的 /etc/sysctl.d/local.conf），
+# 而冲突检查只识别数字开头的文件名，查不到这类文件。v5.4.11 起改用 zzz- 前缀，
+# 保证功能3的配置最后加载；旧文件在重新执行功能3时自动迁移（删除）。
+SYSCTL_CONF="/etc/sysctl.d/zzz-bbr-ultimate.conf"
+SYSCTL_CONF_LEGACY="/etc/sysctl.d/99-bbr-ultimate.conf"
 
 #=============================================================================
 # 常量定义（版本号、URL 等集中管理）
@@ -132,22 +141,7 @@ SYSCTL_CONF="/etc/sysctl.d/99-bbr-ultimate.conf"
 # 版本号（SCRIPT_VERSION / SCRIPT_LAST_UPDATE 在文件头部定义）
 readonly CADDY_DEFAULT_VERSION="2.10.2"
 readonly SNELL_DEFAULT_VERSION="5.0.1"
-
-# IP 查询服务 URL（按优先级排序）
-readonly IP_CHECK_V4_URLS=(
-    "https://api.ipify.org"
-    "https://ip.sb"
-    "https://checkip.amazonaws.com"
-    "https://ipinfo.io/ip"
-)
-readonly IP_CHECK_V6_URLS=(
-    "https://api64.ipify.org"
-    "https://v6.ipinfo.io/ip"
-    "https://ip.sb"
-)
-
-# IP 信息查询
-readonly IP_INFO_URL="https://ipinfo.io"
+readonly SNELL_V6_DEFAULT_VERSION="6.0.0rc"
 
 #=============================================================================
 # 日志系统
@@ -155,6 +149,7 @@ readonly IP_INFO_URL="https://ipinfo.io"
 
 readonly LOG_FILE="/var/log/net-tcp-tune.log"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
+NETTCP_TEMP_DIRS=""
 
 # 统一日志函数
 log() {
@@ -196,28 +191,14 @@ log_debug() { log "DEBUG" "$@"; }
 
 # 清理临时文件
 cleanup_temp_files() {
-    rm -f /tmp/net-tcp-tune.* 2>/dev/null || true
-    rm -f /tmp/caddy.tar.gz 2>/dev/null || true
-}
-
-# 全局错误处理器（可选启用）
-error_handler() {
-    local exit_code=$1
-    local line_no=$2
-    local command="$3"
-
-    log_error "脚本执行失败"
-    log_error "  退出码: $exit_code"
-    log_error "  行号: $line_no"
-    log_error "  命令: $command"
-
-    cleanup_temp_files
-}
-
-# 启用严格模式（用于调试）
-enable_strict_mode() {
-    set -euo pipefail
-    trap 'error_handler $? $LINENO "$BASH_COMMAND"' ERR
+    local temp_dir
+    for temp_dir in $NETTCP_TEMP_DIRS; do
+        case "$temp_dir" in
+            /tmp/net-tcp-tune.*|/private/tmp/net-tcp-tune.*)
+                [ -d "$temp_dir" ] && rm -rf "$temp_dir" 2>/dev/null || true
+                ;;
+        esac
+    done
 }
 
 # 退出时清理
@@ -256,6 +237,39 @@ clean_sysctl_conf() {
     sed -i '/^net\.ipv4\.tcp_wmem/s/^/# /' /etc/sysctl.conf 2>/dev/null
     sed -i '/^net\.core\.default_qdisc/s/^/# /' /etc/sysctl.conf 2>/dev/null
     sed -i '/^net\.ipv4\.tcp_congestion_control/s/^/# /' /etc/sysctl.conf 2>/dev/null
+}
+
+# 注释 /etc/sysctl.conf 中与指定配置文件同名的全部参数行
+# 原因：sysctl --system 总是最后加载 /etc/sysctl.conf（与文件名排序无关），其中的同名参数会
+# 盖掉 sysctl.d 下所有文件。clean_sysctl_conf 只处理其中 6 个参数，其余同名项（如 swappiness、
+# tcp_fin_timeout）在运行期仍会被盖回。这里按配置文件里实际写了哪些参数逐个处理，
+# 只注释同名行，其它行不动；备份沿用 /etc/sysctl.conf.bak.original。
+comment_sysctl_conf_duplicates() {
+    local our_conf="$1"
+    local target="/etc/sysctl.conf"
+    [ -f "$our_conf" ] || return 0
+    [ -f "$target" ] || return 0
+
+    if ! [ -f /etc/sysctl.conf.bak.original ]; then
+        cp "$target" /etc/sysctl.conf.bak.original 2>/dev/null
+    fi
+
+    local key key_re commented=0
+    while IFS= read -r key; do
+        [ -n "$key" ] || continue
+        key_re=${key//./\\.}
+        if grep -qE "^[[:space:]]*${key_re}[[:space:]]*=" "$target" 2>/dev/null; then
+            if sed -i -E "s/^([[:space:]]*${key_re}[[:space:]]*=.*)\$/# \1/" "$target" 2>/dev/null; then
+                commented=$((commented + 1))
+            fi
+        fi
+    done < <(grep -E '^[[:space:]]*[a-zA-Z0-9_.]+[[:space:]]*=' "$our_conf" 2>/dev/null \
+             | sed -E 's/^[[:space:]]*([a-zA-Z0-9_.]+)[[:space:]]*=.*/\1/' | sort -u)
+
+    if [ "$commented" -gt 0 ]; then
+        echo "已注释 /etc/sysctl.conf 中 ${commented} 个与本配置同名的参数（备份: /etc/sysctl.conf.bak.original）"
+    fi
+    return 0
 }
 
 install_package() {
@@ -329,16 +343,33 @@ install_package() {
 safe_download_script() {
     local url=$1
     local output_file=$2
+    local part_file="${output_file}.part"
+    local rc=1
+
+    rm -f "$part_file"
 
     if command -v curl &>/dev/null; then
-        curl -fsSL --connect-timeout 10 --max-time 60 "$url" -o "$output_file"
+        curl -fsSL --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 1 "$url" -o "$part_file"
+        rc=$?
     elif command -v wget &>/dev/null; then
-        wget -qO "$output_file" "$url"
+        wget -q --timeout=30 --tries=3 -O "$part_file" "$url"
+        rc=$?
     else
+        rm -f "$part_file"
         return 1
     fi
 
-    [ -s "$output_file" ]
+    if [ $rc -ne 0 ] || [ ! -s "$part_file" ]; then
+        rm -f "$part_file"
+        return 1
+    fi
+
+    if ! mv "$part_file" "$output_file"; then
+        rm -f "$part_file"
+        return 1
+    fi
+
+    return 0
 }
 
 verify_downloaded_script() {
@@ -348,41 +379,60 @@ verify_downloaded_script() {
         return 1
     fi
 
-    if head -n 1 "$file" | grep -qiE '<!DOCTYPE|<html'; then
+    if LC_ALL=C head -c 512 "$file" | grep -qiE '<!DOCTYPE|<html|404: Not Found|AccessDenied|Access Denied'; then
         return 1
     fi
 
-    # 检查 shebang，同时处理 UTF-8 BOM (ef bb bf) 开头的情况
-    head -n 5 "$file" | sed 's/^\xef\xbb\xbf//' | grep -q '^#!'
+    # shebang 必须在首行，同时处理 UTF-8 BOM (ef bb bf) 开头的情况
+    local shebang
+    shebang=$(LC_ALL=C head -n 1 "$file" | sed 's/^\xef\xbb\xbf//') || return 1
+    echo "$shebang" | grep -Eq '(^#![[:space:]]*/([^[:space:]]*/)?(ba)?sh([[:space:]]|$))|(^#![[:space:]]*/usr/bin/env([[:space:]]+-S)?[[:space:]]+(ba)?sh([[:space:]]|$))'
 }
 
 run_remote_script() {
-    local url=$1
-    local interpreter=${2:-bash}
-    shift 2
+    if [ $# -lt 1 ]; then
+        echo -e "${gl_hong}❌ 缺少脚本 URL${gl_bai}"
+        return 1
+    fi
 
-    local tmp_file
-    tmp_file=$(mktemp /tmp/net-tcp-tune.XXXXXX) || {
-        echo -e "${gl_hong}❌ 无法创建临时文件${gl_bai}"
+    local url="$1"
+    local interpreter="bash"
+    if [ $# -ge 2 ]; then
+        interpreter="$2"
+        shift 2
+    else
+        shift 1
+    fi
+
+    local tmp_dir tmp_file
+    tmp_dir=$(mktemp -d /tmp/net-tcp-tune.XXXXXX) || {
+        echo -e "${gl_hong}❌ 无法创建临时目录${gl_bai}"
         return 1
     }
+    NETTCP_TEMP_DIRS="${NETTCP_TEMP_DIRS}${NETTCP_TEMP_DIRS:+ }${tmp_dir}"
+    tmp_file="${tmp_dir}/script.sh"
 
     if ! safe_download_script "$url" "$tmp_file"; then
         echo -e "${gl_hong}❌ 下载脚本失败: ${url}${gl_bai}"
-        rm -f "$tmp_file"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
     if ! verify_downloaded_script "$tmp_file"; then
         echo -e "${gl_hong}❌ 脚本校验失败，已取消执行${gl_bai}"
-        rm -f "$tmp_file"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    chmod +x "$tmp_file"
-    "$interpreter" "$tmp_file" "$@"
-    local rc=$?
-    rm -f "$tmp_file"
+    local rc
+    if [ "${1:-}" = "-s" ]; then
+        shift
+        "$interpreter" -s "$@" < "$tmp_file"
+    else
+        "$interpreter" "$tmp_file" "$@"
+    fi
+    rc=$?
+    rm -rf "$tmp_dir"
     return $rc
 }
 
@@ -565,7 +615,6 @@ manage_swap() {
         echo -e "${gl_huang}提示:${gl_bai} 如需调整 /dev/ swap 分区，请手动执行 swapoff/swap 分区工具。"
 
         local mem_total=$(free -m | awk 'NR==2{print $2}')
-        local swap_used=$(free -m | awk 'NR==3{print $3}')
         local swap_total=$(free -m | awk 'NR==3{print $2}')
         local swap_info=$(free -m | awk 'NR==3{used=$3; total=$2; if (total == 0) {percentage=0} else {percentage=used*100/total}; printf "%dM/%dM (%d%%)", used, total, percentage}')
         
@@ -646,7 +695,7 @@ set_ip_priority() {
 
     # 备份原配置文件并记录原始状态
     if [ -f /etc/gai.conf ]; then
-        cp /etc/gai.conf /etc/gai.conf.bak.$(date +%Y%m%d_%H%M%S)
+        cp /etc/gai.conf "/etc/gai.conf.bak.$(date +%Y%m%d_%H%M%S)"
         echo "已备份原配置文件到 /etc/gai.conf.bak.*"
         # 记录原先存在文件
         echo "existed" > /etc/gai.conf.original_state
@@ -1005,6 +1054,467 @@ PROXYEOF
     break_end
 }
 
+# BEGIN BOOT_RECOVERY
+# The installed helper is emitted here so curl/bash installations are self-contained.
+boot_recovery_emit_helper() {
+    cat <<'BOOT_RECOVERY_HELPER'
+#!/bin/bash
+# NET_TCP_BOOT_RECOVERY_V1 -- generated by net-tcp-tune.sh; no downloads.
+set -uo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+BR_ETC=/etc
+BR_RUN=/run/net-tcp-boot-recovery
+BR_BACKUPS=/var/backups/net-tcp-boot-recovery
+
+br_log() { printf 'boot-recovery: %s\n' "$*" >&2; }
+br_enabled() { [ "$(systemctl is-enabled "$1" 2>/dev/null)" = enabled ]; }
+br_loopback_dns_listening() {
+    local addr="$1"
+    command -v ss >/dev/null 2>&1 || return 1
+    ss -H -lnut 'sport = :53' 2>/dev/null | awk -v ip="$addr" '
+        { for (i=1; i<=NF; i++) {
+            endpoint=$i; sub(/%[^:]+:/, ":", endpoint)
+            if (endpoint == ip ":53" || endpoint == "0.0.0.0:53" || endpoint == "*:53") found=1
+        } }
+        END { exit !found }'
+}
+br_dns_file_ready() {
+    local server
+    [ -r "$BR_ETC/resolv.conf" ] || return 1
+    while IFS= read -r server; do
+        case "$server" in
+            127.*) br_loopback_dns_listening "$server" && return 0 ;;
+            ::1) command -v ss >/dev/null 2>&1 && ss -H -lnut 'sport = :53' 2>/dev/null | grep -Fq '[::1]:53' && return 0 ;;
+            *.*|*:*) return 0 ;;
+        esac
+    done < <(awk '$1 == "nameserver" && $2 !~ /[^[:alnum:].:%_-]/ { print $2 }' "$BR_ETC/resolv.conf")
+    return 1
+}
+br_wait_dns() {
+    local budget="${1:-40}" deadline remaining domain limit
+    [[ "$budget" =~ ^[0-9]+$ ]] && [ "$budget" -ge 1 ] && [ "$budget" -le 300 ] || return 2
+    command -v timeout >/dev/null 2>&1 && command -v getent >/dev/null 2>&1 || {
+        br_log 'timeout/getent missing; DNS readiness cannot be verified'; return 1;
+    }
+    deadline=$((SECONDS + budget))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if br_dns_file_ready; then
+            for domain in www.apple.com www.cloudflare.com; do
+                remaining=$((deadline - SECONDS))
+                [ "$remaining" -gt 0 ] || break
+                limit=3; [ "$remaining" -ge 3 ] || limit="$remaining"
+                if timeout "$limit" getent ahosts "$domain" >/dev/null 2>&1; then return 0; fi
+            done
+        fi
+        [ "$SECONDS" -lt "$deadline" ] && sleep 1
+    done
+    br_log "DNS not ready after ${budget}s (readable resolv.conf, usable nameserver and successful lookup required)"
+    return 1
+}
+br_valid_dns() { [[ "$1" =~ ^[[:alnum:].:%#_-]+$ ]]; }
+br_restore_dns() {
+    local primary="${1:-}" secondary="${2:-}" budget="${3:-40}" deadline iface remaining
+    br_valid_dns "$primary" && br_valid_dns "$secondary" || { br_log 'invalid DNS address'; return 2; }
+    [[ "$budget" =~ ^[0-9]+$ ]] && [ "$budget" -ge 1 ] && [ "$budget" -le 120 ] || return 2
+    for tool in resolvectl ip timeout getent; do
+        command -v "$tool" >/dev/null 2>&1 || { br_log "missing $tool"; return 1; }
+    done
+    deadline=$((SECONDS + budget))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        iface=$(ip route show default 2>/dev/null | awk '$1 == "default" { print $5; exit }')
+        if [ -z "$iface" ]; then
+            iface=$(ip -6 route show default 2>/dev/null | awk '$1 == "default" { print $5; exit }')
+        fi
+        if [[ "$iface" =~ ^[[:alnum:]_.:-]+$ ]] &&
+            timeout 3 resolvectl status >/dev/null 2>&1 &&
+            timeout 3 resolvectl dns "$iface" "$primary" "$secondary" >/dev/null 2>&1 &&
+            timeout 3 resolvectl domain "$iface" '~.' >/dev/null 2>&1 &&
+            timeout 3 resolvectl default-route "$iface" yes >/dev/null 2>&1; then
+            remaining=$((deadline - SECONDS))
+            if [ "$remaining" -gt 0 ] && br_wait_dns "$remaining"; then
+                br_log "DNS restored and verified on $iface"; return 0
+            fi
+        fi
+        [ "$SECONDS" -lt "$deadline" ] && sleep 1
+    done
+    br_log 'DNS restore failed; systemd will retry (network/resolver/configuration may be unavailable)'
+    return 1
+}
+br_backup() {
+    local src="$1" dir
+    [ ! -L "$BR_BACKUPS" ] || return 1
+    (umask 077; mkdir -p "$BR_BACKUPS") || return 1
+    dir=$(mktemp -d "$BR_BACKUPS/repair.XXXXXXXX") || return 1
+    cp -p "$src" "$dir/$(basename "$src")" || return 1
+    br_log "backup: $dir/$(basename "$src")"
+}
+br_migrate_resolved() {
+    local file="$BR_ETC/systemd/system/systemd-resolved.service.d/dbus-fix.conf" expected actual
+    [ -e "$file" ] || [ -L "$file" ] || return 0
+    [ -f "$file" ] && [ ! -L "$file" ] || { br_log "refuse non-regular $file"; return 1; }
+    expected=$(cat <<'LEGACY_DBUS'
+# Debian 13 D-Bus接口注册修复
+# 确保D-Bus完全启动后再启动systemd-resolved
+[Unit]
+After=dbus.service
+Requires=dbus.service
+
+[Service]
+# 启动后等待1秒，确保D-Bus接口注册完成
+ExecStartPost=/bin/sleep 1
+LEGACY_DBUS
+)
+    actual=$(cat "$file") || return 1
+    [ "$actual" = "$expected" ] || { br_log "custom $file preserved; review its dependencies manually"; return 1; }
+    br_backup "$file" && rm -- "$file" || return 1
+    br_log 'removed the managed resolved/D-Bus ordering cycle; resolver itself was not restarted'
+}
+br_check_ifupdown_ipv6() {
+    # Follow literal source/source-directory includes without evaluating shell code.
+    local -a files seen
+    local file key pattern candidate entry i=0 conflict=0 old_ifs
+    files=("$BR_ETC/network/interfaces"); seen=("")
+    while [ "$i" -lt "${#files[@]}" ]; do
+        [ "$i" -lt 128 ] || { br_log 'too many ifupdown includes; refusing IPv6 change'; return 1; }
+        file="${files[$i]}"; i=$((i + 1))
+        [ -f "$file" ] || continue
+        for entry in "${seen[@]}"; do [ "$entry" != "$file" ] || continue 2; done
+        seen+=("$file")
+        if awk '$1 == "iface" && $3 == "inet6" { found=1 } END { exit !found }' "$file"; then
+            br_log "active inet6 stanza in $file; IPv4 and cloud-init configuration must be reconciled before disabling IPv6"
+            conflict=1
+        fi
+        while read -r key pattern; do
+            [ -n "$pattern" ] || continue
+            case "$pattern" in *'$'*|*'`'*|*'~'*) br_log "unresolved include in $file; refusing IPv6 change"; conflict=1; continue;; esac
+            case "$pattern" in /*) ;; *) pattern="$(dirname "$file")/$pattern";; esac
+            # Globbing only, never eval/source. Whitespace in include paths is unsupported by ifupdown.
+            old_ifs="$IFS"; IFS=$'\n'
+            if [ "$key" = source-directory ]; then
+                for candidate in "$pattern"/*; do
+                    [[ "$(basename "$candidate")" =~ ^[[:alnum:]_-]+$ ]] && files+=("$candidate")
+                done
+            else
+                for candidate in $pattern; do files+=("$candidate"); done
+            fi
+            IFS="$old_ifs"
+        done < <(awk '$1 == "source" || $1 == "source-directory" { for (i=2; i<=NF && $i !~ /^#/; i++) print $1, $i }' "$file")
+    done
+    [ "$conflict" -eq 0 ]
+}
+br_current_ipv6_conflict() {
+    if [ "$(sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null)" = 1 ] ||
+        { [ -f "$BR_ETC/sysctl.d/99-disable-ipv6.conf" ] && grep -Eq '^net\.ipv6\.conf\.(all|default)\.disable_ipv6[[:space:]]*=[[:space:]]*1' "$BR_ETC/sysctl.d/99-disable-ipv6.conf"; }; then
+        br_check_ifupdown_ipv6
+    fi
+}
+br_snell_units() {
+    systemctl list-unit-files 'snell*.service' --no-legend --no-pager 2>/dev/null |
+        awk '$1 ~ /^snell\.service$/ || $1 ~ /^snell-[0-9]+\.service$/ || $1 ~ /^snellv6-[0-9]+\.service$/ { print $1 }'
+}
+br_remove_app_guards() {
+    local file unit expected actual failed=0
+    expected=$(cat <<'MANAGED_DNS_GUARD'
+# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+After=network-online.target nss-lookup.target systemd-resolved.service dns-purify-persist.service
+Wants=network-online.target
+[Service]
+ExecStartPre=/usr/local/libexec/net-tcp-boot-recovery --wait-dns 40
+MANAGED_DNS_GUARD
+)
+    for file in "$BR_ETC"/systemd/system/*.service.d/90-net-tcp-boot-recovery.conf; do
+        [ -e "$file" ] || [ -L "$file" ] || continue
+        unit=$(basename "$(dirname "$file")"); unit="${unit%.d}"
+        [[ "$unit" =~ ^(snell\.service|snell-[0-9]+\.service|snellv6-[0-9]+\.service|xray(@[[:alnum:]_.:-]+)?\.service)$ ]] || continue
+        [ -f "$file" ] && [ ! -L "$file" ] || { failed=1; continue; }
+        actual=$(cat "$file") || { failed=1; continue; }
+        if [ "$actual" = "$expected" ]; then
+            br_backup "$file" && rm -- "$file" || { failed=1; continue; }
+            rmdir "$(dirname "$file")" 2>/dev/null || true
+        else
+            br_log "customized startup guard preserved: $file"; failed=1
+        fi
+    done
+    file="$BR_ETC/systemd/system/net-tcp-boot-watch.timer"
+    if [ -f "$file" ] && grep -q '^# NET_TCP_BOOT_RECOVERY_V1$' "$file"; then
+        systemctl disable --now net-tcp-boot-watch.timer || failed=1
+    fi
+    # Keep the inert shared executable: custom drop-ins or a previous installation
+    # may still reference it. Removing it would create an ExecStartPre= failure.
+    [ "$failed" -eq 0 ]
+}
+br_watch() {
+    local unit invocation dns_line state now previous=0 count=0 key stamp attempts
+    command -v flock >/dev/null 2>&1 || { br_log 'flock missing'; return 1; }
+    [ ! -L "$BR_RUN" ] || return 1
+    (umask 077; mkdir -p "$BR_RUN") || return 1
+    exec 9>"$BR_RUN/watch.lock"; flock -n 9 || return 0
+    if ! br_wait_dns 5; then
+        # Only retry our active oneshot; preserve deliberately stopped/disabled services.
+        if grep -q 'NET_TCP_BOOT_RECOVERY_V1' /usr/local/bin/dns-purify-apply.sh 2>/dev/null &&
+            br_enabled dns-purify-persist.service && systemctl is-active --quiet dns-purify-persist.service; then
+            systemctl --no-block try-restart dns-purify-persist.service || return 1
+        fi
+        return 1
+    fi
+    while IFS= read -r unit; do
+        br_enabled "$unit" && systemctl is-active --quiet "$unit" || continue
+        invocation=$(systemctl show -p InvocationID --value "$unit" 2>/dev/null)
+        [[ "$invocation" =~ ^[[:xdigit:]]{32}$ ]] || continue
+        dns_line=$(journalctl -u "$unit" "_SYSTEMD_INVOCATION_ID=$invocation" -o cat --no-pager 2>/dev/null |
+            awk '/Effective IPv4 DNS:/ { last=$0 } END { print last }')
+        printf '%s\n' "$dns_line" | grep -Eq 'Effective IPv4 DNS:[[:space:]]*127\.0\.0\.1([[:space:],]|$)' || continue
+        br_loopback_dns_listening 127.0.0.1 && continue
+        state="$BR_RUN/${unit}.attempts"
+        [ ! -L "$state" ] || return 1
+        previous=0; count=0
+        if [ -f "$state" ]; then read -r previous count < "$state"; fi
+        [[ "$previous" =~ ^[0-9]+$ && "$count" =~ ^[0-9]+$ ]] || { previous=0; count=0; }
+        now=$(date +%s)
+        [ "$((now - previous))" -lt 3600 ] || count=0
+        [ "$count" -lt 2 ] && { [ "$previous" -eq 0 ] || [ "$((now - previous))" -ge 300 ]; } || continue
+        br_enabled "$unit" && systemctl is-active --quiet "$unit" || continue
+        printf '%s %s\n' "$now" "$((count + 1))" > "$state"
+        # try-restart also checks activity in systemd, closing the manual-stop race.
+        if systemctl --no-block try-restart "$unit"; then
+            br_log "requested recovery of $unit: current invocation selected unserved 127.0.0.1 DNS; system DNS is healthy"
+        else
+            br_log "could not request recovery of $unit"; return 1
+        fi
+    done < <(br_snell_units)
+}
+br_main() {
+    case "${1:-}" in
+        --wait-dns) br_wait_dns "${2:-40}";;
+        --restore-dns) shift; br_restore_dns "$@";;
+        --migrate-resolved) br_migrate_resolved;;
+        --check-ifupdown-ipv6) br_check_ifupdown_ipv6;;
+        --check-current-ipv6) br_current_ipv6_conflict;;
+        --remove-app-guards) br_remove_app_guards && systemctl daemon-reload;;
+        --watch) br_watch;;
+        *) br_log 'unknown command'; return 2;;
+    esac
+}
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then br_main "$@"; fi
+BOOT_RECOVERY_HELPER
+}
+
+boot_recovery_put() {
+    local dest="$1" mode="$2" legacy="${3:-no}" tmp backup_dir
+    [ ! -L "$dest" ] && { [ ! -e "$dest" ] || [ -f "$dest" ]; } || { echo "拒绝覆盖非普通文件: $dest" >&2; return 1; }
+    mkdir -p "$(dirname "$dest")" || return 1
+    tmp=$(mktemp "$(dirname "$dest")/.boot-recovery.XXXXXXXX") || return 1
+    cat > "$tmp" || { rm -f "$tmp"; return 1; }
+    if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then rm -f "$tmp"; chmod "$mode" "$dest"; return $?; fi
+    if [ -f "$dest" ]; then
+        if [ "$legacy" != yes ] && ! grep -q 'NET_TCP_BOOT_RECOVERY_V1' "$dest"; then
+            echo "保留自定义文件，请人工检查: $dest" >&2; rm -f "$tmp"; return 1
+        fi
+        mkdir -p /var/backups/net-tcp-boot-recovery || { rm -f "$tmp"; return 1; }
+        backup_dir=$(mktemp -d /var/backups/net-tcp-boot-recovery/assets.XXXXXXXX) || { rm -f "$tmp"; return 1; }
+        cp -p "$dest" "$backup_dir/$(basename "$dest")" || { rm -f "$tmp"; return 1; }
+    fi
+    chmod "$mode" "$tmp" && mv -f "$tmp" "$dest" || { rm -f "$tmp"; return 1; }
+}
+boot_recovery_install_assets() {
+    # ExecStartPre also runs as the non-root Snell user. A new libexec directory
+    # must be traversable even when the caller uses umask 077.
+    [ -d /usr/local/libexec ] || mkdir -m 755 /usr/local/libexec || return 1
+    boot_recovery_emit_helper | boot_recovery_put /usr/local/libexec/net-tcp-boot-recovery 755 || return 1
+    boot_recovery_put /etc/systemd/system/net-tcp-boot-watch.service 644 <<'WATCH_SERVICE' || return 1
+# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+Description=Check managed DNS and stale Snell resolver initialization
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/net-tcp-boot-recovery --watch
+TimeoutStartSec=30
+WATCH_SERVICE
+    boot_recovery_put /etc/systemd/system/net-tcp-boot-watch.timer 644 <<'WATCH_TIMER'
+# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+Description=Periodically check managed DNS and active Snell instances
+[Timer]
+OnBootSec=45
+OnUnitInactiveSec=60
+AccuracySec=5
+[Install]
+WantedBy=timers.target
+WATCH_TIMER
+}
+boot_recovery_patch_unit() {
+    local unit="$1"
+    [[ "$unit" =~ ^(snell\.service|snell-[0-9]+\.service|snellv6-[0-9]+\.service|xray(@[[:alnum:]_.:-]+)?\.service)$ ]] || return 1
+    boot_recovery_put "/etc/systemd/system/${unit}.d/90-net-tcp-boot-recovery.conf" 644 <<'DNS_GUARD'
+# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+After=network-online.target nss-lookup.target systemd-resolved.service dns-purify-persist.service
+Wants=network-online.target
+[Service]
+ExecStartPre=/usr/local/libexec/net-tcp-boot-recovery --wait-dns 40
+DNS_GUARD
+}
+boot_recovery_legacy_dns_apply_matches() {
+    local file="$1" primary="$2" secondary="$3" expected actual
+    expected=$(
+        cat <<'LEGACY_DNS_HEAD'
+#!/bin/bash
+# DNS净化持久化脚本 - 开机自动恢复网卡级DNS配置
+# 由 net-tcp-tune.sh DNS净化功能自动生成
+# 安全说明：仅重新应用 resolvectl 运行时配置，不修改网络服务
+
+LEGACY_DNS_HEAD
+        printf 'DNS_PRIMARY="%s"\nDNS_SECONDARY="%s"\n' "$primary" "$secondary"
+        cat <<'LEGACY_DNS_BODY'
+
+# 前置检查：resolvectl 是否可用
+if ! command -v resolvectl >/dev/null 2>&1; then
+    echo "dns-purify: resolvectl 不可用，跳过" | systemd-cat -t dns-purify 2>/dev/null || true
+    exit 0
+fi
+
+# 检测默认网卡（动态获取，适应网卡名变更）
+IFACE=$(ip route | grep '^default' | awk '{print $5}' | head -n1)
+
+if [ -z "$IFACE" ]; then
+    echo "dns-purify: 未检测到默认网卡，跳过" | systemd-cat -t dns-purify 2>/dev/null || true
+    exit 0
+fi
+
+# 等待 systemd-resolved 完全就绪（最多等30秒）
+for i in $(seq 1 15); do
+    if resolvectl status >/dev/null 2>&1; then
+        break
+    fi
+    sleep 2
+done
+
+# 应用网卡级DNS配置
+resolvectl dns "$IFACE" "$DNS_PRIMARY" "$DNS_SECONDARY" 2>/dev/null
+resolvectl domain "$IFACE" "~." 2>/dev/null
+resolvectl default-route "$IFACE" yes 2>/dev/null
+
+# 验证DNS可用性
+sleep 2
+if getent hosts google.com >/dev/null 2>&1 || getent hosts baidu.com >/dev/null 2>&1; then
+    echo "dns-purify: DNS配置恢复成功 (接口: $IFACE, DNS: $DNS_PRIMARY $DNS_SECONDARY)" | systemd-cat -t dns-purify 2>/dev/null || true
+else
+    echo "dns-purify: DNS验证未通过，但配置已应用 (接口: $IFACE)" | systemd-cat -t dns-purify 2>/dev/null || true
+fi
+LEGACY_DNS_BODY
+    )
+    actual=$(cat "$file") || return 1
+    [ "$actual" = "$expected" ]
+}
+boot_recovery_legacy_dns_unit_matches() {
+    local expected actual
+    expected=$(cat <<'LEGACY_DNS_UNIT'
+[Unit]
+Description=DNS Purify - Restore DNS Configuration on Boot
+Documentation=https://github.com/lmingyul/vps-tcp-tune
+After=systemd-resolved.service network-online.target
+Wants=network-online.target
+Wants=systemd-resolved.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/dns-purify-apply.sh
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
+LEGACY_DNS_UNIT
+    )
+    actual=$(cat "$1") || return 1
+    # 仅接受上游和 fork 曾生成的两种完整模板, 保留自定义服务的保护。
+    [ "$actual" = "$expected" ] || [ "$actual" = "${expected/lmingyul/Eric86777}" ]
+}
+boot_recovery_write_dns_service() {
+    local primary="$1" secondary="$2" old=/usr/local/bin/dns-purify-apply.sh unit=/etc/systemd/system/dns-purify-persist.service
+    local old_primary old_secondary
+    [[ "$primary" =~ ^[[:alnum:].:%#_-]+$ && "$secondary" =~ ^[[:alnum:].:%#_-]+$ ]] || return 1
+    # Exact legacy bodies only: a matching comment/Description alone is not ownership proof.
+    if [ -e "$old" ] && ! grep -q 'NET_TCP_BOOT_RECOVERY_V1' "$old"; then
+        # The menu may be changing providers: verify the old body against its own
+        # literal values, never source it or compare it against the new choices.
+        old_primary=$(sed -n 's/^DNS_PRIMARY="\([^"]*\)"$/\1/p' "$old")
+        old_secondary=$(sed -n 's/^DNS_SECONDARY="\([^"]*\)"$/\1/p' "$old")
+        [ ! -L "$old" ] &&
+            [[ "$old_primary" =~ ^[[:alnum:].:%#_-]+$ && "$old_secondary" =~ ^[[:alnum:].:%#_-]+$ ]] &&
+            boot_recovery_legacy_dns_apply_matches "$old" "$old_primary" "$old_secondary" || {
+            echo "保留自定义DNS脚本: $old" >&2; return 1;
+        }
+    fi
+    if [ -e "$unit" ] && ! grep -q 'NET_TCP_BOOT_RECOVERY_V1' "$unit"; then
+        [ ! -L "$unit" ] && boot_recovery_legacy_dns_unit_matches "$unit" || {
+            echo "保留自定义DNS服务: $unit" >&2; return 1;
+        }
+    fi
+    boot_recovery_put "$old" 755 yes <<DNS_APPLY || return 1
+#!/bin/bash
+# NET_TCP_BOOT_RECOVERY_V1
+# 由 net-tcp-tune.sh DNS净化功能自动生成
+DNS_PRIMARY="$primary"
+DNS_SECONDARY="$secondary"
+exec /usr/local/libexec/net-tcp-boot-recovery --restore-dns "\$DNS_PRIMARY" "\$DNS_SECONDARY" 40
+DNS_APPLY
+    boot_recovery_put "$unit" 644 yes <<'DNS_SERVICE'
+# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+Description=DNS Purify - Restore DNS Configuration on Boot
+After=systemd-resolved.service network-online.target
+Wants=systemd-resolved.service network-online.target
+StartLimitIntervalSec=0
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/dns-purify-apply.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=60
+[Install]
+WantedBy=multi-user.target
+DNS_SERVICE
+}
+boot_recovery_patch_enabled_units() {
+    local unit state listing
+    listing=$(systemctl list-unit-files 'snell*.service' 'xray*.service' --no-legend --no-pager 2>/dev/null) || return 1
+    while read -r unit state; do
+        [ "$state" = enabled ] || continue
+        case "$unit" in snell.service|snell-[0-9]*.service|snellv6-[0-9]*.service|xray.service|xray@*.service)
+            # Templates are not instances. Do not enable/start/restart any service here.
+            [[ "$unit" != *@.service ]] || continue
+            boot_recovery_patch_unit "$unit" || return 1;;
+        esac
+    done < <(printf '%s\n' "$listing" | awk '{ print $1, $2 }')
+}
+run_boot_recovery_repair() {
+    local primary secondary rc=0
+    [ "$#" -eq 0 ] || { echo '用法: --repair-boot-recovery（不重启机器或网络，不启动手动停止的业务）' >&2; return 2; }
+    command -v flock >/dev/null 2>&1 || { echo '缺少flock，未安装或修改服务' >&2; return 1; }
+    exec 209>/run/net-tcp-boot-repair.lock
+    flock -n 209 || { echo '另一个启动恢复修复正在运行' >&2; return 1; }
+    boot_recovery_install_assets || return 1
+    /usr/local/libexec/net-tcp-boot-recovery --migrate-resolved || return 1
+    systemctl daemon-reload || return 1
+    if [ -f /usr/local/bin/dns-purify-apply.sh ]; then
+        primary=$(sed -n 's/^DNS_PRIMARY="\([^"]*\)"$/\1/p' /usr/local/bin/dns-purify-apply.sh)
+        secondary=$(sed -n 's/^DNS_SECONDARY="\([^"]*\)"$/\1/p' /usr/local/bin/dns-purify-apply.sh)
+        boot_recovery_write_dns_service "$primary" "$secondary" || return 1
+    fi
+    boot_recovery_patch_enabled_units || return 1
+    systemctl daemon-reload || return 1
+    systemctl enable --now net-tcp-boot-watch.timer || return 1
+    /usr/local/libexec/net-tcp-boot-recovery --check-current-ipv6 || rc=2
+    echo '启动恢复配置已安装；未重启机器、网络、Snell或Xray。原enable/手动停止状态保持。'
+    [ "$rc" -eq 0 ] || echo 'IPv6/ifupdown仍冲突：已保留全部网络配置，请先备份并协调cloud-init源和inet6段，再重新运行本入口。' >&2
+    return "$rc"
+}
+# END BOOT_RECOVERY
+
 disable_ipv6_temporary() {
     clear
     echo -e "${gl_kjlan}=== 临时禁用IPv6 ===${gl_bai}"
@@ -1050,6 +1560,10 @@ disable_ipv6_temporary() {
 }
 
 disable_ipv6_permanent() {
+    if ! bash <(boot_recovery_emit_helper) --check-ifupdown-ipv6; then
+        echo -e "${gl_hong}❌ 检测到ifupdown IPv6配置冲突，未写入sysctl或网络配置。请先协调cloud-init/inet6配置。${gl_bai}"
+        return 1
+    fi
     clear
     echo -e "${gl_kjlan}=== 永久禁用IPv6 ===${gl_bai}"
     echo ""
@@ -1432,7 +1946,7 @@ detect_bandwidth() {
                         ;;
                 esac
                 
-                cd /tmp
+                cd /tmp && \
                 wget -q "$download_url" -O speedtest.tgz && \
                 tar -xzf speedtest.tgz && \
                 mv speedtest /usr/local/bin/ && \
@@ -1610,7 +2124,7 @@ detect_bandwidth() {
                         ;;
                 esac
                 
-                cd /tmp
+                cd /tmp && \
                 wget -q "$download_url" -O speedtest.tgz && \
                 tar -xzf speedtest.tgz && \
                 mv speedtest /usr/local/bin/ && \
@@ -1914,12 +2428,25 @@ calculate_buffer_size() {
         elif [ "$bandwidth" -eq 2500 ]; then
             buffer_mb=64
             bandwidth_level="预设档位（2.5 Gbps·远距离）"
-        elif [ "$bandwidth" -lt 500 ]; then
+        # 非预设值的区间兜底。两条规则：
+        #   1) 实测值离某个预设档不足 10% 时按该档计算（千兆口实测通常是 9xx，应按 1 Gbps 档）
+        #   2) 带宽越大缓冲区不减小（各区间不低于其左侧预设档的值）
+        # 各区间取值均 ≥ 旧版同带宽的取值，不会比旧版小
+        elif [ "$bandwidth" -lt 270 ]; then
             buffer_mb=16
-            bandwidth_level="小带宽（< 500 Mbps·远距离）"
-        elif [ "$bandwidth" -lt 1000 ]; then
+            bandwidth_level="小带宽（< 270 Mbps·远距离）"
+        elif [ "$bandwidth" -lt 450 ]; then
+            buffer_mb=20
+            bandwidth_level="270-449 Mbps·远距离（按 300 Mbps 档）"
+        elif [ "$bandwidth" -lt 500 ]; then
+            buffer_mb=32
+            bandwidth_level="450-499 Mbps·远距离（按 500 Mbps 档）"
+        elif [ "$bandwidth" -lt 900 ]; then
             buffer_mb=48
-            bandwidth_level="中等带宽（500-1000 Mbps·远距离）"
+            bandwidth_level="中等带宽（500-899 Mbps·远距离）"
+        elif [ "$bandwidth" -lt 1000 ]; then
+            buffer_mb=64
+            bandwidth_level="900-999 Mbps·远距离（按 1 Gbps 档）"
         elif [ "$bandwidth" -lt 2000 ]; then
             buffer_mb=64
             bandwidth_level="标准带宽（1-2 Gbps·远距离）"
@@ -1956,21 +2483,32 @@ calculate_buffer_size() {
         elif [ "$bandwidth" -eq 2500 ]; then
             buffer_mb=28
             bandwidth_level="预设档位（2.5 Gbps）"
-        elif [ "$bandwidth" -lt 500 ]; then
+        # 非预设值的区间兜底（规则同上：离预设档不足 10% 按该档；带宽越大缓冲区不减小；
+        # 各区间取值均 ≥ 旧版同带宽的取值）
+        elif [ "$bandwidth" -lt 270 ]; then
             buffer_mb=8
-            bandwidth_level="小带宽（< 500 Mbps）"
-        elif [ "$bandwidth" -lt 1000 ]; then
+            bandwidth_level="小带宽（< 270 Mbps）"
+        elif [ "$bandwidth" -lt 450 ]; then
+            buffer_mb=10
+            bandwidth_level="270-449 Mbps（按 300 Mbps 档）"
+        elif [ "$bandwidth" -lt 630 ]; then
             buffer_mb=12
-            bandwidth_level="中等带宽（500-1000 Mbps）"
-        elif [ "$bandwidth" -lt 2000 ]; then
+            bandwidth_level="450-629 Mbps（按 500 Mbps 档）"
+        elif [ "$bandwidth" -lt 900 ]; then
+            buffer_mb=14
+            bandwidth_level="630-899 Mbps（按 700 Mbps 档）"
+        elif [ "$bandwidth" -lt 1350 ]; then
             buffer_mb=16
-            bandwidth_level="标准带宽（1-2 Gbps）"
-        elif [ "$bandwidth" -lt 5000 ]; then
+            bandwidth_level="900-1349 Mbps（按 1 Gbps 档）"
+        elif [ "$bandwidth" -lt 1800 ]; then
+            buffer_mb=20
+            bandwidth_level="1350-1799 Mbps（按 1.5 Gbps 档）"
+        elif [ "$bandwidth" -lt 2250 ]; then
             buffer_mb=24
-            bandwidth_level="高带宽（2-5 Gbps）"
+            bandwidth_level="1800-2249 Mbps（按 2 Gbps 档）"
         elif [ "$bandwidth" -lt 10000 ]; then
             buffer_mb=28
-            bandwidth_level="超高带宽（5-10 Gbps）"
+            bandwidth_level="2250 Mbps 以上（按 2.5 Gbps 档）"
         else
             buffer_mb=32
             bandwidth_level="极高带宽（> 10 Gbps）"
@@ -2013,6 +2551,35 @@ calculate_buffer_size() {
             return 1
             ;;
     esac
+}
+
+#=============================================================================
+# tcp_max_tw_buckets 取值计算
+# 内核默认值 = TCP ehash 表大小 / 2（随内存增大：1G≈4096、2G≈8192、4G≈16384），
+# 官方文档明确要求不得人为调低。旧版固定写 5000，在 ≥2G 内存的机器上反而低于默认值。
+# 现规则：取 max(5000, 内核默认值)，任何机器都不低于旧版取值，也不低于内核默认值。
+#=============================================================================
+calculate_tw_buckets() {
+    local floor_val=5000
+    local candidate=0
+    local ehash
+    ehash=$(sysctl -n net.ipv4.tcp_ehash_entries 2>/dev/null)
+    if [[ "$ehash" =~ ^[0-9]+$ ]] && [ "$ehash" -gt 0 ]; then
+        # 内核 ≥ 6.1：直接读 ehash 表大小，得到准确的默认值
+        candidate=$((ehash / 2))
+    else
+        # 旧内核（无 tcp_ehash_entries）或容器内读不到：保留当前运行值，避免调低
+        local current
+        current=$(sysctl -n net.ipv4.tcp_max_tw_buckets 2>/dev/null)
+        if [[ "$current" =~ ^[0-9]+$ ]]; then
+            candidate=$current
+        fi
+    fi
+    if [ "$candidate" -gt "$floor_val" ]; then
+        echo "$candidate"
+    else
+        echo "$floor_val"
+    fi
 }
 
 #=============================================================================
@@ -2123,6 +2690,8 @@ check_and_clean_conflicts() {
     for conf in /etc/sysctl.d/[0-9]*-*.conf; do
         [ -f "$conf" ] || continue
         [ "$conf" = "$SYSCTL_CONF" ] && continue
+        # 本脚本旧版文件名：由功能3在新文件写入成功后迁移删除，不当作外部冲突处理
+        [ "$conf" = "$SYSCTL_CONF_LEGACY" ] && continue
         if grep -qE "(^|\s)net\.ipv4\.tcp_(rmem|wmem)" "$conf" 2>/dev/null; then
             base=$(basename "$conf")
             num=$(echo "$base" | sed -n 's/^\([0-9]\+\).*/\1/p')
@@ -2234,6 +2803,19 @@ apply_mss_clamp() {
 # BBR 配置函数（智能检测版）
 #=============================================================================
 
+# 读取当前内核 tcp_bbr 模块版本号（XanMod 的 BBR v3 输出 3；系统自带 BBR 无版本字段，输出为空）
+# 拥塞控制算法名在 v1 / v3 下都叫 bbr，只看名字无法区分版本
+detect_bbr_module_version() {
+    local ver=""
+    if command -v modinfo &>/dev/null; then
+        ver=$(modinfo tcp_bbr 2>/dev/null | awk '/^version:/ {print $2; exit}')
+    fi
+    if [ -z "$ver" ] && [ -r /sys/module/tcp_bbr/version ]; then
+        ver=$(tr -d '[:space:]' < /sys/module/tcp_bbr/version 2>/dev/null)
+    fi
+    echo "$ver"
+}
+
 # 直连/落地优化配置
 bbr_configure_direct() {
     echo -e "${gl_kjlan}=== 配置 BBR v3 + FQ 直连/落地优化（智能检测版） ===${gl_bai}"
@@ -2317,6 +2899,10 @@ bbr_configure_direct() {
         vm_min_free_kbytes=32768
     fi
     
+    # TIME_WAIT 上限：不低于内核按内存给出的默认值（旧版固定 5000 在大内存机器上偏低）
+    local tw_buckets
+    tw_buckets=$(calculate_tw_buckets)
+
     cat > "$SYSCTL_CONF" << EOF
 # BBR v3 Direct/Endpoint Configuration (Intelligent Detection Edition)
 # Generated on $(date)
@@ -2358,9 +2944,9 @@ net.ipv4.tcp_mtu_probing=1
 # 发送低水位（上传速度优化关键）
 net.ipv4.tcp_notsent_lowat=16384
 
-# 连接回收优化
+# 连接回收优化（tw_buckets 取 max(5000, 内核默认值)，不人为调低）
 net.ipv4.tcp_fin_timeout=15
-net.ipv4.tcp_max_tw_buckets=5000
+net.ipv4.tcp_max_tw_buckets=${tw_buckets}
 
 # TCP Fast Open（节省1个RTT，加速连接建立）
 net.ipv4.tcp_fastopen=3
@@ -2395,6 +2981,16 @@ EOF
         echo -e "${gl_hong}❌ 配置文件创建失败！请检查磁盘空间和权限${gl_bai}"
         return 1
     fi
+
+    # 迁移旧文件名：新文件写入成功后才删除旧的 99-bbr-ultimate.conf，避免两份并存
+    if [ -f "$SYSCTL_CONF_LEGACY" ]; then
+        if rm -f "$SYSCTL_CONF_LEGACY"; then
+            echo "已迁移旧版配置文件: $(basename "$SYSCTL_CONF_LEGACY") → $(basename "$SYSCTL_CONF")"
+        fi
+    fi
+
+    # /etc/sysctl.conf 中与本配置同名的参数全部注释（sysctl --system 最后加载它，会盖掉本配置）
+    comment_sysctl_conf_duplicates "$SYSCTL_CONF"
 
     # 步骤 4：应用配置
     echo ""
@@ -2596,7 +3192,18 @@ LIMITSEOF
     else
         echo -e "拥塞控制: ${gl_huang}$actual_cc (期望: bbr) ⚠${gl_bai}"
     fi
-    
+
+    # 验证 BBR 版本（算法名在 v1/v3 下都是 bbr，需看内核模块版本）
+    local actual_bbr_ver
+    actual_bbr_ver=$(detect_bbr_module_version)
+    if [ "$actual_cc" = "bbr" ]; then
+        if [ "$actual_bbr_ver" = "3" ]; then
+            echo -e "BBR 版本:   ${gl_lv}v3 ✓${gl_bai}"
+        else
+            echo -e "BBR 版本:   ${gl_huang}系统自带 BBR（未检测到 v3）${gl_bai}"
+        fi
+    fi
+
     # 验证缓冲区（动态）
     local actual_wmem_mb=$((actual_wmem / 1048576))
     local actual_rmem_mb=$((actual_rmem / 1048576))
@@ -2666,7 +3273,18 @@ LIMITSEOF
     # 最终判断
     if [ "$actual_qdisc" = "fq" ] && [ "$actual_cc" = "bbr" ] && \
        [ "$actual_wmem" = "$buffer_bytes" ] && [ "$actual_rmem" = "$buffer_bytes" ]; then
-        echo -e "${gl_lv}✅ BBR v3 直连/落地优化配置完成并已生效！${gl_bai}"
+        if [ "$actual_bbr_ver" = "3" ]; then
+            echo -e "${gl_lv}✅ BBR v3 直连/落地优化配置完成并已生效！${gl_bai}"
+        else
+            # 参数已全部生效，但当前内核的 BBR 不是 v3：如实提示，不再显示“BBR v3 已生效”
+            echo -e "${gl_lv}✅ BBR 直连/落地优化配置完成并已生效！${gl_bai}"
+            if [ "$(uname -m)" = "aarch64" ]; then
+                echo -e "${gl_huang}ℹ 当前为系统自带 BBR（ARM64 平台暂无官方 BBR v3 方案），以上优化参数均已生效${gl_bai}"
+            else
+                echo -e "${gl_huang}ℹ 当前为系统自带 BBR，不是 BBR v3；以上优化参数均已生效${gl_bai}"
+                echo -e "${gl_huang}  如需 BBR v3：请执行功能 1 安装 XanMod 内核并重启${gl_bai}"
+            fi
+        fi
         echo -e "${gl_zi}配置说明: ${buffer_mb}MB 缓冲区（${detected_bandwidth} Mbps 带宽），适合直连/落地场景${gl_bai}"
     else
         echo -e "${gl_huang}⚠️ 配置已保存但部分参数未生效${gl_bai}"
@@ -2757,124 +3375,75 @@ check_bbr_status() {
 # XanMod 内核安装（官方源）
 #=============================================================================
 
-get_xanmod_codename() {
-    local ID="" VERSION_ID="" VERSION_CODENAME="" UBUNTU_CODENAME="" NAME="" PRETTY_NAME=""
-    local codename=""
+xanmod_get_repo_suite() {
+    local suite=""
 
     if [ -r /etc/os-release ]; then
-        . /etc/os-release
-        codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+        suite=$( ( . /etc/os-release; printf '%s' "${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}" ) )
     fi
 
-    if [ -z "$codename" ] && command -v lsb_release >/dev/null 2>&1; then
-        codename=$(lsb_release -sc 2>/dev/null)
+    if [ -z "$suite" ] && command -v lsb_release &>/dev/null; then
+        suite=$(lsb_release -sc 2>/dev/null)
     fi
 
-    printf '%s\n' "$codename"
-}
-
-get_xanmod_os_label() {
-    local ID="" VERSION_ID="" VERSION_CODENAME="" UBUNTU_CODENAME="" NAME="" PRETTY_NAME=""
-
-    if [ -r /etc/os-release ]; then
-        . /etc/os-release
-        printf '%s\n' "${PRETTY_NAME:-${NAME:-Linux}}"
-        return 0
-    fi
-
-    printf '%s\n' "Linux"
-}
-
-is_xanmod_supported_codename() {
-    case "$1" in
-        bookworm*|trixie|forky|sid|noble|plucky|questing|resolute|faye*|gigi|wilma|xia|zara|zena)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-print_xanmod_unsupported_codename() {
-    local codename="$1"
-    local os_label="$2"
-
-    echo -e "${gl_hong}错误: XanMod 官方 apt 源当前不支持 ${os_label} (${codename:-unknown})${gl_bai}"
-    echo "官方源当前按发行版代号发布, 不再使用 releases 套件。"
-    echo "支持代号包括: bookworm/trixie/forky/sid, noble/plucky/questing/resolute, faye/gigi/wilma/xia/zara/zena。"
-    if [ "$codename" = "jammy" ]; then
-        echo "当前 Ubuntu 22.04 (jammy) 源里已没有 linux-xanmod 元包, 无法通过官方 apt 源安装。"
-    fi
-    echo "为避免混用其他发行版源导致内核或依赖异常, 已中止安装。"
-    echo "建议: 升级到 Ubuntu 24.04 (noble) 或 Debian 12 (bookworm) 后再执行功能 1。"
-}
-
-add_xanmod_repository() {
-    local repo_file="$1"
-    local gpg_key_file="$2"
-    local codename
-    local os_label
-
-    codename=$(get_xanmod_codename)
-    os_label=$(get_xanmod_os_label)
-
-    if ! is_xanmod_supported_codename "$codename"; then
-        print_xanmod_unsupported_codename "$codename" "$os_label"
+    if [ -z "$suite" ]; then
+        echo -e "${gl_hong}错误: 无法识别系统发行版 codename，不能添加 XanMod 软件源${gl_bai}" >&2
         return 1
     fi
 
-    echo "deb [signed-by=${gpg_key_file}] https://deb.xanmod.org ${codename} main" | \
-        tee "$repo_file" > /dev/null
-    echo -e "${gl_lv}已添加 XanMod 源: ${codename} main${gl_bai}"
-}
-
-list_xanmod_kernel_package_candidates() {
-    local cpu_level="$1"
-
-    case "$cpu_level" in
-        1)
-            printf '%s\n' "linux-xanmod-lts-x64v1"
-            ;;
-        2)
-            printf '%s\n' "linux-xanmod-x64v${cpu_level}"
-            printf '%s\n' "linux-xanmod-lts-x64v${cpu_level}"
-            printf '%s\n' "linux-xanmod-lts-x64v1"
-            ;;
-        3)
-            printf '%s\n' "linux-xanmod-x64v${cpu_level}"
-            printf '%s\n' "linux-xanmod-lts-x64v${cpu_level}"
-            printf '%s\n' "linux-xanmod-lts-x64v2"
-            printf '%s\n' "linux-xanmod-lts-x64v1"
-            ;;
-        4)
-            printf '%s\n' "linux-xanmod-x64v3"
-            printf '%s\n' "linux-xanmod-lts-x64v3"
-            printf '%s\n' "linux-xanmod-lts-x64v2"
-            printf '%s\n' "linux-xanmod-lts-x64v1"
+    case "$suite" in
+        bookworm|trixie|forky|sid|noble|plucky|questing|resolute|faye|gigi|wilma|xia|zara|zena)
             ;;
         *)
-            return 1
+            echo -e "${gl_huang}警告: 当前发行版 codename 为 ${suite}，可能不在 XanMod 官方支持列表中${gl_bai}" >&2
             ;;
     esac
+
+    echo "$suite"
 }
 
-resolve_xanmod_kernel_package() {
-    local cpu_level="$1"
-    local package_name
+xanmod_write_repo() {
+    local gpg_key_file=$1
+    local repo_file=$2
+    local suite
 
-    while IFS= read -r package_name; do
-        [ -z "$package_name" ] && continue
-        if apt-cache show "$package_name" >/dev/null 2>&1; then
-            printf '%s\n' "$package_name"
+    suite=$(xanmod_get_repo_suite) || return 1
+    echo "deb [signed-by=${gpg_key_file}] https://deb.xanmod.org ${suite} main" | \
+        tee "$repo_file" > /dev/null
+    echo -e "${gl_lv}✅ XanMod 软件源: ${suite}${gl_bai}"
+}
+
+xanmod_select_kernel_package() {
+    local version=$1
+    local candidates=()
+
+    case "$version" in
+        1)
+            candidates=("linux-xanmod-lts-x64v1")
+            ;;
+        2)
+            candidates=("linux-xanmod-x64v2" "linux-xanmod-lts-x64v2" "linux-xanmod-lts-x64v1")
+            ;;
+        3)
+            candidates=("linux-xanmod-x64v3" "linux-xanmod-lts-x64v3" "linux-xanmod-lts-x64v2" "linux-xanmod-lts-x64v1")
+            ;;
+        4)
+            # XanMod 官方 mainline 当前不提供 x64v4；v4 CPU 使用 x64v3 更稳妥。
+            candidates=("linux-xanmod-x64v3" "linux-xanmod-lts-x64v3" "linux-xanmod-lts-x64v2" "linux-xanmod-lts-x64v1")
+            ;;
+        *)
+            candidates=("linux-xanmod-x64v3" "linux-xanmod-lts-x64v3")
+            ;;
+    esac
+
+    local pkg
+    for pkg in "${candidates[@]}"; do
+        if apt-cache show "$pkg" >/dev/null 2>&1; then
+            echo "$pkg"
             return 0
         fi
-    done < <(list_xanmod_kernel_package_candidates "$cpu_level")
+    done
 
-    echo -e "${gl_hong}错误: 当前 XanMod apt 源没有提供适合 x86-64-v${cpu_level} 的内核元包${gl_bai}" >&2
-    echo "已尝试以下包名:" >&2
-    list_xanmod_kernel_package_candidates "$cpu_level" | sed 's/^/  - /' >&2
-    echo "请检查系统发行版是否仍被 XanMod 官方源支持, 或稍后等待官方仓库同步。" >&2
     return 1
 }
 
@@ -2883,7 +3452,31 @@ install_xanmod_kernel() {
     echo -e "${gl_kjlan}=== 安装 XanMod 内核与 BBR v3 ===${gl_bai}"
     echo "视频教程: https://www.bilibili.com/video/BV14K421x7BS"
     echo "------------------------------------------------"
-    echo "支持系统: Debian/Ubuntu (x86_64 & ARM64)"
+
+    # 先检测架构：ARM64 无可安装内容，不应先询问用户是否安装
+    local cpu_arch
+    cpu_arch=$(uname -m)
+
+    if [ "$cpu_arch" = "aarch64" ]; then
+        echo -e "检测到 CPU 架构: ${gl_huang}aarch64 (ARM64)${gl_bai}"
+        echo ""
+        echo -e "${gl_huang}⚠ ARM64 平台暂无官方 BBR v3 方案${gl_bai}"
+        echo ""
+        echo "原因：BBR v3 至今未合入 Linux 主线内核，必须使用打过补丁"
+        echo "      重新编译的内核；而 XanMod 官方仅提供 x86-64 构建。"
+        echo ""
+        echo -e "${gl_lv}✅ 但你的 ARM 机器依然可以做网络优化：${gl_bai}"
+        echo -e "   请直接使用【${gl_lv}功能 3 - BBR 直连/落地优化${gl_bai}】"
+        echo ""
+        echo "   ARM 内核自带 BBR + fq 队列算法，配合功能 3 的带宽检测"
+        echo "   与缓冲区调优，同样能获得明显的网络性能提升。"
+        echo ""
+        echo "------------------------------------------------"
+        break_end
+        return 1
+    fi
+
+    echo "支持系统: Debian/Ubuntu x86_64（ARM64 请使用功能 3）"
     echo -e "${gl_huang}警告: 将升级 Linux 内核，请提前备份重要数据！${gl_bai}"
     echo "------------------------------------------------"
     read -e -p "确定继续安装吗？(Y/N): " choice
@@ -2896,96 +3489,12 @@ install_xanmod_kernel() {
             return 1
             ;;
     esac
-    
-    # 检测 CPU 架构
-    local cpu_arch=$(uname -m)
-    
-    # ARM 架构特殊处理
-    if [ "$cpu_arch" = "aarch64" ]; then
-        echo -e "${gl_kjlan}检测到 ARM64 架构，使用专用安装脚本${gl_bai}"
 
-        install_package curl coreutils || return 1
-
-        local tmp_dir
-        tmp_dir=$(mktemp -d 2>/dev/null)
-        if [ -z "$tmp_dir" ]; then
-            echo -e "${gl_hong}错误: 无法创建临时目录用于下载 ARM64 脚本${gl_bai}"
-            return 1
-        fi
-
-        local script_url="https://jhb.ovh/jb/bbrv3arm.sh"
-        local sha256_url="${script_url}.sha256"
-        local sha512_url="${script_url}.sha512"
-        local script_path="${tmp_dir}/bbrv3arm.sh"
-        local sha256_path="${tmp_dir}/bbrv3arm.sh.sha256"
-        local sha512_path="${tmp_dir}/bbrv3arm.sh.sha512"
-
-        echo "日志: 正在下载 ARM64 安装脚本到临时目录 ${tmp_dir}"
-
-        if ! curl -fsSL "$script_url" -o "$script_path"; then
-            echo -e "${gl_hong}错误: ARM64 安装脚本下载失败${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        if ! curl -fsSL "$sha256_url" -o "$sha256_path"; then
-            echo -e "${gl_hong}错误: 未能获取发布方提供的 SHA256 校验文件${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        if ! curl -fsSL "$sha512_url" -o "$sha512_path"; then
-            echo -e "${gl_hong}错误: 未能获取发布方提供的 SHA512 校验文件${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        local expected_sha256 expected_sha512 actual_sha256 actual_sha512
-        expected_sha256=$(awk 'NR==1 {print $1}' "$sha256_path")
-        expected_sha512=$(awk 'NR==1 {print $1}' "$sha512_path")
-
-        if [ -z "$expected_sha256" ] || [ -z "$expected_sha512" ]; then
-            echo -e "${gl_hong}错误: 校验文件内容无效${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        actual_sha256=$(sha256sum "$script_path" | awk '{print $1}')
-        actual_sha512=$(sha512sum "$script_path" | awk '{print $1}')
-
-        if [ "$expected_sha256" != "$actual_sha256" ]; then
-            echo -e "${gl_hong}错误: SHA256 校验失败，已中止${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        if [ "$expected_sha512" != "$actual_sha512" ]; then
-            echo -e "${gl_hong}错误: SHA512 校验失败，已中止${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-
-        echo -e "${gl_lv}SHA256 与 SHA512 校验通过${gl_bai}"
-        echo -e "${gl_huang}安全提示:${gl_bai} ARM64 脚本已下载至 ${script_path}"
-        echo "如需，您可在继续前使用 cat/less 等命令手动审查脚本内容。"
-        read -s -r -p "审查完成后按 Enter 继续执行（Ctrl+C 取消）..." _
-        echo ""
-
-        if bash "$script_path"; then
-            rm -rf "$tmp_dir"
-            echo -e "${gl_lv}ARM BBR v3 安装完成${gl_bai}"
-            return 0
-        else
-            echo -e "${gl_hong}安装失败${gl_bai}"
-            rm -rf "$tmp_dir"
-            return 1
-        fi
-    fi
-    
-    # 显式检查 x86_64 架构
+    # 显式检查 x86_64 架构（aarch64 已在前面提前返回，这里兜底其余架构）
     if [ "$cpu_arch" != "x86_64" ]; then
         echo -e "${gl_hong}错误: 不支持的 CPU 架构: ${cpu_arch}${gl_bai}"
-        echo "本脚本仅支持 x86_64 和 aarch64 架构"
+        echo "XanMod 内核仅提供 x86_64 构建；其他架构可使用功能 3 做网络调优。"
+        break_end
         return 1
     fi
 
@@ -3043,11 +3552,8 @@ install_xanmod_kernel() {
 
     local xanmod_repo_file="/etc/apt/sources.list.d/xanmod-release.list"
 
-    # 添加 XanMod 仓库（使用官方发行版代号）
-    if ! add_xanmod_repository "$xanmod_repo_file" "$gpg_key_file"; then
-        rm -f "$xanmod_repo_file"
-        return 1
-    fi
+    # 添加 XanMod 仓库（使用系统 codename；旧 releases suite 已为空）
+    xanmod_write_repo "$gpg_key_file" "$xanmod_repo_file" || return 1
 
     # 检测 CPU 架构版本（使用安全临时目录）
     echo "正在检测 CPU 支持的最优内核版本..."
@@ -3078,10 +3584,6 @@ install_xanmod_kernel() {
         echo -e "${gl_lv}本地检测结果: CPU 支持 x86-64-v${version}${gl_bai}"
     fi
 
-    if [ "$version" = "4" ]; then
-        echo -e "${gl_huang}检测到 x86-64-v4; XanMod MAIN 最高提供 x64v3, 将使用 x64v3 包${gl_bai}"
-    fi
-
     # 安装 XanMod 内核
     echo "正在更新软件包列表..."
     if ! apt-get update; then
@@ -3089,14 +3591,20 @@ install_xanmod_kernel() {
     fi
 
     local xanmod_package
-    if ! xanmod_package=$(resolve_xanmod_kernel_package "$version"); then
+    xanmod_package=$(xanmod_select_kernel_package "$version")
+    if [ -z "$xanmod_package" ]; then
+        echo -e "${gl_hong}错误: 未找到适合 x86-64-v${version} 的 XanMod 内核包${gl_bai}"
+        echo -e "${gl_huang}可用包参考:${gl_bai}"
+        apt-cache search '^linux-xanmod' 2>/dev/null | awk '{print "  - " $1}' | head -20
         rm -f "$xanmod_repo_file"
         return 1
     fi
 
     echo -e "${gl_lv}将安装: ${xanmod_package}${gl_bai}"
-    if echo "$xanmod_package" | grep -q -- '-lts-'; then
-        echo -e "${gl_huang}当前发行版源未提供 MAIN 元包，已自动选择 XanMod LTS 元包${gl_bai}"
+    if [ "$version" = "4" ] && echo "$xanmod_package" | grep -q 'x64v3'; then
+        echo -e "${gl_huang}说明: XanMod 官方 mainline 当前不提供 x64v4，x86-64-v4 CPU 使用 x64v3 包${gl_bai}"
+    elif [ "$version" = "1" ] && echo "$xanmod_package" | grep -q 'lts'; then
+        echo -e "${gl_huang}说明: XanMod 官方 mainline 当前不提供 x64v1，x86-64-v1 CPU 使用 LTS 包${gl_bai}"
     fi
 
     apt-get install -y "$xanmod_package"
@@ -3108,7 +3616,7 @@ install_xanmod_kernel() {
     fi
 
     # 验证内核是否真正安装成功
-    if ! dpkg -l 2>/dev/null | grep -qE "^ii\s+${xanmod_package}\s"; then
+    if ! dpkg -l 2>/dev/null | awk -v pkg="$xanmod_package" '$1 == "ii" && $2 == pkg { found=1 } END { exit !found }'; then
         echo -e "${gl_hong}内核包安装验证失败！${gl_bai}"
         rm -f "$xanmod_repo_file"
         return 1
@@ -3120,8 +3628,8 @@ install_xanmod_kernel() {
     echo -e "${gl_kjlan}━━━━━━━━━━ CPU 架构信息 ━━━━━━━━━━${gl_bai}"
     echo -e "  CPU 架构等级: ${gl_lv}x86-64-v${version}${gl_bai}"
     echo -e "  安装内核包: ${gl_lv}${xanmod_package}${gl_bai}"
-    echo -e "  ${gl_huang}说明: 本机 CPU 最高支持 v${version}，已安装可用的最新 XanMod 内核${gl_bai}"
-    echo -e "  ${gl_huang}不同等级(v1-v4)的内核更新进度可能不同，以 XanMod 官方仓库为准${gl_bai}"
+    echo -e "  ${gl_huang}说明: 本机 CPU 最高支持 v${version}，已安装官方仓库中最匹配的内核包${gl_bai}"
+    echo -e "  ${gl_huang}官方 mainline 当前提供 x64v2/x64v3；x64v1 使用 LTS，x64v4 使用 x64v3${gl_bai}"
     echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
     echo ""
     echo -e "${gl_kjlan}后续更新: 再次运行选项1即可检查并安装最新内核${gl_bai}"
@@ -3533,8 +4041,10 @@ optimize_reality_ultimate() {
     echo "  ✓ tcp_notsent_lowat = 16384 （减少延迟）"
     sysctl -w net.ipv4.tcp_fin_timeout=15 2>/dev/null
     echo "  ✓ tcp_fin_timeout = 15 （快速回收）"
-    sysctl -w net.ipv4.tcp_max_tw_buckets=5000 2>/dev/null
-    echo "  ✓ tcp_max_tw_buckets = 5000"
+    local tw_buckets
+    tw_buckets=$(calculate_tw_buckets)
+    sysctl -w net.ipv4.tcp_max_tw_buckets="$tw_buckets" 2>/dev/null
+    echo "  ✓ tcp_max_tw_buckets = ${tw_buckets} （不低于内核默认值）"
 
     # TCP缓冲区（12MB平衡配置）
     echo -e "${gl_lv}优化TCP缓冲区（12MB）...${gl_bai}"
@@ -3968,7 +4478,7 @@ dns_purify_and_harden() {
             dns_is_legacy=true
         fi
         # 老版特征2: 持久化脚本缺少 resolvectl 可用性检查
-        if [ -x /usr/local/bin/dns-purify-apply.sh ] && ! grep -q "command -v resolvectl" /usr/local/bin/dns-purify-apply.sh 2>/dev/null; then
+        if [ -x /usr/local/bin/dns-purify-apply.sh ] && ! grep -q "command -v resolvectl\|NET_TCP_BOOT_RECOVERY_V1" /usr/local/bin/dns-purify-apply.sh 2>/dev/null; then
             dns_is_legacy=true
         fi
     fi
@@ -4233,6 +4743,11 @@ dns_purify_and_harden() {
     backup_path_state "/usr/local/bin/dns-purify-apply.sh" "dns-purify-apply.sh"
     backup_path_state "/etc/systemd/system/systemd-resolved.service.d/dbus-fix.conf" "dbus-fix.conf"
     backup_path_state "/etc/NetworkManager/conf.d/99-dns-purify.conf" "nm-99-dns-purify.conf"
+    if [ -e /usr/local/libexec/net-tcp-boot-recovery ]; then
+        echo true > "$PRE_STATE_DIR/boot-recovery.was-installed"
+    else
+        echo false > "$PRE_STATE_DIR/boot-recovery.was-installed"
+    fi
 
     # 快照 if-up.d/resolved 执行权限状态
     local ifup_script="/etc/network/if-up.d/resolved"
@@ -4300,6 +4815,10 @@ dns_purify_and_harden() {
 
     # 自动回滚函数（失败即恢复，避免遗留DNS隐患）
     auto_rollback_dns_purify() {
+        if [ "$(cat "$PRE_STATE_DIR/boot-recovery.was-installed" 2>/dev/null)" = false ] &&
+            [ -x /usr/local/libexec/net-tcp-boot-recovery ]; then
+            /usr/local/libexec/net-tcp-boot-recovery --remove-app-guards || echo '启动保护回滚有自定义残留，shared helper已保留' >&2
+        fi
         # 恢复关键文件到执行前状态（注意：resolv.conf 延后恢复，避免悬空链接）
         restore_path_state "/etc/dhcp/dhclient.conf" "dhclient.conf"
         restore_path_state "/etc/network/interfaces" "interfaces"
@@ -4581,6 +5100,14 @@ DNSStubListener=yes
 
     local debian_version
     debian_version=$(grep "VERSION_ID" /etc/os-release | cut -d'=' -f2 | tr -d '"' || echo "unknown")
+
+    # Only an exact, known legacy template is removed; customized files abort safely.
+    if ! boot_recovery_install_assets ||
+        ! /usr/local/libexec/net-tcp-boot-recovery --migrate-resolved ||
+        ! systemctl daemon-reload; then
+        echo -e "${gl_hong}❌ DNS依赖迁移失败，请检查自定义drop-in${gl_bai}"
+        return 1
+    fi
 
     # ==================== 阶段一：清除DNS冲突源 ====================
     echo -e "${gl_kjlan}[阶段 1/5] 清除DNS冲突源（安全操作）...${gl_bai}"
@@ -4897,24 +5424,10 @@ TEMP_DNS
             if [ -n "$dbus_status" ]; then
                 echo -e "${gl_lv}  ✅ D-Bus 接口已成功注册${gl_bai}"
                 
-                # 3. 创建永久修复配置（确保重启后也能正常工作）
-                echo "  → 创建永久修复配置..."
-                mkdir -p /etc/systemd/system/systemd-resolved.service.d
-                cat > /etc/systemd/system/systemd-resolved.service.d/dbus-fix.conf << 'DBUS_FIX'
-# Debian 13 D-Bus接口注册修复
-# 确保D-Bus完全启动后再启动systemd-resolved
-[Unit]
-After=dbus.service
-Requires=dbus.service
+                # resolved participates in early boot before sysinit; ordering it after
+                # dbus creates resolved -> sysinit -> dbus -> resolved. Never write that drop-in.
+                echo "  → 使用发行版原生 D-Bus 依赖，不创建额外启动依赖"
 
-[Service]
-# 启动后等待1秒，确保D-Bus接口注册完成
-ExecStartPost=/bin/sleep 1
-DBUS_FIX
-                
-                systemctl daemon-reload 2>/dev/null || true
-                echo -e "${gl_lv}  ✅ 永久修复配置已创建${gl_bai}"
-                
                 # 4. 再次测试resolvectl
                 if timeout 3 resolvectl status >/dev/null 2>&1; then
                     echo -e "${gl_lv}  ✅ resolvectl 现在能正常工作了${gl_bai}"
@@ -5119,86 +5632,18 @@ STAGE4_TEMP
     echo -e "${gl_kjlan}[阶段 5/5] 配置重启持久化（确保重启后DNS不失效）...${gl_bai}"
     echo ""
 
-    # --- 5a: 创建开机自动恢复脚本 ---
-    echo "  → 创建DNS持久化恢复脚本..."
-    cat > /usr/local/bin/dns-purify-apply.sh << 'PERSIST_SCRIPT_HEAD'
-#!/bin/bash
-# DNS净化持久化脚本 - 开机自动恢复网卡级DNS配置
-# 由 net-tcp-tune.sh DNS净化功能自动生成
-# 安全说明：仅重新应用 resolvectl 运行时配置，不修改网络服务
-
-PERSIST_SCRIPT_HEAD
-
-    # 写入用户选择的DNS（动态替换变量）
-    cat >> /usr/local/bin/dns-purify-apply.sh << PERSIST_SCRIPT_VARS
-DNS_PRIMARY="${INTERFACE_DNS_PRIMARY}"
-DNS_SECONDARY="${INTERFACE_DNS_SECONDARY}"
-PERSIST_SCRIPT_VARS
-
-    cat >> /usr/local/bin/dns-purify-apply.sh << 'PERSIST_SCRIPT_BODY'
-
-# 前置检查：resolvectl 是否可用
-if ! command -v resolvectl >/dev/null 2>&1; then
-    echo "dns-purify: resolvectl 不可用，跳过" | systemd-cat -t dns-purify 2>/dev/null || true
-    exit 0
-fi
-
-# 检测默认网卡（动态获取，适应网卡名变更）
-IFACE=$(ip route | grep '^default' | awk '{print $5}' | head -n1)
-
-if [ -z "$IFACE" ]; then
-    echo "dns-purify: 未检测到默认网卡，跳过" | systemd-cat -t dns-purify 2>/dev/null || true
-    exit 0
-fi
-
-# 等待 systemd-resolved 完全就绪（最多等30秒）
-for i in $(seq 1 15); do
-    if resolvectl status >/dev/null 2>&1; then
-        break
+    # Self-contained helper validates DNS, reports failure and lets systemd retry.
+    if ! boot_recovery_install_assets ||
+        ! /usr/local/libexec/net-tcp-boot-recovery --migrate-resolved ||
+        ! boot_recovery_write_dns_service "$INTERFACE_DNS_PRIMARY" "$INTERFACE_DNS_SECONDARY" ||
+        ! boot_recovery_patch_enabled_units ||
+        ! systemctl daemon-reload ||
+        ! systemctl enable dns-purify-persist.service ||
+        ! systemctl enable --now net-tcp-boot-watch.timer; then
+        echo -e "${gl_hong}❌ DNS启动恢复配置失败，正在回滚DNS配置${gl_bai}"
+        auto_rollback_dns_purify
+        return 1
     fi
-    sleep 2
-done
-
-# 应用网卡级DNS配置
-resolvectl dns "$IFACE" "$DNS_PRIMARY" "$DNS_SECONDARY" 2>/dev/null
-resolvectl domain "$IFACE" "~." 2>/dev/null
-resolvectl default-route "$IFACE" yes 2>/dev/null
-
-# 验证DNS可用性
-sleep 2
-if getent hosts google.com >/dev/null 2>&1 || getent hosts baidu.com >/dev/null 2>&1; then
-    echo "dns-purify: DNS配置恢复成功 (接口: $IFACE, DNS: $DNS_PRIMARY $DNS_SECONDARY)" | systemd-cat -t dns-purify 2>/dev/null || true
-else
-    echo "dns-purify: DNS验证未通过，但配置已应用 (接口: $IFACE)" | systemd-cat -t dns-purify 2>/dev/null || true
-fi
-PERSIST_SCRIPT_BODY
-
-    chmod +x /usr/local/bin/dns-purify-apply.sh
-    echo -e "${gl_lv}  ✅ 持久化脚本已创建: /usr/local/bin/dns-purify-apply.sh${gl_bai}"
-
-    # --- 5b: 创建 systemd 开机服务 ---
-    echo "  → 创建开机自启服务..."
-    cat > /etc/systemd/system/dns-purify-persist.service << 'PERSIST_SERVICE'
-[Unit]
-Description=DNS Purify - Restore DNS Configuration on Boot
-Documentation=https://github.com/lmingyul/vps-tcp-tune
-After=systemd-resolved.service network-online.target
-Wants=network-online.target
-Wants=systemd-resolved.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/dns-purify-apply.sh
-TimeoutStartSec=60
-
-[Install]
-WantedBy=multi-user.target
-PERSIST_SERVICE
-
-    systemctl daemon-reload
-    systemctl enable dns-purify-persist.service >/dev/null 2>&1
-    echo -e "${gl_lv}  ✅ 开机自启服务已创建并启用: dns-purify-persist.service${gl_bai}"
 
     # --- 5c: 阻止 systemd-networkd DHCP 覆盖DNS（最常见的重启失效原因）---
     if systemctl is-active --quiet systemd-networkd 2>/dev/null; then
@@ -5380,6 +5825,10 @@ PRE_STATE_DIR="$BACKUP_DIR/pre_state"
 # 优先使用增强回滚（精确恢复执行前状态）
 if [[ -d "$PRE_STATE_DIR" ]]; then
     echo "检测到增强备份元数据，正在精确恢复执行前状态..."
+    if [[ "$(cat "$PRE_STATE_DIR/boot-recovery.was-installed" 2>/dev/null)" == false ]] &&
+        [[ -x /usr/local/libexec/net-tcp-boot-recovery ]]; then
+        /usr/local/libexec/net-tcp-boot-recovery --remove-app-guards || echo '启动保护回滚有自定义残留，shared helper已保留' >&2
+    fi
 
     restore_path_state() {
         local dst="$1"
@@ -5655,7 +6104,7 @@ realm_fix_timeout() {
     echo ""
     echo -e "${gl_huang}功能说明：${gl_bai}"
     echo "  • 连接跟踪模块加载 + 容量扩展（转发必需）"
-    echo "  • 强制 IPv4 + nodelay + reuse_port（优化 Realm 配置）"
+    echo "  • Realm 监听地址改为 IPv4（0.0.0.0）"
     echo "  • 提升 realm.service 文件句柄限制"
     echo ""
     echo -e "${gl_kjlan}已由其他功能覆盖（本功能不再重复设置）：${gl_bai}"
@@ -5698,7 +6147,7 @@ realm_fix_timeout() {
     # 写入 Realm 专属 sysctl 配置（仅 conntrack_max，其余由功能3管理）
     cat >/etc/sysctl.d/60-realm-tune.conf <<'SYSC'
 # Realm 转发专属优化（仅设置功能3未覆盖的参数）
-# tcp_fin_timeout / tcp_fastopen 由功能3的 99-net-tcp-tune.conf 统一管理
+# tcp_fin_timeout / tcp_fastopen 由功能3的配置文件统一管理
 
 # 连接跟踪容量（转发必需）
 net.netfilter.nf_conntrack_max = 262144
@@ -5707,29 +6156,17 @@ SYSC
     echo -e "${gl_lv}  ✓ nf_conntrack_max = 262144 已生效${gl_bai}"
 
     # 修改 Realm 配置
-    echo -e "${gl_lv}[3/4] 优化 Realm 配置（IPv4 + nodelay + reuse_port）${gl_bai}"
+    echo -e "${gl_lv}[3/4] 优化 Realm 配置（监听改为 IPv4）${gl_bai}"
     realm_cfg="/etc/realm/config.json"
     if [[ -f "$realm_cfg" ]]; then
         cp -a "$realm_cfg" "$BACKUP_DIR/"
 
-        if command -v jq >/dev/null 2>&1; then
-            tmpfile=$(mktemp)
-            jq '.resolve = "ipv4" | .nodelay = true | .reuse_port = true' \
-                "$realm_cfg" >"$tmpfile" && mv "$tmpfile" "$realm_cfg"
-        else
-            echo -e "${gl_huang}  未安装 jq，使用文本方式修改（推荐安装 jq）${gl_bai}"
-            if ! grep -q '"resolve"' "$realm_cfg"; then
-                sed -i.bak '0,/{/s//{\n  "resolve": "ipv4",/' "$realm_cfg" || true
-            fi
-            if ! grep -q '"nodelay"' "$realm_cfg"; then
-                sed -i.bak '0,/{/s//{\n  "nodelay": true,/' "$realm_cfg" || true
-            fi
-            if ! grep -q '"reuse_port"' "$realm_cfg"; then
-                sed -i.bak '0,/{/s//{\n  "reuse_port": true,/' "$realm_cfg" || true
-            fi
-        fi
+        # 说明：旧版在此处向 config.json 顶层写入 resolve / nodelay / reuse_port 三个键，
+        # 但它们不是 Realm 的配置项（Realm 顶层仅 log / dns / network / endpoints，未知键被忽略；
+        # TCP_NODELAY 由 Realm 自身始终开启），从未生效，v5.4.10 起不再写入。
+        # 已写入过的旧键保持原样（无害），不做删除。
 
-        # 统一用文本替换确保 IPv6 监听改为 IPv4
+        # 用文本替换确保 IPv6 监听改为 IPv4
         sed -i.bak -E 's/"listen"\s*:\s*":::([0-9]+)"/"listen": "0.0.0.0:\1"/g' "$realm_cfg" 2>/dev/null || true
         sed -i.bak -E 's/"listen"\s*:\s*"\[::\]:([0-9]+)"/"listen": "0.0.0.0:\1"/g' "$realm_cfg" 2>/dev/null || true
         sed -i.bak 's/:::/0.0.0.0:/g' "$realm_cfg" 2>/dev/null || true
@@ -5763,7 +6200,7 @@ OVR
     echo -e "${gl_huang}🔍 快速验证：${gl_bai}"
     echo "  • Realm 监听：  ss -tlnp | grep realm"
     echo "  • conntrack：   sysctl net.netfilter.nf_conntrack_max"
-    echo "  • Realm 配置：  cat /etc/realm/config.json | grep -E 'resolve|nodelay|reuse_port'"
+    echo "  • Realm 配置：  grep '\"listen\"' /etc/realm/config.json"
     echo ""
     echo -e "${gl_lv}💯 重启服务器后所有配置依然生效，无需重复执行！${gl_bai}"
     echo ""
@@ -5802,22 +6239,22 @@ Kernel_optimize() {
         read -e -p "请输入你的选择: " sub_choice
         case $sub_choice in
             1)
-                cd ~
+                cd ~ || true
                 clear
                 optimize_xinchendahai
                 ;;
             2)
-                cd ~
+                cd ~ || true
                 clear
                 optimize_reality_ultimate
                 ;;
             3)
-                cd ~
+                cd ~ || true
                 clear
                 optimize_low_spec
                 ;;
             4)
-                cd ~
+                cd ~ || true
                 clear
                 optimize_xinchendahai_original
                 ;;
@@ -6415,60 +6852,40 @@ ai_proxy_menu() {
         echo -e "${gl_kjlan}  AI 代理服务工具箱${gl_bai}"
         echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
         echo ""
-        echo "1. Antigravity Claude Proxy 部署管理"
-        echo "2. Open WebUI 部署管理"
-        echo "3. CRS 部署管理 (多账户中转/拼车)"
-        echo "4. Fuclaude 部署管理 (Claude网页版共享)"
-        echo "5. Sub2API 部署管理"
-        echo "6. Caddy 多域名反代"
-        echo "7. Cloudflare Tunnel 管理 🆕"
-        echo "8. OpenClaw 部署管理 (AI多渠道消息网关)"
-        echo "9. OpenAI Responses API 转换代理"
-        echo "10. Codex Console 部署管理 (OpenAI批量注册)"
-        echo "11. CLIProxyAPI 部署管理 (CLI转API代理)"
-        echo "12. OAI2 部署管理 (令牌注册面板)"
+        echo "1. Open WebUI 部署管理"
+        echo "2. CRS 部署管理 (多账户中转/拼车)"
+        echo "3. Fuclaude 部署管理 (Claude网页版共享)"
+        echo "4. Sub2API 部署管理"
+        echo "5. Caddy 多域名反代"
+        echo "6. Cloudflare Tunnel 管理 🆕"
+        echo "7. OpenAI Responses API 转换代理"
         echo ""
         echo "0. 返回主菜单"
         echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
 
-        read -e -p "请选择操作 [0-12]: " choice
+        read -e -p "请选择操作 [0-7]: " choice
 
         case $choice in
             1)
-                manage_ag_proxy
-                ;;
-            2)
                 manage_open_webui
                 ;;
-            3)
+            2)
                 manage_crs
                 ;;
-            4)
+            3)
                 manage_fuclaude
                 ;;
-            5)
+            4)
                 manage_sub2api
                 ;;
-            6)
+            5)
                 manage_caddy
                 ;;
-            7)
+            6)
                 manage_cf_tunnel
                 ;;
-            8)
-                manage_openclaw
-                ;;
-            9)
+            7)
                 manage_resp_proxy
-                ;;
-            10)
-                manage_codex_console
-                ;;
-            11)
-                manage_cliproxyapi
-                ;;
-            12)
-                manage_oai2
                 ;;
             0)
                 return
@@ -6613,7 +7030,7 @@ show_main_menu() {
     echo ""
     echo -e "${gl_kjlan}[BBR/网络优化]${gl_bai}"
     echo "3. BBR 直连/落地优化（智能带宽检测）⭐ 推荐"
-    echo -e "4. ${gl_hui}已移除（功能3已覆盖MTU智能探测）${gl_bai}"
+    echo -e "4. ${gl_hui}清理旧版 MTU 残留（需明确确认）${gl_bai}"
     echo "5. NS论坛-DNS净化（抗污染/驯服DHCP）"
     echo "6. Realm转发timeout修复 ⭐ 推荐"
     echo ""
@@ -6656,7 +7073,10 @@ show_main_menu() {
     echo "31. 科技lion高性能模式"
     echo ""
     echo -e "${gl_kjlan}━━━━━━━━━ AI 代理服务 ━━━━━━━━━${gl_bai}"
-    echo "32. AI代理工具箱 ▶ (Claude/WebUI/CRS/Fuclaude/Caddy/CF-Tunnel) ⭐ 推荐"
+    echo "32. AI代理工具箱 ▶ (WebUI/CRS/Fuclaude/Sub2API/Caddy/CF-Tunnel等) ⭐ 推荐"
+    echo ""
+    echo -e "${gl_kjlan}━━━━━━━━━ 流量与端口管理 ━━━━━━━━━${gl_bai}"
+    echo "33. 端口流量计费与到期管理 🆕"
     echo ""
     echo -e "${gl_kjlan}━━━━━━━━━ 一键优化 ━━━━━━━━━${gl_bai}"
     echo "66. ⭐ 一键全自动优化 (BBR v3 + 网络调优)"
@@ -6690,7 +7110,11 @@ show_main_menu() {
             break_end
             ;;
         4)
-            echo -e "${gl_huang}⚠️ 功能4已在v4.9.2移除，功能3的tcp_mtu_probing已覆盖MTU智能探测${gl_bai}"
+            echo -e "${gl_huang}功能4仅用于清理旧版 MTU 残留，会恢复路由/链路 MTU。${gl_bai}"
+            local mtu_cleanup_confirm
+            if read -r -p "输入 清理MTU 才执行，其他输入取消: " mtu_cleanup_confirm && [ "$mtu_cleanup_confirm" = "清理MTU" ]; then
+                auto_cleanup_legacy_mtu
+            fi
             break_end
             ;;
         5)
@@ -6778,6 +7202,9 @@ show_main_menu() {
         32)
             ai_proxy_menu
             ;;
+        33)
+            ptm_menu
+            ;;
         66)
             one_click_optimize
             ;;
@@ -6808,10 +7235,11 @@ update_xanmod_kernel() {
     # 检测 CPU 架构
     local cpu_arch=$(uname -m)
     
-    # ARM 架构提示
+    # ARM 架构提示：XanMod 无 ARM64 构建，此处不存在可更新的内核
     if [ "$cpu_arch" = "aarch64" ]; then
-        echo -e "${gl_huang}ARM64 架构暂不支持自动更新${gl_bai}"
-        echo "建议卸载后重新安装以获取最新版本"
+        echo -e "${gl_huang}ARM64 平台无 XanMod 内核可更新${gl_bai}"
+        echo "BBR v3 未合入主线内核，XanMod 官方仅提供 x86-64 构建。"
+        echo -e "ARM 机器请使用【${gl_lv}功能 3 - BBR 直连/落地优化${gl_bai}】做网络调优。"
         break_end
         return 1
     fi
@@ -6821,8 +7249,8 @@ update_xanmod_kernel() {
     
     local xanmod_repo_file="/etc/apt/sources.list.d/xanmod-release.list"
 
-    # 添加 XanMod 仓库（如果不存在）
-    if [ ! -f "$xanmod_repo_file" ]; then
+    # 添加/修正 XanMod 仓库（旧 releases suite 已为空）
+    if [ ! -f "$xanmod_repo_file" ] || grep -qE 'deb\.xanmod\.org[[:space:]]+releases[[:space:]]+' "$xanmod_repo_file" 2>/dev/null; then
         echo "正在添加 XanMod 仓库..."
 
         # 添加密钥（分步执行，避免管道 $? 问题）
@@ -6854,12 +7282,8 @@ update_xanmod_kernel() {
             return 1
         fi
 
-        # 添加仓库（使用官方发行版代号）
-        if ! add_xanmod_repository "$xanmod_repo_file" "$gpg_key_file"; then
-            rm -f "$xanmod_repo_file"
-            break_end
-            return 1
-        fi
+        # 添加仓库（使用系统 codename；旧 releases suite 已为空）
+        xanmod_write_repo "$gpg_key_file" "$xanmod_repo_file" || { break_end; return 1; }
     fi
 
     # 更新软件包列表
@@ -6946,7 +7370,7 @@ update_xanmod_kernel() {
         [Yy])
             echo ""
             echo "正在更新内核..."
-            apt install --only-upgrade -y $(echo "$installed_packages" | tr '\n' ' ')
+            echo "$installed_packages" | xargs -r apt install --only-upgrade -y
             
             if [ $? -eq 0 ]; then
                 echo ""
@@ -7038,7 +7462,7 @@ uninstall_xanmod() {
             rm -f /usr/share/keyrings/xanmod-archive-keyring.gpg
             echo -e "${gl_lv}✅ XanMod 软件源已清理${gl_bai}"
 
-            rm -f "$SYSCTL_CONF"
+            rm -f "$SYSCTL_CONF" "$SYSCTL_CONF_LEGACY"
             echo -e "${gl_lv}XanMod 内核已卸载${gl_bai}"
             server_reboot
             ;;
@@ -7046,6 +7470,158 @@ uninstall_xanmod() {
             echo "已取消"
             ;;
     esac
+}
+
+# 清理本脚本管理的 bbr 快捷别名，避免误删用户自己的 alias
+strip_bbr_alias_blocks() {
+    local file="$1"
+
+    awk '
+    function flush_pending(    i) {
+        for (i = 1; i <= pending_count; i++) print pending[i]
+        pending_count = 0
+        candidate = 0
+    }
+    function add_pending(line) {
+        pending[++pending_count] = line
+    }
+    function strip_unquoted_comment(line,    i, c, out, in_single, in_double, escaped) {
+        out = ""
+        in_single = 0
+        in_double = 0
+        escaped = 0
+        for (i = 1; i <= length(line); i++) {
+            c = substr(line, i, 1)
+            if (escaped) {
+                out = out c
+                escaped = 0
+                continue
+            }
+            if (c == "\\" && in_double) {
+                out = out c
+                escaped = 1
+                continue
+            }
+            if (c == "'"'"'" && !in_double) in_single = !in_single
+            if (c == "\"" && !in_single) in_double = !in_double
+            if (c == "#" && !in_single && !in_double) break
+            out = out c
+        }
+        return out
+    }
+    function is_project_alias(line,    body) {
+        body = strip_unquoted_comment(line)
+        return body ~ /^[[:space:]]*alias[[:space:]]+(bbr|dog)=/ &&
+               body ~ /(raw\.githubusercontent\.com|github\.com)\/Eric86777\/vps-tcp-tune\// &&
+               body ~ /net-tcp-tune\.sh/
+    }
+    function is_managed_comment(line) {
+        return line ~ /^# >>> net-tcp-tune alias >>>/ ||
+               line ~ /^# <<< net-tcp-tune alias <<</ ||
+               line ~ /^# =+$/ ||
+               line ~ /net-tcp-tune[[:space:]]+快捷别名/ ||
+               line ~ /使用.*时间戳参数确保每次都获取最新版本/
+    }
+    function is_end_marker(line) {
+        return line ~ /^# <<< net-tcp-tune alias <<</
+    }
+    BEGIN {
+        pending_count = 0
+        drop_next_end_marker = 0
+    }
+    drop_next_end_marker && is_end_marker($0) {
+        drop_next_end_marker = 0
+        next
+    }
+    is_managed_comment($0) {
+        add_pending($0)
+        if (pending_count >= 12) flush_pending()
+        next
+    }
+    pending_count > 0 {
+        if (is_project_alias($0)) {
+            pending_count = 0
+            drop_next_end_marker = 1
+            next
+        }
+        flush_pending()
+    }
+    is_project_alias($0) { drop_next_end_marker = 1; next }
+    {
+        print
+    }
+    END {
+        flush_pending()
+    }
+    ' "$file"
+}
+
+rc_file_has_bbr_alias() {
+    local rc_file="$1"
+    [ -r "$rc_file" ] || return 2
+
+    grep -qE '(^# >>> net-tcp-tune alias >>>|net-tcp-tune 快捷别名)' "$rc_file" 2>/dev/null && return 0
+
+    awk '
+    function strip_unquoted_comment(line,    i, c, out, in_single, in_double, escaped) {
+        out = ""
+        in_single = 0
+        in_double = 0
+        escaped = 0
+        for (i = 1; i <= length(line); i++) {
+            c = substr(line, i, 1)
+            if (escaped) {
+                out = out c
+                escaped = 0
+                continue
+            }
+            if (c == "\\" && in_double) {
+                out = out c
+                escaped = 1
+                continue
+            }
+            if (c == "'"'"'" && !in_double) in_single = !in_single
+            if (c == "\"" && !in_single) in_double = !in_double
+            if (c == "#" && !in_single && !in_double) break
+            out = out c
+        }
+        return out
+    }
+    function is_project_alias(line,    body) {
+        body = strip_unquoted_comment(line)
+        return body ~ /^[[:space:]]*alias[[:space:]]+(bbr|dog)=/ &&
+               body ~ /(raw\.githubusercontent\.com|github\.com)\/Eric86777\/vps-tcp-tune\// &&
+               body ~ /net-tcp-tune\.sh/
+    }
+    is_project_alias($0) { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+    ' "$rc_file"
+}
+
+write_cleaned_rc_file() {
+    local rc_file="$1"
+    local new_content="$2"
+    local backup_file="${rc_file}.bak.uninstall.$(date +%Y%m%d_%H%M%S).$$"
+
+    if cmp -s "$rc_file" "$new_content"; then
+        return 2
+    fi
+
+    if ! cp -p "$rc_file" "$backup_file" 2>/dev/null; then
+        return 1
+    fi
+
+    if ! cat "$new_content" > "$rc_file"; then
+        cat "$backup_file" > "$rc_file" 2>/dev/null || true
+        return 1
+    fi
+
+    if ! cmp -s "$new_content" "$rc_file"; then
+        cat "$backup_file" > "$rc_file" 2>/dev/null || true
+        return 1
+    fi
+
+    return 0
 }
 
 # 完全卸载脚本所有内容
@@ -7125,69 +7701,40 @@ uninstall_all() {
             continue
         fi
         
-        # 检查是否存在别名（多种匹配方式）
-        if grep -q "net-tcp-tune 快捷别名\|alias bbr=" "$rc_file" 2>/dev/null; then
+        # 检查是否存在本脚本管理的别名（不清理用户自定义 bbr）
+        rc_file_has_bbr_alias "$rc_file"
+        local has_alias_rc=$?
+        if [ "$has_alias_rc" -eq 2 ]; then
+            echo -e "  ${gl_hong}❌ 无法读取 $(basename "$rc_file")，跳过${gl_bai}"
+            continue
+        fi
+        if [ "$has_alias_rc" -eq 0 ]; then
             alias_found=1
-            
-            # 创建临时文件
-            local temp_file=$(mktemp)
-            
-            # 方法1：删除包含 "net-tcp-tune 快捷别名" 的整个块
-            if grep -q "net-tcp-tune 快捷别名" "$rc_file" 2>/dev/null; then
-                # 使用精确的标记删除，避免 sed 范围匹配到用户其他内容
-                sed '/net-tcp-tune 快捷别名/,/^alias bbr=/d' "$rc_file" 2>/dev/null > "$temp_file"
-                # 清理可能残留的分隔线（只删紧邻别名块的分隔线）
-                sed -i '/^# ================.*net-tcp-tune/d' "$temp_file" 2>/dev/null
-                sed -i '/^# ================$/{ N; /net-tcp-tune\|alias bbr/d; }' "$temp_file" 2>/dev/null
-            else
-                # 直接复制文件
-                cp "$rc_file" "$temp_file"
+
+            local temp_file
+            temp_file=$(mktemp "${rc_file}.tmp.XXXXXX") || {
+                echo -e "  ${gl_hong}❌ 无法创建临时文件，跳过 $(basename "$rc_file")${gl_bai}"
+                continue
+            }
+
+            if ! strip_bbr_alias_blocks "$rc_file" > "$temp_file"; then
+                rm -f "$temp_file"
+                echo -e "  ${gl_hong}❌ 清理 $(basename "$rc_file") 失败${gl_bai}"
+                continue
             fi
-            
-            # 方法2：删除所有包含 alias bbr 且指向脚本的行（多种匹配方式）
-            # 匹配各种可能的格式
-            sed -i '/alias bbr.*net-tcp-tune/d' "$temp_file" 2>/dev/null
-            sed -i '/alias bbr.*vps-tcp-tune/d' "$temp_file" 2>/dev/null
-            sed -i '/alias bbr.*Eric86777/d' "$temp_file" 2>/dev/null
-            sed -i '/alias bbr.*curl.*net-tcp-tune/d' "$temp_file" 2>/dev/null
-            sed -i '/alias bbr.*wget.*net-tcp-tune/d' "$temp_file" 2>/dev/null
-            sed -i '/alias bbr.*raw.githubusercontent.com.*vps-tcp-tune/d' "$temp_file" 2>/dev/null
-            
-            # 方法3：删除所有注释行（可能包含脚本相关信息）
-            sed -i '/#.*net-tcp-tune/d' "$temp_file" 2>/dev/null
-            sed -i '/#.*vps-tcp-tune/d' "$temp_file" 2>/dev/null
-            
-            # 检查是否有变更
-            if ! diff -q "$rc_file" "$temp_file" > /dev/null 2>&1; then
-                # 备份原文件
-                cp "$rc_file" "${rc_file}.bak.uninstall.$(date +%Y%m%d_%H%M%S)" 2>/dev/null
-                # 替换文件（保留原文件权限）
-                cp "$temp_file" "$rc_file"
-                rm -f "$temp_file"
+
+            write_cleaned_rc_file "$rc_file" "$temp_file"
+            local clean_rc=$?
+            rm -f "$temp_file"
+
+            if [ $clean_rc -eq 0 ]; then
                 alias_removed=1
-                echo -e "  ${gl_lv}✅ 已从 $(basename $rc_file) 中删除别名${gl_bai}"
-            else
-                rm -f "$temp_file"
+                echo -e "  ${gl_lv}✅ 已从 $(basename "$rc_file") 中删除别名${gl_bai}"
+            elif [ $clean_rc -ne 2 ]; then
+                echo -e "  ${gl_hong}❌ 写回 $(basename "$rc_file") 失败，已尝试恢复备份${gl_bai}"
             fi
         fi
     done
-    
-    # 如果没有找到别名，尝试直接删除 alias bbr 定义（更激进的清理）
-    if [ $alias_found -eq 0 ]; then
-        for rc_file in "${rc_files[@]}"; do
-            if [ ! -f "$rc_file" ]; then
-                continue
-            fi
-            
-            # 检查是否有任何 bbr 别名定义
-            if grep -q "^alias bbr=" "$rc_file" 2>/dev/null; then
-                # 删除所有 alias bbr 定义
-                sed -i '/^alias bbr=/d' "$rc_file" 2>/dev/null
-                alias_removed=1
-                echo -e "  ${gl_lv}✅ 已从 $(basename $rc_file) 中删除 bbr 别名${gl_bai}"
-            fi
-        done
-    fi
     
     if [ $alias_removed -eq 1 ]; then
         # 立即尝试取消当前会话中的别名（对子 shell 有效）
@@ -7213,7 +7760,7 @@ uninstall_all() {
     echo -e "${gl_huang}[3/8] 清理 sysctl 配置文件...${gl_bai}"
     local sysctl_files=(
         "$SYSCTL_CONF"
-        "/etc/sysctl.d/99-bbr-ultimate.conf"
+        "$SYSCTL_CONF_LEGACY"
         "/etc/sysctl.d/99-sysctl.conf"
         "/etc/sysctl.d/999-net-bbr-fq.conf"
     )
@@ -7238,7 +7785,7 @@ uninstall_all() {
     
     # 恢复 sysctl.conf 原始配置（如果有备份）
     if [ -f "/etc/sysctl.conf.bak.original" ]; then
-        cp /etc/sysctl.conf /etc/sysctl.conf.bak.$(date +%Y%m%d_%H%M%S) 2>/dev/null
+        cp /etc/sysctl.conf "/etc/sysctl.conf.bak.$(date +%Y%m%d_%H%M%S)" 2>/dev/null
         cp /etc/sysctl.conf.bak.original /etc/sysctl.conf 2>/dev/null
         rm -f /etc/sysctl.conf.bak.original
         sysctl_cleaned=$((sysctl_cleaned + 1))
@@ -7323,6 +7870,11 @@ uninstall_all() {
         echo -e "  ${gl_lv}✓ DNS持久化服务已移除${gl_bai}"
     fi
 
+    if [ -x /usr/local/libexec/net-tcp-boot-recovery ] &&
+        grep -q 'NET_TCP_BOOT_RECOVERY_V1' /usr/local/libexec/net-tcp-boot-recovery; then
+        /usr/local/libexec/net-tcp-boot-recovery --remove-app-guards || echo '部分自定义启动保护已保留，请人工检查' >&2
+    fi
+
     # 清理旧版 iptables set-mss 规则（功能4旧版兼容）
     if command -v iptables &>/dev/null; then
         local tag="net-tcp-tune-mss" del_v
@@ -7347,18 +7899,22 @@ uninstall_all() {
 
     # 6. 清理其他临时文件和备份
     echo -e "${gl_huang}[6/8] 清理临时文件和备份...${gl_bai}"
-    local temp_files=(
-        "/tmp/socks5_proxy_*.sh"
-        "/root/.realm_backup/"
-    )
-    
     local temp_cleaned=0
-    for pattern in "${temp_files[@]}"; do
-        if ls $pattern > /dev/null 2>&1; then
-            rm -rf $pattern 2>/dev/null
+
+    # 临时文件（glob 展开后逐个删除）
+    local tmp_file
+    for tmp_file in /tmp/socks5_proxy_*.sh; do
+        if [ -f "$tmp_file" ]; then
+            rm -f "$tmp_file" 2>/dev/null
             temp_cleaned=$((temp_cleaned + 1))
         fi
     done
+
+    # 备份目录（显式处理，不走 glob）
+    if [ -d "/root/.realm_backup" ]; then
+        rm -rf "/root/.realm_backup" 2>/dev/null
+        temp_cleaned=$((temp_cleaned + 1))
+    fi
     
     if [ $temp_cleaned -gt 0 ]; then
         echo -e "  ${gl_lv}✅ 已清理临时文件${gl_bai}"
@@ -7511,8 +8067,6 @@ run_kxy_script() {
 SNELL_RED="${gl_hong}"
 SNELL_GREEN="${gl_lv}"
 SNELL_YELLOW="${gl_huang}"
-SNELL_BLUE="${gl_kjlan}"
-SNELL_PURPLE="${gl_zi}"
 SNELL_CYAN="${gl_kjlan}"
 SNELL_RESET="${gl_bai}"
 
@@ -7635,42 +8189,10 @@ cleanup_partial_install_snell() {
 add_snell_port_to_reserved() {
     local port="$1"
     [ -n "$port" ] || return 0
-    local reserved_file="/etc/sysctl.d/99-zzz-snell-reserved-ports.conf"
-
-    # 1) 读自己文件已有的 Snell 端口
-    local current=""
-    if [ -f "$reserved_file" ]; then
-        current=$(grep -E '^[[:space:]]*net\.ipv4\.ip_local_reserved_ports' "$reserved_file" 2>/dev/null \
-                  | sed -E 's/^[^=]+=[[:space:]]*//' | tr -d ' ')
-    fi
-
-    # 2) 扫描其他 sysctl 文件，收集外部已设保留端口（跳过自己，避免重复合并）
-    local extra=""
-    local f line val
-    for f in /etc/sysctl.d/*.conf /etc/sysctl.conf; do
-        [ -f "$f" ] || continue
-        [ "$(basename "$f")" = "99-zzz-snell-reserved-ports.conf" ] && continue
-        line=$(grep -E '^[[:space:]]*net\.ipv4\.ip_local_reserved_ports' "$f" 2>/dev/null | tail -n 1)
-        [ -z "$line" ] && continue
-        val=$(echo "$line" | sed -E 's/^[^=]+=[[:space:]]*//' | tr -d ' ')
-        [ -z "$val" ] && continue
-        extra="${extra:+$extra,}${val}"
-    done
-
-    # 3) 三方合并：自己已有 + 外部 + 新端口 → 数字过滤、去重、排序
-    local merged
-    merged=$(echo "${current},${extra},${port}" \
-             | tr ',' '\n' | grep -E '^[0-9]+$' | sort -un | paste -sd, -)
-    [ -z "$merged" ] && merged="$port"
-
-    # 4) 写文件 + 加载（失败兜底：文件已写，重启后通过 systemd-sysctl 全量加载仍生效）
-    cat > "$reserved_file" <<EOF
-# Snell 监听端口保留列表（由 net-tcp-tune 自动管理，请勿手动修改）
-# 作用：让内核 outbound 临时端口分配跳过这些端口，避免抢占 Snell 监听端口
-# 包含：所有 Snell 端口 + 其他 sysctl 文件中已设置的保留端口（合并去重）
-net.ipv4.ip_local_reserved_ports = ${merged}
-EOF
-    sysctl -p "$reserved_file" >/dev/null 2>&1 || true
+    local ports_csv
+    ports_csv=$(snell_current_ports_csv 2>/dev/null || true)
+    ports_csv="${ports_csv:+$ports_csv,}${port}"
+    snell_sync_reserved_ports "$ports_csv" 2>/dev/null || true
 }
 
 # 从内核 ip_local_reserved_ports 中移除指定 Snell 端口（修复 ④：单端口卸载清理）
@@ -7711,7 +8233,671 @@ remove_all_snell_reserved_ports() {
     fi
 }
 
+snell_valid_port() {
+    local port="$1"
+    [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ]
+}
+
+# 统一发现 Snell unit：覆盖新版 snell-端口.service 与旧版 snell.service，避免只扫 /etc 漏实例
+snell_list_units() {
+    {
+        local svc_file
+        for svc_file in \
+            /etc/systemd/system/snell-*.service \
+            /lib/systemd/system/snell-*.service \
+            /usr/lib/systemd/system/snell-*.service \
+            /etc/systemd/system/snell.service \
+            /lib/systemd/system/snell.service \
+            /usr/lib/systemd/system/snell.service; do
+            [ -f "$svc_file" ] || continue
+            basename "$svc_file"
+        done
+
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl list-unit-files 'snell*.service' --no-legend --no-pager 2>/dev/null \
+                | awk '{u=$1; if (u=="●") u=$2; print u}'
+            systemctl list-units 'snell*.service' --all --no-legend --no-pager 2>/dev/null \
+                | awk '{u=$1; if (u=="●") u=$2; print u}'
+        fi
+    } | awk '/^snell\.service$/ || /^snell-[0-9]+\.service$/ { if (!seen[$1]++) print $1 }'
+}
+
+snell_unit_port() {
+    local unit="$1"
+    local port=""
+
+    case "$unit" in
+        snell-[0-9]*.service)
+            port="${unit#snell-}"
+            port="${port%.service}"
+            ;;
+        snell.service)
+            if [ -f "/etc/snell/snell-server.conf" ]; then
+                port=$(grep -E '^[[:space:]]*listen[[:space:]]*=' /etc/snell/snell-server.conf 2>/dev/null \
+                       | tail -n 1 | sed -E 's/.*:([0-9]+).*/\1/')
+            fi
+            ;;
+    esac
+
+    if snell_valid_port "$port"; then
+        echo "$port"
+        return 0
+    fi
+    return 1
+}
+
+snell_acquire_lock() {
+    if command -v flock >/dev/null 2>&1; then
+        exec 201>/tmp/net-tcp-tune-snell.lock
+        if ! flock -n 201; then
+            echo -e "${SNELL_YELLOW}另一个 Snell 操作正在运行，已取消本次操作，避免和定时重启/更新冲突。${SNELL_RESET}"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+snell_release_lock() {
+    if command -v flock >/dev/null 2>&1; then
+        flock -u 201 2>/dev/null || true
+    fi
+}
+
+snell_should_restart_unit() {
+    local unit="$1"
+    local active_state enabled_state
+    active_state=$(systemctl is-active "$unit" 2>/dev/null)
+    enabled_state=$(systemctl is-enabled "$unit" 2>/dev/null)
+
+    [ "$active_state" = "active" ] || { [ "$active_state" = "failed" ] && [ "$enabled_state" = "enabled" ]; }
+}
+
+snell_reserved_contains_port() {
+    local reserved_list="$1"
+    local port="$2"
+    local token start end
+    local -a reserved_tokens
+    snell_valid_port "$port" || return 1
+
+    IFS=',' read -r -a reserved_tokens <<< "$reserved_list"
+    for token in "${reserved_tokens[@]}"; do
+        token=$(echo "$token" | tr -d '[:space:]')
+        if [[ "$token" =~ ^[0-9]+$ ]]; then
+            [ "$token" -eq "$port" ] && return 0
+        elif [[ "$token" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            start="${BASH_REMATCH[1]}"
+            end="${BASH_REMATCH[2]}"
+            if [ "$port" -ge "$start" ] && [ "$port" -le "$end" ]; then
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+snell_normalize_reserved_ports() {
+    tr ',' '\n' | sed 's/[[:space:]]//g' | awk '
+        $0 == "" { next }
+        /^[0-9]+$/ {
+            port = $0 + 0
+            if (port >= 1 && port <= 65535 && !seen[port]++) {
+                values[++n] = port
+            }
+            next
+        }
+        /^[0-9]+-[0-9]+$/ {
+            split($0, range, "-")
+            start = range[1] + 0
+            end = range[2] + 0
+            if (start >= 1 && end <= 65535 && start <= end) {
+                key = start "-" end
+                if (!seen[key]++) {
+                    values[++n] = key
+                }
+            }
+        }
+        END {
+            for (i = 1; i <= n; i++) {
+                printf "%s%s", (i > 1 ? "," : ""), values[i]
+            }
+        }
+    '
+}
+
+snell_current_ports_csv() {
+    local unit port ports
+    ports=""
+    while IFS= read -r unit; do
+        port=$(snell_unit_port "$unit" 2>/dev/null || true)
+        if snell_valid_port "$port"; then
+            if [ -n "$ports" ]; then
+                ports="${ports}
+${port}"
+            else
+                ports="$port"
+            fi
+        fi
+    done < <(snell_list_units)
+
+    if [ -n "$ports" ]; then
+        printf '%s\n' "$ports" | sort -un | paste -sd, -
+    fi
+}
+
+snell_write_systemd_dropin() {
+    local unit="$1"
+    local drop_dir="/etc/systemd/system/${unit}.d"
+    local drop_file="${drop_dir}/99-net-tcp-tune-fix.conf"
+    local tmp_file
+
+    mkdir -p "$drop_dir" || return 1
+    tmp_file=$(mktemp "${drop_dir}/.99-net-tcp-tune-fix.XXXXXX") || return 1
+    cat > "$tmp_file" <<EOF
+# 由 net-tcp-tune 自动写入
+# 作用：避免 Snell 偶发失败后被 systemd start-limit 锁死，并确保进程退出后自动拉起
+[Unit]
+StartLimitIntervalSec=0
+StartLimitInterval=0
+StartLimitBurst=0
+
+[Service]
+Restart=always
+RestartSec=10
+EOF
+    mv "$tmp_file" "$drop_file" || {
+        rm -f "$tmp_file" 2>/dev/null
+        return 1
+    }
+    boot_recovery_install_assets && boot_recovery_patch_unit "$unit"
+}
+
+snell_sync_reserved_ports() {
+    local ports_csv="$1"
+    local reserved_file="/etc/sysctl.d/99-zzz-snell-reserved-ports.conf"
+    local extra_ports="" sysctl_file line val merged tmp_file
+
+    [ -n "$ports_csv" ] || return 0
+
+    for sysctl_file in /etc/sysctl.d/*.conf /etc/sysctl.conf; do
+        [ -f "$sysctl_file" ] || continue
+        [ "$(basename "$sysctl_file")" = "99-zzz-snell-reserved-ports.conf" ] && continue
+        line=$(grep -E '^[[:space:]]*net\.ipv4\.ip_local_reserved_ports' "$sysctl_file" 2>/dev/null | tail -n 1)
+        [ -z "$line" ] && continue
+        val=$(echo "$line" | sed -E 's/^[^=]+=[[:space:]]*//' | tr -d ' ')
+        [ -z "$val" ] && continue
+        extra_ports="${extra_ports:+$extra_ports,}${val}"
+    done
+
+    merged=$(printf '%s,%s\n' "$ports_csv" "$extra_ports" | snell_normalize_reserved_ports)
+    [ -n "$merged" ] || return 0
+
+    tmp_file=$(mktemp /tmp/snell-reserved-ports.XXXXXX) || return 1
+    cat > "$tmp_file" <<EOF
+# Snell 监听端口保留列表（由 net-tcp-tune 自动管理，请勿手动修改）
+# 作用：让内核 outbound 临时端口分配跳过这些端口，避免抢占 Snell 监听端口
+# 包含：当前 Snell 端口 + 其他 sysctl 文件中已设置的保留端口（含端口段，合并去重）
+net.ipv4.ip_local_reserved_ports = ${merged}
+EOF
+    mv "$tmp_file" "$reserved_file" || {
+        rm -f "$tmp_file" 2>/dev/null
+        return 1
+    }
+    sysctl -p "$reserved_file" >/dev/null 2>&1 || true
+}
+
+snell_bj_to_local_time() {
+    local bh=$1 bm=$2 base td epoch lh lm
+    base=$(TZ='Asia/Shanghai' date +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)
+    td=$base
+    epoch=$(TZ='Asia/Shanghai' date -d "$td $bh:$bm:00" +%s 2>/dev/null \
+            || date -d "$td $bh:$bm:00" +%s 2>/dev/null)
+    if [ -n "$epoch" ]; then
+        lh=$(date -d "@$epoch" +%H 2>/dev/null || date -r "$epoch" +%H 2>/dev/null)
+        lm=$(date -d "@$epoch" +%M 2>/dev/null || date -r "$epoch" +%M 2>/dev/null)
+    fi
+    if ! [[ "$lh" =~ ^[0-9]{1,2}$ ]]; then
+        local sys_offset_str delta_h=-8 sign off_h
+        sys_offset_str=$(date +%z 2>/dev/null)
+        if [[ "$sys_offset_str" =~ ^([+-])([0-9]{2})([0-9]{2})$ ]]; then
+            sign="${BASH_REMATCH[1]}"
+            off_h=$((10#${BASH_REMATCH[2]}))
+            if [ "$sign" = "+" ]; then
+                delta_h=$((off_h - 8))
+            else
+                delta_h=$((-off_h - 8))
+            fi
+        fi
+        lh=$((10#$bh + delta_h))
+        lm=$((10#$bm))
+        while [ "$lh" -lt 0 ]; do lh=$((lh + 24)); done
+        while [ "$lh" -ge 24 ]; do lh=$((lh - 24)); done
+    fi
+    printf "%02d %02d\n" $((10#$lh)) $((10#$lm))
+}
+
+snell_install_daily_restart_cron() {
+    local systemctl_bin tmp_cron local_h local_m cron_active=0 cron_service
+
+    if ! command -v crontab >/dev/null 2>&1; then
+        echo -e "  ${SNELL_YELLOW}⚠ 未安装 crontab，跳过每日重启兜底${SNELL_RESET}"
+        echo -e "      Debian/Ubuntu: apt install -y cron"
+        echo -e "      CentOS/Rocky:  yum install -y cronie"
+        return 0
+    fi
+
+    systemctl_bin=$(command -v systemctl 2>/dev/null || echo "/bin/systemctl")
+    cat > /usr/local/bin/snell-daily-restart.sh <<EOF
+#!/bin/sh
+# Snell 每日重启 wrapper（由 net-tcp-tune 自动生成，请勿手动修改）
+# 只重启当前 active 的 Snell，不会拉起用户手动停止/禁用的实例。
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SYSTEMCTL_BIN="${systemctl_bin}"
+LOCK_FILE="/tmp/net-tcp-tune-snell.lock"
+
+restart_active_snell() {
+    seen_units=""
+    for dir in /etc/systemd/system /lib/systemd/system /usr/lib/systemd/system; do
+        for svc in "\$dir"/snell-*.service "\$dir"/snell.service; do
+            [ -f "\$svc" ] || continue
+            unit=\$(basename "\$svc")
+            case "\$unit" in
+                snell.service) ;;
+                snell-[0-9]*.service)
+                    echo "\$unit" | grep -Eq '^snell-[0-9]+\.service$' || continue
+                    ;;
+                *) continue ;;
+            esac
+            case " \$seen_units " in
+                *" \$unit "*) continue ;;
+            esac
+            seen_units="\$seen_units \$unit"
+            "\$SYSTEMCTL_BIN" is-active --quiet "\$unit" 2>/dev/null && \
+                "\$SYSTEMCTL_BIN" restart "\$unit" >/dev/null 2>&1
+        done
+    done
+}
+
+if command -v flock >/dev/null 2>&1; then
+    (
+        flock -n 9 || exit 0
+        restart_active_snell
+    ) 9>"\$LOCK_FILE"
+else
+    restart_active_snell
+fi
+EOF
+    chmod +x /usr/local/bin/snell-daily-restart.sh
+
+    read -r local_h local_m < <(snell_bj_to_local_time 04 00)
+    tmp_cron=$(mktemp) || return 1
+    crontab -l 2>/dev/null | grep -v "# Snell每日重启" > "$tmp_cron" || true
+    echo "${local_m} ${local_h} * * * /usr/local/bin/snell-daily-restart.sh >/dev/null 2>&1  # Snell每日重启" >> "$tmp_cron"
+    if crontab "$tmp_cron" 2>/dev/null; then
+        rm -f "$tmp_cron"
+        echo -e "  ${SNELL_GREEN}✓ 已注册每日北京时间 04:00 自动重启兜底（本地时间 ${local_h}:${local_m}）${SNELL_RESET}"
+    else
+        echo -e "  ${SNELL_RED}✗ 注册每日重启 cron 失败（临时文件保留: $tmp_cron）${SNELL_RESET}"
+        return 1
+    fi
+
+    for cron_service in cron crond cronie cronie.service; do
+        if systemctl is-active --quiet "$cron_service" 2>/dev/null; then
+            cron_active=1
+            break
+        fi
+    done
+    if [ "$cron_active" -eq 0 ]; then
+        echo -e "  ${SNELL_YELLOW}⚠ cron 服务未运行，定时任务不会触发${SNELL_RESET}"
+        echo -e "      Debian/Ubuntu: ${SNELL_CYAN}systemctl enable --now cron${SNELL_RESET}"
+        echo -e "      CentOS/Rocky:  ${SNELL_CYAN}systemctl enable --now crond${SNELL_RESET}"
+    fi
+}
+
+snell_apply_runtime_guards() {
+    local enable_cron="${1:-no}"
+    local units=() unit port ports_csv patched=0 failed=0
+
+    while IFS= read -r unit; do
+        units+=("$unit")
+    done < <(snell_list_units)
+
+    if [ "${#units[@]}" -eq 0 ]; then
+        echo -e "  ${SNELL_YELLOW}⚠ 未找到 Snell systemd 实例，跳过稳定性修复${SNELL_RESET}"
+        return 0
+    fi
+
+    echo -e "${SNELL_CYAN}正在补齐 Snell 稳定性防护...${SNELL_RESET}"
+    for unit in "${units[@]}"; do
+        if snell_write_systemd_dropin "$unit"; then
+            patched=$((patched + 1))
+            echo -e "  ${SNELL_GREEN}✓ systemd 防护已写入: ${unit}${SNELL_RESET}"
+        else
+            failed=$((failed + 1))
+            echo -e "  ${SNELL_RED}✗ systemd 防护写入失败: ${unit}${SNELL_RESET}"
+        fi
+    done
+
+    ports_csv=$(snell_current_ports_csv)
+    if [ -n "$ports_csv" ]; then
+        if snell_sync_reserved_ports "$ports_csv"; then
+            echo -e "  ${SNELL_GREEN}✓ 已保护 Snell 监听端口: ${ports_csv}${SNELL_RESET}"
+        else
+            failed=$((failed + 1))
+            echo -e "  ${SNELL_RED}✗ Snell 端口保留写入失败${SNELL_RESET}"
+        fi
+    else
+        echo -e "  ${SNELL_YELLOW}⚠ 未解析到 Snell 端口，跳过端口保留${SNELL_RESET}"
+    fi
+
+    if systemctl daemon-reload; then
+        echo -e "  ${SNELL_GREEN}✓ systemd 配置已重载${SNELL_RESET}"
+    else
+        failed=$((failed + 1))
+        echo -e "  ${SNELL_RED}✗ systemd daemon-reload 失败${SNELL_RESET}"
+    fi
+
+    for unit in "${units[@]}"; do
+        systemctl reset-failed "$unit" 2>/dev/null || true
+    done
+    echo -e "  ${SNELL_GREEN}✓ 已清理 Snell failed/start-limit 状态${SNELL_RESET}"
+    systemctl enable --now net-tcp-boot-watch.timer || failed=$((failed + 1))
+
+    if [ "$enable_cron" = "yes" ]; then
+        snell_install_daily_restart_cron || failed=$((failed + 1))
+    fi
+
+    [ "$failed" -eq 0 ]
+}
+
+snell_restart_units_with_healthcheck() {
+    local unit restart_count=0 restart_failed=0
+
+    if [ "$#" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}没有需要重启的 Snell 实例（已停止/禁用的实例不会被自动拉起）${SNELL_RESET}"
+        return 0
+    fi
+
+    for unit in "$@"; do
+        systemctl reset-failed "$unit" 2>/dev/null || true
+        if systemctl restart "$unit"; then
+            sleep 2
+            if systemctl is-active --quiet "$unit"; then
+                restart_count=$((restart_count + 1))
+                echo -e "  ${SNELL_GREEN}✓ 已重启并确认运行: ${unit}${SNELL_RESET}"
+            else
+                restart_failed=$((restart_failed + 1))
+                echo -e "  ${SNELL_RED}✗ ${unit} 重启后未保持运行${SNELL_RESET}"
+                journalctl -u "$unit" -n 20 --no-pager 2>/dev/null || true
+            fi
+        else
+            restart_failed=$((restart_failed + 1))
+            echo -e "  ${SNELL_RED}✗ 重启失败: ${unit}${SNELL_RESET}"
+            journalctl -u "$unit" -n 20 --no-pager 2>/dev/null || true
+        fi
+    done
+
+    echo -e "${SNELL_GREEN}Snell 重启完成：成功 ${restart_count} 个，失败 ${restart_failed} 个${SNELL_RESET}"
+    [ "$restart_failed" -eq 0 ]
+}
+
+snell_health_check() {
+    local unit port active_state enabled_state listen_state drop_state reserved_list reserved_state
+    local count=0 problem=0 cron_state cron_line wrapper_state
+
+    echo -e "${SNELL_CYAN}=== Snell 健康检查 ===${SNELL_RESET}"
+    reserved_list=$(sysctl -n net.ipv4.ip_local_reserved_ports 2>/dev/null || true)
+
+    while IFS= read -r unit; do
+        count=$((count + 1))
+        port=$(snell_unit_port "$unit" 2>/dev/null || echo "未知")
+        active_state=$(systemctl is-active "$unit" 2>/dev/null)
+        enabled_state=$(systemctl is-enabled "$unit" 2>/dev/null)
+        [ -n "$active_state" ] || active_state="unknown"
+        [ -n "$enabled_state" ] || enabled_state="unknown"
+
+        listen_state="未检测"
+        if snell_valid_port "$port"; then
+            if ss -ltnH "( sport = :${port} )" 2>/dev/null | grep -q . || \
+               ss -lunH "( sport = :${port} )" 2>/dev/null | grep -q .; then
+                listen_state="已监听"
+            else
+                listen_state="未监听"
+                [ "$active_state" = "active" ] && problem=$((problem + 1))
+            fi
+        fi
+
+        if [ -f "/etc/systemd/system/${unit}.d/99-net-tcp-tune-fix.conf" ]; then
+            drop_state="已修补"
+        else
+            drop_state="未修补"
+            problem=$((problem + 1))
+        fi
+
+        reserved_state="未检测"
+        if snell_valid_port "$port"; then
+            if snell_reserved_contains_port "$reserved_list" "$port"; then
+                reserved_state="已保护"
+            else
+                reserved_state="未保护"
+                problem=$((problem + 1))
+            fi
+        fi
+
+        echo "  - ${unit}: 状态=${active_state}/${enabled_state}, 端口=${port}, 监听=${listen_state}, systemd=${drop_state}, 端口保留=${reserved_state}"
+    done < <(snell_list_units)
+
+    if [ "$count" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}未找到 Snell 实例${SNELL_RESET}"
+        return 1
+    fi
+
+    wrapper_state="未安装"
+    [ -x /usr/local/bin/snell-daily-restart.sh ] && wrapper_state="已安装"
+    cron_line=$(crontab -l 2>/dev/null | grep "Snell每日重启" || true)
+    cron_state="未注册"
+    [ -n "$cron_line" ] && cron_state="已注册"
+    echo "  - 每日重启兜底: wrapper=${wrapper_state}, cron=${cron_state}"
+
+    if [ "$problem" -eq 0 ]; then
+        echo -e "${SNELL_GREEN}健康检查结果：基础防护已就绪。${SNELL_RESET}"
+        return 0
+    else
+        echo -e "${SNELL_YELLOW}健康检查结果：发现 ${problem} 个需要修复/确认的项目。${SNELL_RESET}"
+        return 1
+    fi
+}
+
+repair_snell_connectivity() {
+    local units=() restart_targets=() unit
+    local repair_failed=0
+
+    echo -e "${SNELL_GREEN}=== 一键修复 Snell 不通/掉线 ===${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}本操作不会删除节点配置，不会卸载 Snell；会补齐稳定性防护并重启需要恢复的实例。${SNELL_RESET}"
+
+    if ! snell_acquire_lock; then
+        return 1
+    fi
+
+    while IFS= read -r unit; do
+        units+=("$unit")
+    done < <(snell_list_units)
+
+    if [ "${#units[@]}" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}未检测到 Snell 实例，无需修复。${SNELL_RESET}"
+        snell_release_lock
+        return 0
+    fi
+
+    echo -e "${SNELL_CYAN}检测到 ${#units[@]} 个 Snell 实例：${SNELL_RESET}"
+    for unit in "${units[@]}"; do
+        local unit_state
+        unit_state=$(systemctl is-active "$unit" 2>/dev/null)
+        [ -n "$unit_state" ] || unit_state="unknown"
+        echo "  - ${unit}: ${unit_state}"
+        if snell_should_restart_unit "$unit"; then
+            restart_targets+=("$unit")
+        fi
+    done
+
+    snell_apply_runtime_guards yes || repair_failed=1
+    echo -e "${SNELL_CYAN}正在重启原本运行中或 failed+enabled 的 Snell 实例...${SNELL_RESET}"
+    snell_restart_units_with_healthcheck "${restart_targets[@]}" || repair_failed=1
+    snell_health_check || repair_failed=1
+
+    snell_release_lock
+    return "$repair_failed"
+}
+
+# 获取 Snell 当前公网 IP（查看配置时实时刷新，避免 VPS 换 IP 后输出旧地址）
+get_snell_public_ip() {
+    local ip_mode="$1"
+    local host_ip=""
+
+    case "$ip_mode" in
+        v6-only)
+            host_ip=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -6 -s --max-time 5 https://ifconfig.co 2>/dev/null)
+            ;;
+        v4-only)
+            host_ip=$(curl -4 -s --max-time 5 https://api.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -4 -s --max-time 5 https://ifconfig.me 2>/dev/null)
+            ;;
+        *)
+            host_ip=$(curl -4 -s --max-time 5 https://api.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null)
+            ;;
+    esac
+
+    echo "$host_ip"
+}
+
+# 实时生成并输出 Snell 客户端配置
+show_snell_config_live() {
+    local port="$1"
+    local conf_file="/etc/snell/snell-${port}.conf"
+    local saved_file="/etc/snell/config-${port}.txt"
+
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${SNELL_RED}无效端口，请输入 1-65535 之间的数字${SNELL_RESET}"
+        return 1
+    fi
+
+    # 兼容旧版单实例
+    if [ ! -f "$conf_file" ] && [ -f "/etc/snell/snell-server.conf" ] && grep -Eq ":[[:space:]]*${port}([[:space:]]|$)" /etc/snell/snell-server.conf 2>/dev/null; then
+        conf_file="/etc/snell/snell-server.conf"
+        saved_file="/etc/snell/config.txt"
+    fi
+
+    if [ ! -f "$conf_file" ]; then
+        echo -e "${SNELL_RED}未找到端口 ${port} 的 Snell 服务配置文件${SNELL_RESET}"
+        return 1
+    fi
+
+    local saved_line node_name psk ipv6_value ip_mode ip_version_str host_ip host_ip_formatted final_config
+    saved_line=""
+    [ -f "$saved_file" ] && saved_line=$(head -n 1 "$saved_file" 2>/dev/null)
+
+    if [ -n "$saved_line" ] && echo "$saved_line" | grep -q " = snell,"; then
+        node_name=$(echo "$saved_line" | sed -E 's/[[:space:]]*=[[:space:]]*snell,.*$//')
+    else
+        node_name="Snell-Node-${port}"
+    fi
+
+    psk=$(grep -E '^[[:space:]]*psk[[:space:]]*=' "$conf_file" 2>/dev/null | tail -n 1 | sed -E 's/^[^=]+=[[:space:]]*//; s/[[:space:]]*$//')
+    if [ -z "$psk" ]; then
+        echo -e "${SNELL_RED}未能从 ${conf_file} 读取 PSK，无法生成客户端配置${SNELL_RESET}"
+        return 1
+    fi
+
+    if echo "$saved_line" | grep -q "ip-version=v6-only"; then
+        ip_mode="v6-only"
+        ip_version_str=", ip-version=v6-only"
+    elif echo "$saved_line" | grep -q "ip-version=v4-only"; then
+        ip_mode="v4-only"
+        ip_version_str=", ip-version=v4-only"
+    else
+        ipv6_value=$(grep -E '^[[:space:]]*ipv6[[:space:]]*=' "$conf_file" 2>/dev/null | tail -n 1 | sed -E 's/^[^=]+=[[:space:]]*//; s/[[:space:]]*$//')
+        if [ "$ipv6_value" = "false" ]; then
+            ip_mode="v4-only"
+            ip_version_str=", ip-version=v4-only"
+        else
+            ip_mode="dual"
+            ip_version_str=""
+        fi
+    fi
+
+    host_ip=$(get_snell_public_ip "$ip_mode")
+    if [ -z "$host_ip" ]; then
+        echo -e "${SNELL_YELLOW}⚠ 无法自动获取当前公网 IP，节点链接里的 IP 需要您手动替换${SNELL_RESET}"
+        host_ip="<请手动填写公网IP>"
+    fi
+
+    host_ip_formatted="$host_ip"
+    if echo "$host_ip" | grep -q ":"; then
+        host_ip_formatted="[${host_ip}]"
+    fi
+
+    final_config="${node_name} = snell, ${host_ip_formatted}, ${port}, psk=${psk}, version=5, reuse=true${ip_version_str}"
+    echo -e "${SNELL_CYAN}${final_config}${SNELL_RESET}"
+
+    # 成功拿到真实公网 IP 时刷新缓存，列表里的节点名称仍沿用该文件
+    if [ "$host_ip" != "<请手动填写公网IP>" ]; then
+        echo "$final_config" > "$saved_file" 2>/dev/null && chmod 600 "$saved_file" 2>/dev/null || true
+    fi
+}
+
 # 安装 Snell
+# 下载并校验 Snell 二进制（install_snell / update_snell 共用）
+# 成功：stdout 输出解压后的临时目录路径（内含 snell-server），调用方负责用完后 rm -rf
+# 失败：返回 1，临时文件已自行清理
+snell_download_binary() {
+    local arch version snell_url tmp_zip tmp_dir
+    # 用 uname -m 替代 arch(后者在某些精简发行版不存在)
+    arch=$(uname -m)
+    version="v${SNELL_DEFAULT_VERSION}"
+    case "$arch" in
+        aarch64|arm64)
+            snell_url="https://dl.nssurge.com/snell/snell-server-${version}-linux-aarch64.zip"
+            ;;
+        x86_64|amd64)
+            snell_url="https://dl.nssurge.com/snell/snell-server-${version}-linux-amd64.zip"
+            ;;
+        *)
+            echo -e "${SNELL_RED}不支持的架构: ${arch}（仅支持 x86_64 / aarch64）${SNELL_RESET}" >&2
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 不支持的架构: ${arch}" >> "$SNELL_LOG_FILE"
+            return 1
+            ;;
+    esac
+
+    tmp_zip=$(mktemp /tmp/snell-server.XXXXXX.zip) || return 1
+    tmp_dir=$(mktemp -d /tmp/snell-dl.XXXXXX) || { rm -f "$tmp_zip"; return 1; }
+
+    echo -e "${SNELL_GREEN}正在下载 Snell ${version}...${SNELL_RESET}" >&2
+    if ! wget --timeout=30 --tries=3 -q --show-progress "${snell_url}" -O "$tmp_zip" || [ ! -s "$tmp_zip" ]; then
+        echo -e "${SNELL_RED}下载 Snell 失败。${SNELL_RESET}" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 下载 Snell 失败" >> "$SNELL_LOG_FILE"
+        rm -f "$tmp_zip"; rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # unzip -t 完整性测试，截断/损坏的压缩包在这里拦下
+    if ! unzip -t "$tmp_zip" >/dev/null 2>&1 || ! unzip -o "$tmp_zip" -d "$tmp_dir" >/dev/null 2>&1; then
+        echo -e "${SNELL_RED}Snell 压缩包损坏或解压失败。${SNELL_RESET}" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 解压缩 Snell 失败" >> "$SNELL_LOG_FILE"
+        rm -f "$tmp_zip"; rm -rf "$tmp_dir"
+        return 1
+    fi
+    rm -f "$tmp_zip"
+
+    if [ ! -f "${tmp_dir}/snell-server" ]; then
+        echo -e "${SNELL_RED}解压后未找到 snell-server 二进制。${SNELL_RESET}" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    echo "$tmp_dir"
+}
+
 install_snell() {
     echo -e "${SNELL_GREEN}正在安装 Snell${SNELL_RESET}"
 
@@ -7726,56 +8912,26 @@ install_snell() {
         return 1
     fi
 
-    # 下载 Snell 服务器文件
-    # 修复 Bug 6: 用 uname -m 替代 arch(后者在某些精简发行版不存在),并支持 ARM 全系
-    ARCH=$(uname -m)
-    VERSION="v5.0.1"
-    SNELL_URL=""
     INSTALL_DIR="/usr/local/bin"
     SYSTEMD_SERVICE_FILE="/lib/systemd/system/snell.service"
     CONF_DIR="/etc/snell"
     CONF_FILE="${CONF_DIR}/snell-server.conf"
 
-    case "$ARCH" in
-        aarch64|arm64)
-            SNELL_URL="https://dl.nssurge.com/snell/snell-server-${VERSION}-linux-aarch64.zip"
-            ;;
-        x86_64|amd64)
-            SNELL_URL="https://dl.nssurge.com/snell/snell-server-${VERSION}-linux-amd64.zip"
-            ;;
-        *)
-            echo -e "${SNELL_RED}不支持的架构: ${ARCH}（仅支持 x86_64 / aarch64）${SNELL_RESET}"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 不支持的架构: ${ARCH}" >> "$SNELL_LOG_FILE"
-            cleanup_partial_install_snell "${SNELL_PORT:-}"
-            return 1
-            ;;
-    esac
+    # 下载并校验 Snell 二进制（公共函数，与 update_snell 共用）
+    local dl_dir
+    dl_dir=$(snell_download_binary) || {
+        cleanup_partial_install_snell "${SNELL_PORT:-}"
+        return 1
+    }
 
-    # 下载 Snell 服务器文件（修复 Bug: 下载到 /tmp，加超时和重试）
-    wget --timeout=30 --tries=3 -q --show-progress "${SNELL_URL}" -O /tmp/snell-server.zip
-    if [ $? -ne 0 ] || [ ! -s /tmp/snell-server.zip ]; then
-        echo -e "${SNELL_RED}下载 Snell 失败。${SNELL_RESET}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 下载 Snell 失败" >> "$SNELL_LOG_FILE"
-        rm -f /tmp/snell-server.zip
+    if ! install -m 755 "${dl_dir}/snell-server" "${INSTALL_DIR}/snell-server"; then
+        echo -e "${SNELL_RED}安装 snell-server 到 ${INSTALL_DIR} 失败。${SNELL_RESET}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 安装 snell-server 失败" >> "$SNELL_LOG_FILE"
+        rm -rf "$dl_dir"
         cleanup_partial_install_snell "${SNELL_PORT:-}"
         return 1
     fi
-
-    # 解压缩文件到指定目录
-    unzip -o /tmp/snell-server.zip -d ${INSTALL_DIR}
-    if [ $? -ne 0 ]; then
-        echo -e "${SNELL_RED}解压缩 Snell 失败。${SNELL_RESET}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 解压缩 Snell 失败" >> "$SNELL_LOG_FILE"
-        rm -f /tmp/snell-server.zip
-        cleanup_partial_install_snell "${SNELL_PORT:-}"
-        return 1
-    fi
-
-    # 删除下载的 zip 文件
-    rm -f /tmp/snell-server.zip
-
-    # 赋予执行权限
-    chmod +x ${INSTALL_DIR}/snell-server
+    rm -rf "$dl_dir"
 
     # 生成随机端口和密码（修复 ①：避开 Linux 默认临时端口起点 32768，降低被抢概率）
     SNELL_PORT=$(shuf -i 10000-29999 -n 1)
@@ -7933,6 +9089,12 @@ SyslogIdentifier=snell-${SNELL_PORT}
 WantedBy=multi-user.target
 EOF
 
+    if ! boot_recovery_install_assets || ! boot_recovery_patch_unit "$SNELL_SERVICE_NAME"; then
+        echo -e "${SNELL_RED}安装Snell DNS启动保护失败${SNELL_RESET}"
+        cleanup_partial_install_snell "${SNELL_PORT:-}"
+        return 1
+    fi
+
     # 重载 Systemd 配置
     systemctl daemon-reload
     if [ $? -ne 0 ]; then
@@ -8025,153 +9187,101 @@ EOF
     # 修复加分项: PSK 文件权限收紧到 600（仅 root 可读）
     chmod 600 /etc/snell/config-${SNELL_PORT}.txt
     # 注：add_snell_port_to_reserved 已在 systemctl start 之前调用（修复 Bug 4，时机提前）
+    # 安装成功后再补一次统一 drop-in，便于后续健康检查和旧实例修复逻辑保持一致
+    snell_apply_runtime_guards no || true
 }
 
 # 更新 Snell
 update_snell() {
-    # 修复 Bug 1: 原子下载 + 失败回滚 + exit→return + 删除旧路径 cat
     local INSTALL_DIR="/usr/local/bin"
     local SNELL_BIN="${INSTALL_DIR}/snell-server"
+    local restart_services=()
+    local svc_name
+
     if [ ! -f "${SNELL_BIN}" ]; then
         echo -e "${SNELL_YELLOW}Snell 未安装，跳过更新${SNELL_RESET}"
         return 0
     fi
 
-    echo -e "${SNELL_GREEN}Snell 正在更新${SNELL_RESET}"
-
-    # 1. 收集当前活跃实例（用于失败回滚时重启）
-    local running_services=()
-    local svc_file svc_name
-    for svc_file in /etc/systemd/system/snell-*.service; do
-        [ -f "$svc_file" ] || continue
-        svc_name=$(basename "$svc_file")
-        if systemctl is-active --quiet "$svc_name" 2>/dev/null; then
-            running_services+=("$svc_name")
-        fi
-    done
-    # 兼容旧版单实例
-    local has_legacy=0
-    if systemctl is-active --quiet snell 2>/dev/null; then
-        has_legacy=1
+    if ! snell_acquire_lock; then
+        return 1
     fi
 
-    # 2. 等待包管理器并装依赖
+    echo -e "${SNELL_GREEN}Snell 正在更新核心程序${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}更新前先补齐旧实例稳定性防护（不会删除节点配置）${SNELL_RESET}"
+
+    snell_apply_runtime_guards no || {
+        echo -e "${SNELL_YELLOW}⚠ 稳定性防护存在未完成项，仍继续更新核心程序；请留意后续健康检查。${SNELL_RESET}"
+    }
+
+    # 收集需要恢复的实例：active 或 failed+enabled；不自动拉起用户手动停止/禁用的实例
+    while IFS= read -r svc_name; do
+        if snell_should_restart_unit "$svc_name"; then
+            restart_services+=("$svc_name")
+        fi
+    done < <(snell_list_units)
+
     wait_for_package_manager_snell
     if ! install_required_packages_snell; then
         echo -e "${SNELL_RED}安装必要软件包失败，请检查您的网络连接。${SNELL_RESET}"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 安装必要软件包失败" >> "$SNELL_LOG_FILE"
+        snell_release_lock
         return 1
     fi
 
-    # 3. 检测架构（修复 Bug 6: uname -m + ARM 分支）
-    local ARCH=$(uname -m)
-    local VERSION="v5.0.1"
-    local SNELL_URL=""
-    case "$ARCH" in
-        aarch64|arm64)
-            SNELL_URL="https://dl.nssurge.com/snell/snell-server-${VERSION}-linux-aarch64.zip"
-            ;;
-        x86_64|amd64)
-            SNELL_URL="https://dl.nssurge.com/snell/snell-server-${VERSION}-linux-amd64.zip"
-            ;;
-        *)
-            echo -e "${SNELL_RED}不支持的架构: ${ARCH}${SNELL_RESET}"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 不支持的架构: ${ARCH}" >> "$SNELL_LOG_FILE"
-            return 1
-            ;;
-    esac
-
-    # 4. 下载到临时目录（不动现有二进制和服务）
-    local TMP_ZIP TMP_DIR
-    TMP_ZIP=$(mktemp /tmp/snell-server.XXXXXX.zip) || return 1
-    TMP_DIR=$(mktemp -d /tmp/snell-update.XXXXXX) || { rm -f "$TMP_ZIP"; return 1; }
-
-    echo -e "${SNELL_GREEN}正在下载 Snell ${VERSION}...${SNELL_RESET}"
-    if ! wget --timeout=30 --tries=3 -q --show-progress "${SNELL_URL}" -O "$TMP_ZIP"; then
-        echo -e "${SNELL_RED}下载 Snell 失败。${SNELL_RESET}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 下载 Snell 失败" >> "$SNELL_LOG_FILE"
-        rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
+    # 下载并校验 Snell 二进制（公共函数，与 install_snell 共用）
+    local TMP_DIR
+    TMP_DIR=$(snell_download_binary) || {
+        snell_release_lock
         return 1
-    fi
-    # 校验大小（防中间盒返回 0 字节 / HTML 错误页）
-    if [ ! -s "$TMP_ZIP" ]; then
-        echo -e "${SNELL_RED}下载文件为空或损坏。${SNELL_RESET}"
-        rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
+    }
+
+    if ! cp "${SNELL_BIN}" "${SNELL_BIN}.bak"; then
+        echo -e "${SNELL_RED}备份旧 Snell 二进制失败，已取消更新。${SNELL_RESET}"
+        rm -rf "$TMP_DIR"
+        snell_release_lock
         return 1
     fi
 
-    # 5. 解压到临时目录验证
-    if ! unzip -o "$TMP_ZIP" -d "$TMP_DIR" >/dev/null 2>&1; then
-        echo -e "${SNELL_RED}解压缩 Snell 失败。${SNELL_RESET}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 解压缩 Snell 失败" >> "$SNELL_LOG_FILE"
-        rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
-        return 1
-    fi
-    if [ ! -f "$TMP_DIR/snell-server" ]; then
-        echo -e "${SNELL_RED}解压后未找到 snell-server 二进制。${SNELL_RESET}"
-        rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
-        return 1
-    fi
-
-    # 6. 备份原二进制
-    cp "${SNELL_BIN}" "${SNELL_BIN}.bak"
-
-    # 7. 此刻才停所有实例（已确保新二进制就绪）
-    echo -e "${SNELL_GREEN}正在停止所有 Snell 服务...${SNELL_RESET}"
-    for svc_name in "${running_services[@]}"; do
+    echo -e "${SNELL_GREEN}正在停止需要恢复的 Snell 服务...${SNELL_RESET}"
+    for svc_name in "${restart_services[@]}"; do
         systemctl stop "$svc_name" 2>/dev/null
     done
-    [ "$has_legacy" -eq 1 ] && systemctl stop snell 2>/dev/null
 
-    # 8. 原子替换二进制
     if ! mv "$TMP_DIR/snell-server" "${SNELL_BIN}"; then
         echo -e "${SNELL_RED}二进制替换失败，回滚...${SNELL_RESET}"
         mv "${SNELL_BIN}.bak" "${SNELL_BIN}" 2>/dev/null
-        for svc_name in "${running_services[@]}"; do
+        for svc_name in "${restart_services[@]}"; do
             systemctl start "$svc_name" 2>/dev/null
         done
-        [ "$has_legacy" -eq 1 ] && systemctl start snell 2>/dev/null
-        rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
+        rm -rf "$TMP_DIR"
+        snell_release_lock
         return 1
     fi
     chmod +x "${SNELL_BIN}"
-    rm -f "$TMP_ZIP"; rm -rf "$TMP_DIR"
+    rm -rf "$TMP_DIR"
 
-    # 9. 重启所有原本跑着的实例
-    echo -e "${SNELL_GREEN}正在重启所有 Snell 服务...${SNELL_RESET}"
-    local restart_count=0
-    local restart_failed=0
-    for svc_name in "${running_services[@]}"; do
-        if systemctl restart "$svc_name"; then
-            restart_count=$((restart_count + 1))
-        else
-            restart_failed=$((restart_failed + 1))
-            echo -e "${SNELL_RED}重启 ${svc_name} 失败${SNELL_RESET}"
-        fi
-    done
-    [ "$has_legacy" -eq 1 ] && systemctl restart snell 2>/dev/null
-
-    # 10. 失败时回滚二进制
-    if [ "$restart_failed" -gt 0 ]; then
-        echo -e "${SNELL_RED}有 ${restart_failed} 个服务重启失败，回滚到旧版本二进制...${SNELL_RESET}"
+    echo -e "${SNELL_GREEN}正在重启并验证 Snell 服务...${SNELL_RESET}"
+    if ! snell_restart_units_with_healthcheck "${restart_services[@]}"; then
+        echo -e "${SNELL_RED}有 Snell 服务重启失败，回滚到旧版本二进制...${SNELL_RESET}"
         if [ -f "${SNELL_BIN}.bak" ]; then
             mv "${SNELL_BIN}.bak" "${SNELL_BIN}"
             chmod +x "${SNELL_BIN}"
-            for svc_name in "${running_services[@]}"; do
+            for svc_name in "${restart_services[@]}"; do
                 systemctl restart "$svc_name" 2>/dev/null
             done
             echo -e "${SNELL_YELLOW}已回滚到旧版本，请检查日志后重试更新。${SNELL_RESET}"
         fi
+        snell_release_lock
         return 1
     fi
 
-    # 11. 全部成功，清理备份
     rm -f "${SNELL_BIN}.bak"
 
-    echo -e "${SNELL_GREEN}Snell 更新成功（共重启 ${restart_count} 个实例）${SNELL_RESET}"
-    # 修复 Bug 1: 删除旧版 cat /etc/snell/config.txt（多实例下该文件不存在）
-    # 改为列出所有当前实例
+    echo -e "${SNELL_GREEN}Snell 核心程序更新成功${SNELL_RESET}"
+    snell_health_check || true
     list_snell_instances
+    snell_release_lock
 }
 
 # 列出所有 Snell 实例
@@ -8182,62 +9292,37 @@ list_snell_instances() {
     echo "================================================================"
 
     local count=0
-    
-    # 检查新版多实例服务
-    for service_file in /etc/systemd/system/snell-*.service; do
-        if [ -f "$service_file" ]; then
-            local port=$(echo "$service_file" | sed -E 's/.*snell-([0-9]+)\.service/\1/')
-            
-            # 判断状态（纯文本，不带颜色）
-            local status_text="已停止"
-            if systemctl is-active --quiet "snell-${port}.service"; then
-                status_text="运行中"
-            fi
-            
-            # 从配置文件读取节点名称
-            local node_name="未命名"
-            if [ -f "/etc/snell/config-${port}.txt" ]; then
-                node_name=$(head -n 1 "/etc/snell/config-${port}.txt" | awk -F' = ' '{print $1}')
-            fi
-            
-            local version="v5"
-            
-            # 输出时根据状态添加颜色
-            if [ "$status_text" = "运行中" ]; then
-                printf "%-30s %-12s ${SNELL_GREEN}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "$version"
-            else
-                printf "%-30s %-12s ${SNELL_RED}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "$version"
-            fi
-            ((count++))
-        fi
-    done
+    local unit port status_text node_name version
 
-    # 检查旧版单实例服务
-    if [ -f "/lib/systemd/system/snell.service" ] || [ -f "/etc/systemd/system/snell.service" ]; then
-        local status_text="已停止"
-        if systemctl is-active --quiet "snell.service"; then
+    while IFS= read -r unit; do
+        port=$(snell_unit_port "$unit" 2>/dev/null || echo "未知")
+        status_text="已停止"
+        if systemctl is-active --quiet "$unit" 2>/dev/null; then
             status_text="运行中"
+        elif [ "$(systemctl is-active "$unit" 2>/dev/null)" = "failed" ]; then
+            status_text="异常"
         fi
-        
-        # 尝试从配置文件读取端口
-        local port="未知"
-        if [ -f "/etc/snell/snell-server.conf" ]; then
-            port=$(grep "listen" /etc/snell/snell-server.conf | awk -F':' '{print $NF}')
+
+        node_name="未命名"
+        if [ "$unit" = "snell.service" ]; then
+            node_name="旧版实例"
+            if [ -f "/etc/snell/config.txt" ]; then
+                node_name=$(head -n 1 "/etc/snell/config.txt" | awk -F' = ' '{print $1}')
+            fi
+        elif snell_valid_port "$port" && [ -f "/etc/snell/config-${port}.txt" ]; then
+            node_name=$(head -n 1 "/etc/snell/config-${port}.txt" | awk -F' = ' '{print $1}')
         fi
-        
-        # 尝试读取旧版节点名称
-        local node_name="旧版实例"
-        if [ -f "/etc/snell/config.txt" ]; then
-            node_name=$(head -n 1 "/etc/snell/config.txt" | awk -F' = ' '{print $1}')
-        fi
-        
+
+        version="v5"
         if [ "$status_text" = "运行中" ]; then
-            printf "%-30s %-12s ${SNELL_GREEN}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "v5"
+            printf "%-30s %-12s ${SNELL_GREEN}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "$version"
+        elif [ "$status_text" = "异常" ]; then
+            printf "%-30s %-12s ${SNELL_YELLOW}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "$version"
         else
-            printf "%-30s %-12s ${SNELL_RED}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "v5"
+            printf "%-30s %-12s ${SNELL_RED}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "$version"
         fi
-        ((count++))
-    fi
+        count=$((count + 1))
+    done < <(snell_list_units)
 
     if [ "$count" -eq 0 ]; then
         echo "暂无安装任何 Snell 实例"
@@ -8377,24 +9462,14 @@ snell_menu() {
         local instance_count=0
         local running_count=0
         
-        # 统计新版实例
-        for service_file in /etc/systemd/system/snell-*.service; do
-            if [ -f "$service_file" ]; then
-                ((instance_count++))
-                local port=$(echo "$service_file" | sed -E 's/.*snell-([0-9]+)\.service/\1/')
-                if systemctl is-active --quiet "snell-${port}.service"; then
-                    ((running_count++))
-                fi
+        # 统计所有 Snell 实例（新版多实例 + 旧版 snell.service）
+        local menu_unit
+        while IFS= read -r menu_unit; do
+            instance_count=$((instance_count + 1))
+            if systemctl is-active --quiet "$menu_unit" 2>/dev/null; then
+                running_count=$((running_count + 1))
             fi
-        done
-        
-        # 统计旧版实例
-        if [ -f "/lib/systemd/system/snell.service" ] || [ -f "/etc/systemd/system/snell.service" ]; then
-            ((instance_count++))
-            if systemctl is-active --quiet "snell.service"; then
-                ((running_count++))
-            fi
-        fi
+        done < <(snell_list_units)
         
         echo -e "已安装实例: ${SNELL_GREEN}${instance_count}${SNELL_RESET} 个"
         echo -e "运行中实例: ${SNELL_GREEN}${running_count}${SNELL_RESET} 个"
@@ -8404,15 +9479,19 @@ snell_menu() {
         if [ -f "/usr/local/bin/snell-server" ]; then
             # 尝试获取版本号（Snell 没有 --version 参数，通过文件修改时间或固定版本号）
             # 这里使用配置中指定的版本号
-            snell_version="v5.0.1"
+            snell_version="v${SNELL_DEFAULT_VERSION}"
         fi
         echo -e "运行版本: ${snell_version}"
+        snell_show_version_status
         echo ""
         echo "1. 安装/添加 Snell 服务"
         echo "2. 卸载/删除 Snell 服务"
         echo "3. 查看所有 Snell 实例"
-        echo "4. 更新 Snell 服务 (更新核心程序)"
-        echo "5. 查看 Snell 配置"
+        echo "4. 一键修复 Snell 不通/掉线 ⭐ 推荐"
+        echo "5. 更新 Snell 核心程序（低频）"
+        echo "6. Snell 健康检查（只检测）"
+        echo "7. 查看 Snell 配置"
+        echo "8. Snell v6 RC 测试专区 🧪"
         echo "0. 返回主菜单"
         echo "======================"
         read -p "请输入选项编号: " snell_choice
@@ -8429,21 +9508,33 @@ snell_menu() {
                 echo ""
                 read -n 1 -s -r -p "按任意键继续..."
                 ;;
-            4) update_snell ;;
-            5) 
+            4)
+                repair_snell_connectivity
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            5)
+                update_snell
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            6)
+                snell_health_check || true
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            7)
                 echo ""
                 list_snell_instances
                 local count=$?
                 if [ "$count" -gt 0 ]; then
                     echo ""
                     read -p "请输入要查看配置的端口号: " view_port
-                    if [ -f "/etc/snell/config-${view_port}.txt" ]; then
+                    if ! [[ "$view_port" =~ ^[0-9]+$ ]] || [ "$view_port" -lt 1 ] || [ "$view_port" -gt 65535 ]; then
+                        echo -e "${SNELL_RED}无效端口，请输入 1-65535 之间的数字${SNELL_RESET}"
+                    elif [ -f "/etc/snell/snell-${view_port}.conf" ] || { [ -f "/etc/snell/snell-server.conf" ] && grep -Eq ":[[:space:]]*${view_port}([[:space:]]|$)" /etc/snell/snell-server.conf; }; then
                         echo ""
-                        cat "/etc/snell/config-${view_port}.txt"
-                    elif [ -f "/etc/snell/snell-server.conf" ] && grep -q ":${view_port}" /etc/snell/snell-server.conf; then
-                         # 旧版配置查看 (这里只是简单处理，实际上旧版没有 config.txt 备份可能需要解析 conf 文件)
-                         echo "旧版配置 (端口 ${view_port}):"
-                         cat /etc/snell/snell-server.conf
+                        show_snell_config_live "$view_port"
                     else
                         echo -e "${SNELL_RED}未找到端口 ${view_port} 的配置文件${SNELL_RESET}"
                     fi
@@ -8454,6 +9545,1535 @@ snell_menu() {
                     read -n 1 -s -r -p "按任意键继续..."
                 fi
                 ;;
+            8) snellv6_menu ;;
+            0) return ;;
+            *) echo -e "${SNELL_RED}无效选项${SNELL_RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
+#=============================================================================
+# 星辰大海 Snell v6 RC 测试专区（与 v5 完全隔离，独立命名空间）
+# 隔离要点：二进制 snell-server-v6 / 服务 snellv6-{port}.service / 配置 /etc/snell-v6/
+#           / 保留端口文件 99-zzy(排在 v5 的 zzz 之前) / cron 标记 SnellV6每日重启 / 锁 fd 202
+# 铁律：v6 绝不触碰 v5 的任何文件、服务、内核保留端口 runtime。详见 docs/plans/snellv6-design.md
+#=============================================================================
+
+# v6 全局常量（全部 SNELLV6_ 前缀，避免与 v5/主脚本变量碰撞）
+SNELLV6_BIN="/usr/local/bin/snell-server-v6"
+SNELLV6_CONF_DIR="/etc/snell-v6"
+SNELLV6_VERSION_FILE="/etc/snell-v6/.binary-version"
+SNELLV6_RESERVED_FILE="/etc/sysctl.d/99-zzy-snellv6-reserved-ports.conf"
+SNELLV6_DAILY_WRAPPER="/usr/local/bin/snellv6-daily-restart.sh"
+SNELLV6_LOCK_FILE="/tmp/net-tcp-tune-snellv6.lock"
+SNELLV6_LOG_FILE="/var/log/snellv6_manager.log"
+
+# 统一发现 v6 unit（只认 snellv6-数字.service，绝不纳入 v5 的 snell-*.service / snell.service）
+snellv6_list_units() {
+    {
+        local svc_file
+        for svc_file in \
+            /etc/systemd/system/snellv6-*.service \
+            /lib/systemd/system/snellv6-*.service \
+            /usr/lib/systemd/system/snellv6-*.service; do
+            [ -f "$svc_file" ] || continue
+            basename "$svc_file"
+        done
+
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl list-unit-files 'snellv6-*.service' --no-legend --no-pager 2>/dev/null \
+                | awk '{u=$1; if (u=="●") u=$2; print u}'
+            systemctl list-units 'snellv6-*.service' --all --no-legend --no-pager 2>/dev/null \
+                | awk '{u=$1; if (u=="●") u=$2; print u}'
+        fi
+    } | awk '/^snellv6-[0-9]+\.service$/ { if (!seen[$1]++) print $1 }'
+}
+
+# 从 snellv6-{port}.service 提取端口
+snellv6_unit_port() {
+    local unit="$1"
+    local port=""
+    case "$unit" in
+        snellv6-[0-9]*.service)
+            port="${unit#snellv6-}"
+            port="${port%.service}"
+            ;;
+    esac
+    if snell_valid_port "$port"; then
+        echo "$port"
+        return 0
+    fi
+    return 1
+}
+
+# v6 操作锁（fd 202，与 v5 的 201 错开）
+snellv6_acquire_lock() {
+    if command -v flock >/dev/null 2>&1; then
+        exec 202>"$SNELLV6_LOCK_FILE"
+        if ! flock -n 202; then
+            echo -e "${SNELL_YELLOW}另一个 Snell v6 操作正在运行，已取消本次操作。${SNELL_RESET}"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+snellv6_release_lock() {
+    if command -v flock >/dev/null 2>&1; then
+        flock -u 202 2>/dev/null || true
+    fi
+}
+
+# 下载并校验 v6 二进制（成功 stdout 输出临时目录，调用方负责 rm -rf；临时文件均 snellv6- 前缀）
+snellv6_download_binary() {
+    local arch version snell_url tmp_zip tmp_dir
+    arch=$(uname -m)
+    version="v${SNELL_V6_DEFAULT_VERSION}"
+    case "$arch" in
+        aarch64|arm64)
+            snell_url="https://dl.nssurge.com/snell/snell-server-${version}-linux-aarch64.zip"
+            ;;
+        x86_64|amd64)
+            snell_url="https://dl.nssurge.com/snell/snell-server-${version}-linux-amd64.zip"
+            ;;
+        *)
+            echo -e "${SNELL_RED}不支持的架构: ${arch}（仅支持 x86_64 / aarch64）${SNELL_RESET}" >&2
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - v6 不支持的架构: ${arch}" >> "$SNELLV6_LOG_FILE"
+            return 1
+            ;;
+    esac
+
+    tmp_zip=$(mktemp /tmp/snellv6-server.XXXXXX.zip) || return 1
+    tmp_dir=$(mktemp -d /tmp/snellv6-dl.XXXXXX) || { rm -f "$tmp_zip"; return 1; }
+
+    echo -e "${SNELL_GREEN}正在下载 Snell ${version}...${SNELL_RESET}" >&2
+    if ! wget --timeout=30 --tries=3 -q --show-progress "${snell_url}" -O "$tmp_zip" || [ ! -s "$tmp_zip" ]; then
+        echo -e "${SNELL_RED}下载 Snell v6 失败。${SNELL_RESET}" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 下载 Snell v6 失败" >> "$SNELLV6_LOG_FILE"
+        rm -f "$tmp_zip"; rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    if ! unzip -t "$tmp_zip" >/dev/null 2>&1 || ! unzip -o "$tmp_zip" -d "$tmp_dir" >/dev/null 2>&1; then
+        echo -e "${SNELL_RED}Snell v6 压缩包损坏或解压失败。${SNELL_RESET}" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 解压 Snell v6 失败" >> "$SNELLV6_LOG_FILE"
+        rm -f "$tmp_zip"; rm -rf "$tmp_dir"
+        return 1
+    fi
+    rm -f "$tmp_zip"
+
+    if [ ! -f "${tmp_dir}/snell-server" ]; then
+        echo -e "${SNELL_RED}解压后未找到 snell-server 二进制。${SNELL_RESET}" >&2
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    echo "$tmp_dir"
+}
+
+SNELLV6_LAST_CHECK_ERROR=""
+
+snellv6_check_binary_runnable() {
+    local bin="${1:-$SNELLV6_BIN}"
+    local output rc missing
+    SNELLV6_LAST_CHECK_ERROR=""
+
+    if [ ! -x "$bin" ]; then
+        SNELLV6_LAST_CHECK_ERROR="二进制不存在或不可执行: $bin"
+        return 1
+    fi
+
+    # 首选 ldd：不执行二进制（零 hang 风险、无副作用），一次性列出所有缺失的共享库。
+    # 输出形如 "libcares.so.2 => not found"，正好喂给 snellv6_install_runtime_compat_for_error。
+    if command -v ldd >/dev/null 2>&1; then
+        missing=$(ldd "$bin" 2>/dev/null | grep -i "not found" || true)
+        if [ -n "$missing" ]; then
+            SNELLV6_LAST_CHECK_ERROR="$missing"
+            return 1
+        fi
+    fi
+
+    # 兜底：实际执行一次以捕捉非库类启动错误（如 Exec format error）。
+    # 用 timeout 包裹，防止 snell-server 不识别 --help 而尝试常驻导致自检卡死。
+    if command -v timeout >/dev/null 2>&1; then
+        output=$(timeout 5 "$bin" --help 2>&1)
+        rc=$?
+    else
+        output=$("$bin" --help 2>&1)
+        rc=$?
+    fi
+    # Snell 未必保证 --help 返回 0；只要能执行且不是动态库/格式错误，就视为运行环境可用。
+    # timeout 杀掉常驻进程会返回 124，此时库已由上面的 ldd 确认就绪，视为可运行（不误判失败）。
+    if echo "$output" | grep -Eq "error while loading shared libraries|cannot open shared object file|Exec format error"; then
+        SNELLV6_LAST_CHECK_ERROR="$output"
+        return 1
+    fi
+    if [ "$rc" -eq 127 ]; then
+        SNELLV6_LAST_CHECK_ERROR="$output"
+        return 1
+    fi
+    return 0
+}
+
+# 下载并安装 libssl1.1（libcrypto.so.1.1）兼容包，供 Snell v6 预发布二进制使用。
+# 钉死 Debian bullseye-security 的 1.1.1w-0+deb11u7：
+#   - 官方源（security.debian.org）作主链接（快），点版本被升级后会 404；
+#   - snapshot.debian.org 内容寻址永久存档作兜底（永不失效），与官方源同一文件、同一 SHA256；
+#   - 双架构均强制 SHA256 校验（防篡改/防下到错版本），校验不过一律不安装。
+# 该兼容包只放置 libcrypto.so.1.1 / libssl.so.1.1，不触碰系统现有的 OpenSSL 3.x。
+snellv6_install_legacy_libssl11() {
+    local arch deb_sha tmp_deb confirm src got
+    local -a deb_urls=()
+
+    # 已存在则直接成功（幂等，避免重复下载/重复弹窗）
+    if command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libcrypto\.so\.1\.1'; then
+        return 0
+    fi
+
+    arch=$(dpkg --print-architecture 2>/dev/null || echo "")
+    case "$arch" in
+        amd64)
+            deb_urls=(
+                "https://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u7_amd64.deb"
+                "https://snapshot.debian.org/file/3afa3716311cd1bf90a0473efddc5a29509749fd"
+            )
+            deb_sha="e1ae82de5cefb8c24023ae12ae5c150787c6c9d8c03f305f076ff44067776b3c"
+            ;;
+        arm64)
+            deb_urls=(
+                "https://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u7_arm64.deb"
+                "https://snapshot.debian.org/file/f79fba0b7393181172b78abc0e202045f84d940d"
+            )
+            deb_sha="670c5f5439eefb3b669f3f051b958e4e5973f97dc781653781e516df8c5ffae8"
+            ;;
+        *)
+            echo -e "${SNELL_RED}当前架构 ${arch:-未知} 暂不支持自动安装 libssl1.1 兼容包（仅 amd64 / arm64）。${SNELL_RESET}"
+            return 1
+            ;;
+    esac
+
+    echo -e "${SNELL_YELLOW}检测到 Snell v6 需要旧版 OpenSSL 1.1 运行库（libcrypto.so.1.1）。${SNELL_RESET}"
+    echo -e "${SNELL_YELLOW}Debian 12/13 默认不再内置该库；为测试 v6，可安装 Debian bullseye-security 的 libssl1.1 兼容包。${SNELL_RESET}"
+    echo -e "${SNELL_YELLOW}该包仅提供 libcrypto.so.1.1 / libssl.so.1.1，不影响系统现有 OpenSSL 3.x；若介意旧运行库请选 N。${SNELL_RESET}"
+    read -p "是否下载并安装 libssl1.1 兼容包以继续测试 Snell v6？[y/N]: " confirm
+    case "$confirm" in
+        y|Y|yes|YES) ;;
+        *)
+            echo -e "${SNELL_YELLOW}已取消安装兼容库，Snell v6 安装中止。${SNELL_RESET}"
+            return 1
+            ;;
+    esac
+
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        echo -e "${SNELL_RED}缺少 sha256sum，无法校验兼容包完整性，已中止。${SNELL_RESET}"
+        return 1
+    fi
+
+    tmp_deb=$(mktemp /tmp/snellv6-libssl1.1.XXXXXX.deb) || return 1
+
+    # 依次尝试官方源 -> snapshot 永久源；每个源下完都强制核对 SHA256，过了才用
+    local downloaded_ok=0
+    for src in "${deb_urls[@]}"; do
+        echo -e "${SNELL_GREEN}正在下载 libssl1.1 兼容包: ${src}${SNELL_RESET}"
+        if wget --timeout=30 --tries=3 -q --show-progress "$src" -O "$tmp_deb" && [ -s "$tmp_deb" ]; then
+            got=$(sha256sum "$tmp_deb" 2>/dev/null | awk '{print $1}')
+            if [ "$got" = "$deb_sha" ]; then
+                downloaded_ok=1
+                break
+            else
+                echo -e "${SNELL_YELLOW}该源文件 SHA256 不匹配（得到 ${got:-空}），尝试下一个源...${SNELL_RESET}"
+            fi
+        else
+            echo -e "${SNELL_YELLOW}该源下载失败，尝试下一个源...${SNELL_RESET}"
+        fi
+    done
+
+    if [ "$downloaded_ok" -ne 1 ]; then
+        echo -e "${SNELL_RED}libssl1.1 兼容包下载或校验失败（所有源均未通过），已中止。${SNELL_RESET}"
+        rm -f "$tmp_deb"
+        return 1
+    fi
+
+    if ! dpkg -i "$tmp_deb"; then
+        echo -e "${SNELL_YELLOW}dpkg 安装未完成，尝试修复依赖...${SNELL_RESET}"
+        apt -f install -y || { rm -f "$tmp_deb"; return 1; }
+        dpkg -i "$tmp_deb" || { rm -f "$tmp_deb"; return 1; }
+    fi
+    rm -f "$tmp_deb"
+
+    # 刷新动态库缓存并确认 libcrypto.so.1.1 已就位
+    ldconfig 2>/dev/null || true
+    if command -v ldconfig >/dev/null 2>&1 && ! ldconfig -p 2>/dev/null | grep -q 'libcrypto\.so\.1\.1'; then
+        echo -e "${SNELL_RED}已安装 libssl1.1 兼容包，但仍未检测到 libcrypto.so.1.1，请检查。${SNELL_RESET}"
+        return 1
+    fi
+    return 0
+}
+
+snellv6_install_runtime_compat_for_error() {
+    local error_text="$1"
+    local handled=1
+
+    if echo "$error_text" | grep -q "libcares.so.2"; then
+        if ! command -v apt >/dev/null 2>&1; then
+            echo -e "${SNELL_RED}缺少 libcares.so.2，但当前系统没有 apt，无法自动安装 libc-ares2。${SNELL_RESET}"
+            return 1
+        fi
+        echo -e "${SNELL_YELLOW}检测到缺少 libcares.so.2，正在安装 libc-ares2...${SNELL_RESET}"
+        apt install -y libc-ares2 || return 1
+        handled=0
+    fi
+
+    if echo "$error_text" | grep -q "libuv.so.1"; then
+        if ! command -v apt >/dev/null 2>&1; then
+            echo -e "${SNELL_RED}缺少 libuv.so.1，但当前系统没有 apt，无法自动安装 libuv1。${SNELL_RESET}"
+            return 1
+        fi
+        echo -e "${SNELL_YELLOW}检测到缺少 libuv.so.1，正在安装 libuv1...${SNELL_RESET}"
+        apt install -y libuv1 || return 1
+        handled=0
+    fi
+
+    if echo "$error_text" | grep -q "libsodium.so.23"; then
+        if ! command -v apt >/dev/null 2>&1; then
+            echo -e "${SNELL_RED}缺少 libsodium.so.23，但当前系统没有 apt，无法自动安装 libsodium23。${SNELL_RESET}"
+            return 1
+        fi
+        echo -e "${SNELL_YELLOW}检测到缺少 libsodium.so.23，正在安装 libsodium23...${SNELL_RESET}"
+        apt install -y libsodium23 || return 1
+        handled=0
+    fi
+
+    if echo "$error_text" | grep -Eq "libcrypto.so.1.1|libssl.so.1.1"; then
+        snellv6_install_legacy_libssl11 || return 1
+        handled=0
+    fi
+
+    [ "$handled" -eq 0 ]
+}
+
+# 主动补齐 Snell v6 需要、且标准源即有的运行库（libc-ares2 / libuv1），
+# 在二进制自检前一次性装好，避免逐个自检失败式的"打地鼠"。libssl1.1 仍走特殊源单独处理。
+snellv6_install_base_runtime_libs() {
+    command -v apt >/dev/null 2>&1 || return 0
+    local -a pkgs=()
+    if ! { command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libcares\.so\.2'; }; then
+        pkgs+=(libc-ares2)
+    fi
+    if ! { command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -q 'libuv\.so\.1'; }; then
+        pkgs+=(libuv1)
+    fi
+    [ "${#pkgs[@]}" -eq 0 ] && return 0
+    echo -e "${SNELL_GREEN}补齐 Snell v6 运行库（标准源）: ${pkgs[*]}${SNELL_RESET}"
+    apt install -y "${pkgs[@]}" || true
+}
+
+snellv6_ensure_binary_runnable() {
+    local bin="${1:-$SNELLV6_BIN}"
+    local attempt
+
+    for attempt in 1 2 3 4 5; do
+        if snellv6_check_binary_runnable "$bin"; then
+            return 0
+        fi
+
+        echo -e "${SNELL_RED}Snell v6 二进制运行自检失败：${SNELL_RESET}"
+        echo "$SNELLV6_LAST_CHECK_ERROR"
+        if ! snellv6_install_runtime_compat_for_error "$SNELLV6_LAST_CHECK_ERROR"; then
+            echo -e "${SNELL_RED}无法自动补齐 Snell v6 运行依赖，已停止安装。${SNELL_RESET}"
+            return 1
+        fi
+    done
+
+    echo -e "${SNELL_RED}补齐兼容依赖后 Snell v6 仍无法运行，已停止安装。${SNELL_RESET}"
+    return 1
+}
+
+# 当前所有 v6 端口（去重升序 CSV）
+snellv6_current_ports_csv() {
+    local unit port ports
+    ports=""
+    while IFS= read -r unit; do
+        port=$(snellv6_unit_port "$unit" 2>/dev/null || true)
+        if snell_valid_port "$port"; then
+            if [ -n "$ports" ]; then
+                ports="${ports}
+${port}"
+            else
+                ports="$port"
+            fi
+        fi
+    done < <(snellv6_list_units)
+
+    if [ -n "$ports" ]; then
+        printf '%s\n' "$ports" | sort -un | paste -sd, -
+    fi
+}
+
+# 同步 v6 保留端口（关键：源隔离 + 加法 runtime，永不碰 v5 文件与 v5 的 runtime 端口）
+# 文件 99-zzy 排在 v5 的 99-zzz 之前 → 开机 v5 最后应用 → v5 端口保护结构性不被覆盖
+snellv6_sync_reserved_ports() {
+    local ports_csv cur new tmp_file
+    ports_csv=$(snellv6_current_ports_csv)
+
+    # 1) 持久化 v6 文件：只含 v6 端口，绝不扫描/合并任何其它 sysctl 文件
+    if [ -n "$ports_csv" ]; then
+        tmp_file=$(mktemp /tmp/snellv6-reserved-ports.XXXXXX) || return 1
+        cat > "$tmp_file" <<EOF
+# SnellV6 监听端口保留列表（由 net-tcp-tune 自动管理，请勿手动修改）
+# 仅含 SnellV6 端口；v5 的保留端口由 99-zzz-snell-reserved-ports.conf 独立管理，本文件绝不触碰
+# 文件名 99-zzy 排在 v5 的 99-zzz 之前：开机时 v5 文件最后应用，确保 v5 端口保护不被覆盖
+net.ipv4.ip_local_reserved_ports = ${ports_csv}
+EOF
+        mv "$tmp_file" "$SNELLV6_RESERVED_FILE" || { rm -f "$tmp_file" 2>/dev/null; return 1; }
+    else
+        rm -f "$SNELLV6_RESERVED_FILE" 2>/dev/null
+    fi
+
+    # 2) runtime 加法应用：读当前值→并入 v6 端口→写回。只增不减，绝不抹掉 v5/第三方 runtime 端口。
+    #    W-1 红线：用 sysctl 退出码判断读是否成功；读失败一律跳过，绝不用残缺值覆盖。
+    if [ -n "$ports_csv" ]; then
+        if cur=$(sysctl -n net.ipv4.ip_local_reserved_ports 2>/dev/null); then
+            # 读成功：cur 可能为空(内核当前无保留端口，无 v5 端口可丢)，也可能含 v5/第三方端口
+            new=$(printf '%s,%s\n' "$cur" "$ports_csv" | snell_normalize_reserved_ports)
+            [ -n "$new" ] && sysctl -w "net.ipv4.ip_local_reserved_ports=${new}" >/dev/null 2>&1 || true
+        fi
+        # 读失败：不写 runtime（持久化文件已就绪，下次重启/v5 操作会生效）
+    fi
+    return 0
+}
+
+# 从当前 runtime ip_local_reserved_ports 中移除指定 v6 端口；只删精确端口，不拆第三方端口段
+snellv6_remove_ports_from_runtime() {
+    local remove_csv="$1"
+    local cur new
+
+    [ -n "$remove_csv" ] || return 0
+    if ! cur=$(sysctl -n net.ipv4.ip_local_reserved_ports 2>/dev/null); then
+        return 0
+    fi
+
+    new=$(printf '%s\n' "$cur" | tr ',' '\n' | awk -v remove_csv="$remove_csv" '
+        BEGIN {
+            split(remove_csv, ports, ",")
+            for (i in ports) {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", ports[i])
+                if (ports[i] ~ /^[0-9]+$/) {
+                    remove[ports[i]] = 1
+                }
+            }
+        }
+        {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+            if ($0 == "") next
+            if ($0 ~ /^[0-9]+$/ && remove[$0]) next
+            keep[++count] = $0
+        }
+        END {
+            for (i = 1; i <= count; i++) {
+                printf "%s%s", (i > 1 ? "," : ""), keep[i]
+            }
+        }
+    ')
+    sysctl -w "net.ipv4.ip_local_reserved_ports=${new}" >/dev/null 2>&1 || true
+}
+
+# 把北京时间转本地时间后注册 v6 每日重启 cron（标记 # SnellV6每日重启，与 v5 的 # Snell每日重启 互不误删）
+snellv6_install_daily_restart_cron() {
+    local systemctl_bin tmp_cron local_h local_m cron_active=0 cron_service
+
+    if ! command -v crontab >/dev/null 2>&1; then
+        echo -e "  ${SNELL_YELLOW}⚠ 未安装 crontab，跳过每日重启兜底${SNELL_RESET}"
+        echo -e "      Debian/Ubuntu: apt install -y cron"
+        echo -e "      CentOS/Rocky:  yum install -y cronie"
+        return 0
+    fi
+
+    systemctl_bin=$(command -v systemctl 2>/dev/null || echo "/bin/systemctl")
+    cat > "$SNELLV6_DAILY_WRAPPER" <<EOF
+#!/bin/sh
+# Snell v6 每日重启 wrapper（由 net-tcp-tune 自动生成，请勿手动修改）
+# 只重启当前 active 的 snellv6-端口.service，绝不触碰 v5 的 snell-*.service / snell.service
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SYSTEMCTL_BIN="${systemctl_bin}"
+LOCK_FILE="${SNELLV6_LOCK_FILE}"
+
+restart_active_snellv6() {
+    seen_units=""
+    for dir in /etc/systemd/system /lib/systemd/system /usr/lib/systemd/system; do
+        for svc in "\$dir"/snellv6-*.service; do
+            [ -f "\$svc" ] || continue
+            unit=\$(basename "\$svc")
+            echo "\$unit" | grep -Eq '^snellv6-[0-9]+\.service$' || continue
+            case " \$seen_units " in
+                *" \$unit "*) continue ;;
+            esac
+            seen_units="\$seen_units \$unit"
+            "\$SYSTEMCTL_BIN" is-active --quiet "\$unit" 2>/dev/null && \
+                "\$SYSTEMCTL_BIN" restart "\$unit" >/dev/null 2>&1
+        done
+    done
+}
+
+if command -v flock >/dev/null 2>&1; then
+    (
+        flock -n 9 || exit 0
+        restart_active_snellv6
+    ) 9>"\$LOCK_FILE"
+else
+    restart_active_snellv6
+fi
+EOF
+    chmod +x "$SNELLV6_DAILY_WRAPPER"
+
+    read -r local_h local_m < <(snell_bj_to_local_time 04 10)
+    tmp_cron=$(mktemp) || return 1
+    crontab -l 2>/dev/null | grep -v "# SnellV6每日重启" > "$tmp_cron" || true
+    echo "${local_m} ${local_h} * * * ${SNELLV6_DAILY_WRAPPER} >/dev/null 2>&1  # SnellV6每日重启" >> "$tmp_cron"
+    if crontab "$tmp_cron" 2>/dev/null; then
+        rm -f "$tmp_cron"
+        echo -e "  ${SNELL_GREEN}✓ 已注册每日北京时间 04:10 自动重启兜底（本地时间 ${local_h}:${local_m}）${SNELL_RESET}"
+    else
+        echo -e "  ${SNELL_RED}✗ 注册 v6 每日重启 cron 失败（临时文件保留: $tmp_cron）${SNELL_RESET}"
+        return 1
+    fi
+
+    for cron_service in cron crond cronie cronie.service; do
+        if systemctl is-active --quiet "$cron_service" 2>/dev/null; then
+            cron_active=1
+            break
+        fi
+    done
+    if [ "$cron_active" -eq 0 ]; then
+        echo -e "  ${SNELL_YELLOW}⚠ cron 服务未运行，定时任务不会触发${SNELL_RESET}"
+        echo -e "      Debian/Ubuntu: ${SNELL_CYAN}systemctl enable --now cron${SNELL_RESET}"
+        echo -e "      CentOS/Rocky:  ${SNELL_CYAN}systemctl enable --now crond${SNELL_RESET}"
+    fi
+}
+
+# 重启指定 v6 单元并健康验证（reset-failed 逐单元带名，满足 W-2）
+snellv6_restart_units_with_healthcheck() {
+    local unit restart_count=0 restart_failed=0
+
+    if [ "$#" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}没有需要重启的 Snell v6 实例（已停止/禁用的实例不会被自动拉起）${SNELL_RESET}"
+        return 0
+    fi
+
+    for unit in "$@"; do
+        systemctl reset-failed "$unit" 2>/dev/null || true
+        if systemctl restart "$unit"; then
+            sleep 2
+            if systemctl is-active --quiet "$unit"; then
+                restart_count=$((restart_count + 1))
+                echo -e "  ${SNELL_GREEN}✓ 已重启并确认运行: ${unit}${SNELL_RESET}"
+            else
+                restart_failed=$((restart_failed + 1))
+                echo -e "  ${SNELL_RED}✗ ${unit} 重启后未保持运行${SNELL_RESET}"
+                journalctl -u "$unit" -n 20 --no-pager 2>/dev/null || true
+            fi
+        else
+            restart_failed=$((restart_failed + 1))
+            echo -e "  ${SNELL_RED}✗ 重启失败: ${unit}${SNELL_RESET}"
+            journalctl -u "$unit" -n 20 --no-pager 2>/dev/null || true
+        fi
+    done
+
+    echo -e "${SNELL_GREEN}Snell v6 重启完成：成功 ${restart_count} 个，失败 ${restart_failed} 个${SNELL_RESET}"
+    [ "$restart_failed" -eq 0 ]
+}
+
+# 补齐 v6 稳定性防护（无 drop-in：v6 单元出生即带全套防护；reset-failed 逐单元带名，满足 W-2）
+snellv6_apply_runtime_guards() {
+    local enable_cron="${1:-no}"
+    local unit failed=0 ports_csv
+    local -a units=()
+
+    while IFS= read -r unit; do
+        units+=("$unit")
+    done < <(snellv6_list_units)
+
+    if [ "${#units[@]}" -eq 0 ]; then
+        echo -e "  ${SNELL_YELLOW}⚠ 未找到 Snell v6 实例，跳过稳定性修复${SNELL_RESET}"
+        return 0
+    fi
+
+    echo -e "${SNELL_CYAN}正在补齐 Snell v6 稳定性防护...${SNELL_RESET}"
+
+    if boot_recovery_install_assets; then
+        for unit in "${units[@]}"; do
+            boot_recovery_patch_unit "$unit" || failed=$((failed + 1))
+        done
+    else
+        failed=$((failed + 1))
+    fi
+
+    if snellv6_sync_reserved_ports; then
+        ports_csv=$(snellv6_current_ports_csv)
+        echo -e "  ${SNELL_GREEN}✓ 已保护 Snell v6 监听端口: ${ports_csv:-无}${SNELL_RESET}"
+    else
+        failed=$((failed + 1))
+        echo -e "  ${SNELL_RED}✗ Snell v6 端口保留写入失败${SNELL_RESET}"
+    fi
+
+    if systemctl daemon-reload; then
+        echo -e "  ${SNELL_GREEN}✓ systemd 配置已重载${SNELL_RESET}"
+    else
+        failed=$((failed + 1))
+        echo -e "  ${SNELL_RED}✗ systemd daemon-reload 失败${SNELL_RESET}"
+    fi
+
+    for unit in "${units[@]}"; do
+        systemctl reset-failed "$unit" 2>/dev/null || true
+    done
+    echo -e "  ${SNELL_GREEN}✓ 已清理 Snell v6 failed 状态${SNELL_RESET}"
+    systemctl enable --now net-tcp-boot-watch.timer || failed=$((failed + 1))
+
+    if [ "$enable_cron" = "yes" ]; then
+        snellv6_install_daily_restart_cron || failed=$((failed + 1))
+    fi
+
+    [ "$failed" -eq 0 ]
+}
+
+# v6 健康检查（不查 drop-in，因 v6 单元出生即完整）
+snellv6_health_check() {
+    local unit port active_state enabled_state listen_state reserved_list reserved_state
+    local count=0 problem=0 wrapper_state cron_line cron_state
+
+    echo -e "${SNELL_CYAN}=== Snell v6 健康检查 ===${SNELL_RESET}"
+    reserved_list=$(sysctl -n net.ipv4.ip_local_reserved_ports 2>/dev/null || true)
+
+    while IFS= read -r unit; do
+        count=$((count + 1))
+        port=$(snellv6_unit_port "$unit" 2>/dev/null || echo "未知")
+        active_state=$(systemctl is-active "$unit" 2>/dev/null)
+        enabled_state=$(systemctl is-enabled "$unit" 2>/dev/null)
+        [ -n "$active_state" ] || active_state="unknown"
+        [ -n "$enabled_state" ] || enabled_state="unknown"
+
+        listen_state="未检测"
+        if snell_valid_port "$port"; then
+            if ss -ltnH "( sport = :${port} )" 2>/dev/null | grep -q . || \
+               ss -lunH "( sport = :${port} )" 2>/dev/null | grep -q .; then
+                listen_state="已监听"
+            else
+                listen_state="未监听"
+                [ "$active_state" = "active" ] && problem=$((problem + 1))
+            fi
+        fi
+
+        reserved_state="未检测"
+        if snell_valid_port "$port"; then
+            if snell_reserved_contains_port "$reserved_list" "$port"; then
+                reserved_state="已保护"
+            else
+                reserved_state="未保护"
+                problem=$((problem + 1))
+            fi
+        fi
+
+        echo "  - ${unit}: 状态=${active_state}/${enabled_state}, 端口=${port}, 监听=${listen_state}, 端口保留=${reserved_state}"
+    done < <(snellv6_list_units)
+
+    if [ "$count" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}未找到 Snell v6 实例${SNELL_RESET}"
+        return 1
+    fi
+
+    wrapper_state="未安装"
+    [ -x "$SNELLV6_DAILY_WRAPPER" ] && wrapper_state="已安装"
+    cron_line=$(crontab -l 2>/dev/null | grep "SnellV6每日重启" || true)
+    cron_state="未注册"
+    [ -n "$cron_line" ] && cron_state="已注册"
+    echo "  - 每日重启兜底: wrapper=${wrapper_state}, cron=${cron_state}"
+
+    if [ "$problem" -eq 0 ]; then
+        echo -e "${SNELL_GREEN}健康检查结果：基础防护已就绪。${SNELL_RESET}"
+        return 0
+    else
+        echo -e "${SNELL_YELLOW}健康检查结果：发现 ${problem} 个需修复项（可用菜单 4「更新+修复」处理）。${SNELL_RESET}"
+        return 1
+    fi
+}
+
+# 版本检查缓存（v5/v6 共用）：主菜单按缓存时效自动联网探测，每天最多一次，其余读缓存瞬间显示
+SNELL_VERSION_CACHE="/etc/snell/.snell-version-check"
+SNELL_VERSION_CACHE_TTL=86400   # 24 小时
+
+# 通用：探测官方是否有比传入版本更新的 Snell 版本（v5 / v6 共用）
+# $1=当前版本号（如 5.0.1 或 6.0.0b2）；stdout 仅输出探测到的最新版本号，无更新则为空
+# 官方无版本清单接口（dl 目录禁列 403、Surge 文档页 404），只能从当前版本往后做有限窗口的"并行"递增探测
+snell_probe_newer_version() {
+    local current="$1"
+    local arch a maj min pat bnum rcnum i p c tmp latest=""
+    local -a candidates=()
+
+    arch=$(uname -m)
+    case "$arch" in
+        aarch64|arm64) a="aarch64" ;;
+        x86_64|amd64)  a="amd64" ;;
+        *) return 1 ;;
+    esac
+
+    # 候选必须严格按版本从低到高追加：下方取"最新版"依赖数组顺序，而非版本号比较
+    # 官方版本演进：X.Y.Zb1..bN → X.Y.Zrc(裸 rc 即 rc1) → X.Y.Zrc2.. → X.Y.Z 正式版
+    if [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)b([0-9]+)$ ]]; then
+        # beta：往后探 8 个 beta + rc 系列 + 同 base 正式版及 3 个补丁 + 下个次版本
+        maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"; pat="${BASH_REMATCH[3]}"; bnum="${BASH_REMATCH[4]}"
+        for i in $(seq $((bnum + 1)) $((bnum + 8))); do candidates+=("${maj}.${min}.${pat}b${i}"); done
+        candidates+=("${maj}.${min}.${pat}rc")
+        for i in $(seq 2 5); do candidates+=("${maj}.${min}.${pat}rc${i}"); done
+        for p in $(seq "$pat" $((pat + 3))); do candidates+=("${maj}.${min}.${p}"); done
+        candidates+=("${maj}.$((min + 1)).0")
+    elif [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)rc([0-9]*)$ ]]; then
+        # rc：官方裸 rc 视为 rc1；往后探 4 个 rc + 同 base 正式版及 3 个补丁 + 下个次版本
+        maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"; pat="${BASH_REMATCH[3]}"
+        rcnum="${BASH_REMATCH[4]}"; [ -n "$rcnum" ] || rcnum=1
+        for i in $(seq $((rcnum + 1)) $((rcnum + 4))); do candidates+=("${maj}.${min}.${pat}rc${i}"); done
+        for p in $(seq "$pat" $((pat + 3))); do candidates+=("${maj}.${min}.${p}"); done
+        candidates+=("${maj}.$((min + 1)).0")
+    elif [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+        # 正式版：往后探 4 个补丁 + 下个次版本
+        maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"; pat="${BASH_REMATCH[3]}"
+        for p in $(seq $((pat + 1)) $((pat + 4))); do candidates+=("${maj}.${min}.${p}"); done
+        candidates+=("${maj}.$((min + 1)).0")
+    else
+        return 1
+    fi
+
+    tmp=$(mktemp) || return 1
+    # 并行探测所有候选（把单次检查压到 1~2 秒）；存在(200)的把版本号写入临时文件
+    for c in "${candidates[@]}"; do
+        (
+            ec=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 5 -I \
+                "https://dl.nssurge.com/snell/snell-server-v${c}-linux-${a}.zip" 2>/dev/null)
+            [ "$ec" = "200" ] && printf '%s\n' "$c" >> "$tmp"
+        ) &
+    done
+    wait
+
+    # candidates 按版本从低到高排列；取存在里的最高项（不因中间断档而误判）
+    for c in "${candidates[@]}"; do
+        grep -qxF "$c" "$tmp" 2>/dev/null && latest="$c"
+    done
+    rm -f "$tmp"
+    [ -n "$latest" ] && printf '%s\n' "$latest"
+    return 0
+}
+
+# 探测官方下载服务器是否可达（用一个"已知存在"的版本 URL 判断；返回 0=通）
+# 用于区分"确认无新版"和"网络/服务器探测失败"，避免误显示"已最新"
+snell_probe_server_reachable() {
+    local current="$1" arch a code
+    arch=$(uname -m)
+    case "$arch" in
+        aarch64|arm64) a="aarch64" ;;
+        x86_64|amd64)  a="amd64" ;;
+        *) return 1 ;;
+    esac
+    code=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 5 -I \
+        "https://dl.nssurge.com/snell/snell-server-v${current}-linux-${a}.zip" 2>/dev/null)
+    [ "$code" = "200" ]
+}
+
+# 联网刷新 v5/v6 版本检查缓存（强制联网，不读旧缓存）
+snell_refresh_version_cache() {
+    local v5_latest="" v6_latest="" reachable=0
+    if snell_probe_server_reachable "$SNELL_V6_DEFAULT_VERSION" \
+       || snell_probe_server_reachable "$SNELL_DEFAULT_VERSION"; then
+        reachable=1
+    fi
+    if [ "$reachable" -eq 1 ]; then
+        v5_latest=$(snell_probe_newer_version "$SNELL_DEFAULT_VERSION")
+        v6_latest=$(snell_probe_newer_version "$SNELL_V6_DEFAULT_VERSION")
+    fi
+    mkdir -p /etc/snell 2>/dev/null
+    {
+        echo "LAST_CHECK=$(date +%s)"
+        echo "CHECK_OK=${reachable}"
+        echo "V5_BASE=${SNELL_DEFAULT_VERSION}"
+        echo "V5_LATEST=${v5_latest}"
+        echo "V6_BASE=${SNELL_V6_DEFAULT_VERSION}"
+        echo "V6_LATEST=${v6_latest}"
+    } > "$SNELL_VERSION_CACHE" 2>/dev/null
+    [ "$reachable" -eq 1 ]
+}
+
+# 在 Snell 主菜单顶部显示 v5/v6 版本检查状态（带每日缓存；过期/内置版本变化才联网刷新一次）
+snell_show_version_status() {
+    local now last_check check_ok v5_base v5_latest v6_base v6_latest need_refresh=0
+    now=$(date +%s)
+    last_check=0; check_ok=0; v5_base=""; v5_latest=""; v6_base=""; v6_latest=""
+
+    if [ -f "$SNELL_VERSION_CACHE" ]; then
+        last_check=$(grep '^LAST_CHECK=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        check_ok=$(grep '^CHECK_OK=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        v5_base=$(grep '^V5_BASE=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        v5_latest=$(grep '^V5_LATEST=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        v6_base=$(grep '^V6_BASE=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        v6_latest=$(grep '^V6_LATEST=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+    fi
+    [[ "$last_check" =~ ^[0-9]+$ ]] || last_check=0
+
+    # 缓存不存在 / 过期 / 脚本内置版本已变（升级过）→ 需要联网刷新
+    if [ "$last_check" -eq 0 ] || [ $((now - last_check)) -ge "$SNELL_VERSION_CACHE_TTL" ] \
+       || [ "$v5_base" != "$SNELL_DEFAULT_VERSION" ] || [ "$v6_base" != "$SNELL_V6_DEFAULT_VERSION" ]; then
+        need_refresh=1
+    fi
+
+    if [ "$need_refresh" -eq 1 ]; then
+        if command -v curl >/dev/null 2>&1; then
+            echo -e "${SNELL_YELLOW}🔍 正在检查 Snell 新版本（每天一次，约 1~2 秒）...${SNELL_RESET}"
+            snell_refresh_version_cache
+            check_ok=$(grep '^CHECK_OK=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+            v5_latest=$(grep '^V5_LATEST=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+            v6_latest=$(grep '^V6_LATEST=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+        else
+            check_ok=0
+        fi
+    fi
+
+    if [ "$check_ok" != "1" ]; then
+        echo -e "🔍 版本检查: ${SNELL_YELLOW}暂时查不到（网络？可进 v6 专区手动检查）${SNELL_RESET}"
+        return 0
+    fi
+
+    local v5_msg v6_msg
+    if [ -n "$v5_latest" ]; then v5_msg="${SNELL_GREEN}🆕 v${v5_latest}${SNELL_RESET}"; else v5_msg="已最新"; fi
+    if [ -n "$v6_latest" ]; then v6_msg="${SNELL_GREEN}🆕 v${v6_latest}${SNELL_RESET}"; else v6_msg="已最新"; fi
+    echo -e "🔍 版本检查: v5(内置${SNELL_DEFAULT_VERSION}) ${v5_msg} ｜ v6(内置${SNELL_V6_DEFAULT_VERSION}) ${v6_msg}"
+    if [ -n "$v5_latest" ] || [ -n "$v6_latest" ]; then
+        echo -e "   ${SNELL_CYAN}↑ 发现新版：截图告知维护者升级脚本内置版本后，走「更新内核+修复」即可平滑升级${SNELL_RESET}"
+    fi
+}
+
+# 「检查更新」菜单项（v6 专区手动触发）：强制联网刷新缓存并展示 v6 结果 + 升级引导
+# 刻意不在此直接安装探测到的版本——版本号以脚本内置常量为唯一基准，否则会与安装/更新里的
+# 版本校验逻辑冲突（下次「更新+修复」会把手动装的版本回退到内置版本）
+snellv6_check_update() {
+    local latest ok
+    echo -e "${SNELL_CYAN}=== 检查 Snell v6 是否有新版本 ===${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}当前脚本内置版本: v${SNELL_V6_DEFAULT_VERSION}${SNELL_RESET}"
+
+    if ! command -v curl >/dev/null 2>&1; then
+        echo -e "${SNELL_RED}缺少 curl，无法探测。${SNELL_RESET}"
+        return 1
+    fi
+
+    echo -e "${SNELL_YELLOW}正在探测官方下载服务器（强制刷新，官方无版本清单接口，约 1~2 秒）...${SNELL_RESET}"
+    snell_refresh_version_cache
+    ok=$(grep '^CHECK_OK=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+    latest=$(grep '^V6_LATEST=' "$SNELL_VERSION_CACHE" 2>/dev/null | cut -d= -f2-)
+
+    if [ "$ok" != "1" ]; then
+        echo -e "${SNELL_RED}✗ 探测失败（网络或官方服务器不可达），请稍后再试。${SNELL_RESET}"
+        return 1
+    fi
+
+    if [ -z "$latest" ]; then
+        echo -e "${SNELL_GREEN}✓ 未发现比 v${SNELL_V6_DEFAULT_VERSION} 更新的版本，当前已是脚本内置最新（或官方暂无新版）。${SNELL_RESET}"
+        echo -e "${SNELL_CYAN}  注：若官方刚发布跨度较大的新版本（超出探测窗口），可让脚本维护者再确认。${SNELL_RESET}"
+        return 0
+    fi
+
+    echo ""
+    echo -e "${SNELL_GREEN}🆕 发现官方新版本: v${latest}${SNELL_RESET}（当前内置 v${SNELL_V6_DEFAULT_VERSION}）"
+    echo ""
+    echo -e "${SNELL_CYAN}升级步骤（版本号以脚本内置常量为唯一基准，保证各机器一致、且不被默认更新逻辑回退）：${SNELL_RESET}"
+    echo -e "  ${SNELL_GREEN}1)${SNELL_RESET} 让脚本维护者把内置版本升级到 v${latest} 并发布"
+    echo -e "     （push 后在本机重跑 bbr 快捷命令即可拉到最新脚本）"
+    echo -e "  ${SNELL_GREEN}2)${SNELL_RESET} 再进本菜单「4. 更新 v6 内核 + 一键修复」即可平滑升级"
+    echo -e "     （节点配置 / 端口 / PSK 全部保留不变）"
+    echo ""
+    echo -e "${SNELL_YELLOW}⚠ 仍是预发布版本：升级后客户端 Surge 需切到支持 v${latest} 的 Beta/TestFlight 渠道，两端版本要匹配。${SNELL_RESET}"
+    return 0
+}
+
+# 列出所有 v6 实例
+list_snellv6_instances() {
+    echo -e "${SNELL_CYAN}当前已安装的 Snell v6 实例：${SNELL_RESET}"
+    echo "================================================================"
+    printf "%-30s %-12s %-12s %-10s\n" "节点名称" "端口" "状态" "版本"
+    echo "================================================================"
+
+    local count=0 unit port status_text node_name
+
+    while IFS= read -r unit; do
+        port=$(snellv6_unit_port "$unit" 2>/dev/null || echo "未知")
+        status_text="已停止"
+        if systemctl is-active --quiet "$unit" 2>/dev/null; then
+            status_text="运行中"
+        elif [ "$(systemctl is-active "$unit" 2>/dev/null)" = "failed" ]; then
+            status_text="异常"
+        fi
+
+        node_name="未命名"
+        if snell_valid_port "$port" && [ -f "${SNELLV6_CONF_DIR}/config-${port}.txt" ]; then
+            node_name=$(head -n 1 "${SNELLV6_CONF_DIR}/config-${port}.txt" | awk -F' = ' '{print $1}')
+        fi
+
+        if [ "$status_text" = "运行中" ]; then
+            printf "%-30s %-12s ${SNELL_GREEN}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "v6"
+        elif [ "$status_text" = "异常" ]; then
+            printf "%-30s %-12s ${SNELL_YELLOW}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "v6"
+        else
+            printf "%-30s %-12s ${SNELL_RED}%-12s${SNELL_RESET} %-10s\n" "$node_name" "$port" "$status_text" "v6"
+        fi
+        count=$((count + 1))
+    done < <(snellv6_list_units)
+
+    if [ "$count" -eq 0 ]; then
+        echo "暂无安装任何 Snell v6 实例"
+    fi
+    echo "================================================================"
+    echo ""
+    return $count
+}
+
+# 实时生成并输出 v6 客户端配置（换 IP 后实时刷新；version=6）
+show_snellv6_config_live() {
+    local port="$1"
+    local conf_file="${SNELLV6_CONF_DIR}/snell-${port}.conf"
+    local saved_file="${SNELLV6_CONF_DIR}/config-${port}.txt"
+
+    if ! snell_valid_port "$port"; then
+        echo -e "${SNELL_RED}无效端口，请输入 1-65535 之间的数字${SNELL_RESET}"
+        return 1
+    fi
+    if [ ! -f "$conf_file" ]; then
+        echo -e "${SNELL_RED}未找到端口 ${port} 的 Snell v6 配置文件${SNELL_RESET}"
+        return 1
+    fi
+
+    local saved_line node_name psk listen_line ip_mode ip_version_str host_ip host_ip_formatted final_config
+    saved_line=""
+    [ -f "$saved_file" ] && saved_line=$(head -n 1 "$saved_file" 2>/dev/null)
+
+    if [ -n "$saved_line" ] && echo "$saved_line" | grep -q " = snell,"; then
+        node_name=$(echo "$saved_line" | sed -E 's/[[:space:]]*=[[:space:]]*snell,.*$//')
+    else
+        node_name="SnellV6-Node-${port}"
+    fi
+
+    psk=$(grep -E '^[[:space:]]*psk[[:space:]]*=' "$conf_file" 2>/dev/null | tail -n 1 | sed -E 's/^[^=]+=[[:space:]]*//; s/[[:space:]]*$//')
+    if [ -z "$psk" ]; then
+        echo -e "${SNELL_RED}未能从 ${conf_file} 读取 PSK，无法生成客户端配置${SNELL_RESET}"
+        return 1
+    fi
+
+    # 从 listen 行判断监听模式 → 客户端 ip-version 后缀
+    listen_line=$(grep -E '^[[:space:]]*listen[[:space:]]*=' "$conf_file" 2>/dev/null | tail -n 1)
+    if echo "$listen_line" | grep -q '0.0.0.0' && echo "$listen_line" | grep -q '\[::\]'; then
+        ip_mode="dual"
+        ip_version_str=""
+    elif echo "$listen_line" | grep -q '\[::\]'; then
+        ip_mode="v6-only"
+        ip_version_str=", ip-version=v6-only"
+    else
+        ip_mode="v4-only"
+        ip_version_str=", ip-version=v4-only"
+    fi
+
+    host_ip=$(get_snell_public_ip "$ip_mode")
+    if [ -z "$host_ip" ]; then
+        echo -e "${SNELL_YELLOW}⚠ 无法自动获取公网 IP，节点链接里的 IP 需手动替换${SNELL_RESET}"
+        host_ip="<请手动填写公网IP>"
+    fi
+    host_ip_formatted="$host_ip"
+    if echo "$host_ip" | grep -q ":"; then
+        host_ip_formatted="[${host_ip}]"
+    fi
+
+    final_config="${node_name} = snell, ${host_ip_formatted}, ${port}, psk=${psk}, version=6, reuse=true${ip_version_str}"
+    echo -e "${SNELL_CYAN}${final_config}${SNELL_RESET}"
+
+    if [ "$host_ip" != "<请手动填写公网IP>" ]; then
+        echo "$final_config" > "$saved_file" 2>/dev/null && chmod 600 "$saved_file" 2>/dev/null || true
+    fi
+}
+
+# v6 安装失败回滚（只清自己端口，绝不动 v5；保留端口重新同步去掉失败端口）
+cleanup_partial_install_snellv6() {
+    local port="$1"
+    if [ -n "$port" ]; then
+        systemctl stop "snellv6-${port}.service" 2>/dev/null
+        systemctl disable "snellv6-${port}.service" 2>/dev/null
+        systemctl reset-failed "snellv6-${port}.service" 2>/dev/null
+        rm -f "/etc/systemd/system/snellv6-${port}.service"
+        rm -rf "/etc/systemd/system/snellv6-${port}.service.d" 2>/dev/null
+        rm -f "${SNELLV6_CONF_DIR}/snell-${port}.conf"
+        rm -f "${SNELLV6_CONF_DIR}/config-${port}.txt"
+        systemctl daemon-reload 2>/dev/null
+        snellv6_remove_ports_from_runtime "$port" 2>/dev/null || true
+        snellv6_sync_reserved_ports 2>/dev/null || true
+    fi
+    rm -f /tmp/snellv6-server.*.zip 2>/dev/null
+    rm -rf /tmp/snellv6-dl.* 2>/dev/null
+}
+
+# 安装 v6 实例
+install_snellv6() {
+    echo -e "${SNELL_GREEN}=== 安装 Snell v6 RC 实例 ===${SNELL_RESET}"
+    echo -e "${SNELL_YELLOW}⚠ 预发布提示：客户端需 Surge Mac Beta 渠道或 iOS TestFlight；${SNELL_RESET}"
+    echo -e "${SNELL_YELLOW}  App Store 正式版 Surge 无法连接 v6 节点；正式版发布前协议仍可能变动。${SNELL_RESET}"
+    echo ""
+
+    wait_for_package_manager_snell
+    if ! install_required_packages_snell; then
+        echo -e "${SNELL_RED}安装必要软件包失败，请检查网络连接。${SNELL_RESET}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - v6 安装必要软件包失败" >> "$SNELLV6_LOG_FILE"
+        return 1
+    fi
+
+    mkdir -p "$SNELLV6_CONF_DIR"
+
+    # snell 用户/组（与 v5 共享；幂等，存在则不改任何属性）
+    if ! getent group "snell" &>/dev/null; then
+        groupadd -r snell
+    fi
+    if ! id "snell" &>/dev/null; then
+        useradd -r -g snell -s /usr/sbin/nologin -d /nonexistent snell 2>/dev/null || \
+        useradd -r -g snell -s /sbin/nologin -d /nonexistent snell
+    fi
+
+    # 下载二进制（带版本标记校验：存在且版本匹配则跳过）
+    local need_download=1 downloaded_now=0
+    if [ -f "$SNELLV6_BIN" ] && [ -f "$SNELLV6_VERSION_FILE" ] && \
+       [ "$(cat "$SNELLV6_VERSION_FILE" 2>/dev/null)" = "${SNELL_V6_DEFAULT_VERSION}" ]; then
+        need_download=0
+        echo -e "${SNELL_GREEN}已存在 v${SNELL_V6_DEFAULT_VERSION} 内核，跳过下载。${SNELL_RESET}"
+    fi
+    if [ "$need_download" -eq 1 ]; then
+        local dl_dir
+        dl_dir=$(snellv6_download_binary) || { cleanup_partial_install_snellv6 ""; return 1; }
+        if ! install -m 755 "${dl_dir}/snell-server" "${SNELLV6_BIN}"; then
+            echo -e "${SNELL_RED}安装 snell-server-v6 到 ${SNELLV6_BIN} 失败。${SNELL_RESET}"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 安装 snell-server-v6 失败" >> "$SNELLV6_LOG_FILE"
+            rm -rf "$dl_dir"; cleanup_partial_install_snellv6 ""; return 1
+        fi
+        rm -rf "$dl_dir"
+        echo "${SNELL_V6_DEFAULT_VERSION}" > "$SNELLV6_VERSION_FILE"
+        downloaded_now=1
+    fi
+
+    # 先把标准源里的 v6 运行库装齐（libc-ares2 / libuv1），减少逐个自检失败
+    snellv6_install_base_runtime_libs
+
+    echo -e "${SNELL_CYAN}正在自检 Snell v6 二进制运行环境...${SNELL_RESET}"
+    if ! snellv6_ensure_binary_runnable "$SNELLV6_BIN"; then
+        rm -f "$SNELLV6_VERSION_FILE"
+        [ "$downloaded_now" -eq 1 ] && rm -f "$SNELLV6_BIN"
+        cleanup_partial_install_snellv6 ""
+        return 1
+    fi
+
+    # 选端口（默认随机 30000-39999，与 v5 默认段 10000-29999 错开，撞号率归零）
+    local snellv6_port custom_port
+    snellv6_port=$(shuf -i 30000-39999 -n 1)
+    echo -e "${SNELL_CYAN}请输入端口号 (1-65535)，直接回车使用随机端口 [默认: ${snellv6_port}]:${SNELL_RESET}"
+    while true; do
+        read -p "端口: " custom_port
+        if [ -z "$custom_port" ]; then
+            echo -e "${SNELL_GREEN}使用随机端口: ${snellv6_port}${SNELL_RESET}"
+            break
+        fi
+        if snell_valid_port "$custom_port"; then
+            snellv6_port="$custom_port"
+            echo -e "${SNELL_GREEN}已设置端口为: ${snellv6_port}${SNELL_RESET}"
+            break
+        else
+            echo -e "${SNELL_RED}无效端口，请输入 1-65535 之间的数字，或直接回车使用随机端口${SNELL_RESET}"
+        fi
+    done
+
+    # 端口占用检查：ss 实际监听 + v6/v5 unit 文件（含旧版 snell.service），即使停止也拒绝（保护 v5）
+    local port_in_use=0
+    if ss -ltnH "( sport = :${snellv6_port} )" 2>/dev/null | grep -q .; then
+        port_in_use=1
+    elif ss -lunH "( sport = :${snellv6_port} )" 2>/dev/null | grep -q .; then
+        port_in_use=1
+    fi
+    if [ "$port_in_use" -eq 1 ]; then
+        echo -e "${SNELL_RED}端口 ${snellv6_port} 已被占用，请选择其他端口。${SNELL_RESET}"
+        return 1
+    fi
+    if [ -f "/etc/systemd/system/snellv6-${snellv6_port}.service" ]; then
+        echo -e "${SNELL_RED}端口 ${snellv6_port} 的 v6 实例已存在，请换端口或先卸载。${SNELL_RESET}"
+        return 1
+    fi
+    if [ -f "/etc/systemd/system/snell-${snellv6_port}.service" ] || [ -f "/lib/systemd/system/snell-${snellv6_port}.service" ]; then
+        echo -e "${SNELL_RED}端口 ${snellv6_port} 已被 v5 实例占用，请换端口（保护 v5）。${SNELL_RESET}"
+        return 1
+    fi
+    if [ -f "/etc/snell/snell-server.conf" ]; then
+        local v5_old_port
+        v5_old_port=$(grep -E '^[[:space:]]*listen[[:space:]]*=' /etc/snell/snell-server.conf 2>/dev/null | tail -n 1 | sed -E 's/.*:([0-9]+).*/\1/')
+        if [ "$v5_old_port" = "$snellv6_port" ]; then
+            echo -e "${SNELL_RED}端口 ${snellv6_port} 已被 v5 旧版实例占用，请换端口（保护 v5）。${SNELL_RESET}"
+            return 1
+        fi
+    fi
+
+    # 节点名称
+    local node_name
+    echo -e "${SNELL_CYAN}请输入节点名称 (例如: 🇯🇵【v6测试】JP):${SNELL_RESET}"
+    read -p "节点名称: " node_name
+    if [ -z "$node_name" ]; then
+        node_name="SnellV6-Node-${snellv6_port}"
+        echo -e "${SNELL_YELLOW}未输入名称，使用默认名称: ${node_name}${SNELL_RESET}"
+    fi
+
+    # 监听模式（只决定 inbound listen + 客户端 ip-version 后缀；dns-ip-preference 与之正交）
+    local listen_mode listen_addr ip_version_str
+    echo -e "${SNELL_CYAN}请选择监听模式:${SNELL_RESET}"
+    echo "1. 仅 IPv4 (0.0.0.0)"
+    echo "2. 仅 IPv6 ([::])"
+    echo "3. 双栈 (同时支持 IPv4 和 IPv6)"
+    read -p "请输入选项 [1-3，默认为 1]: " listen_mode
+    listen_mode=${listen_mode:-1}
+    case "$listen_mode" in
+        2)
+            listen_addr="[::]:${snellv6_port}"
+            ip_version_str=", ip-version=v6-only"
+            echo -e "${SNELL_GREEN}已选择：仅 IPv6 模式${SNELL_RESET}"
+            ;;
+        3)
+            listen_addr="0.0.0.0:${snellv6_port},[::]:${snellv6_port}"
+            ip_version_str=""
+            echo -e "${SNELL_GREEN}已选择：双栈模式${SNELL_RESET}"
+            ;;
+        *)
+            listen_addr="0.0.0.0:${snellv6_port}"
+            ip_version_str=", ip-version=v4-only"
+            echo -e "${SNELL_GREEN}已选择：仅 IPv4 模式${SNELL_RESET}"
+            ;;
+    esac
+
+    # PSK（v6 用 PSK 派生混淆特征，加长到 32）
+    local random_psk
+    random_psk=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32)
+
+    # 写配置文件
+    # mode（v6.0.0b3 起）：default=流量混淆+AES 加密（推荐，抗指纹）；unshaped=关混淆仅 AES，约快 10%；
+    #   unsafe-raw=混淆与加密全关。显式写出 default，避免官方后续改默认值时行为漂移。
+    # dns-ip-preference 是 outbound 解析偏好，与监听栈正交，统一用安全的 default
+    local conf_file="${SNELLV6_CONF_DIR}/snell-${snellv6_port}.conf"
+    cat > "$conf_file" <<EOF
+[snell-server]
+listen = ${listen_addr}
+psk = ${random_psk}
+mode = default
+dns-ip-preference = default
+EOF
+    echo -e "${SNELL_CYAN}提示: mode 可选 default(混淆+加密,推荐) / unshaped(关混淆仅加密,约快10%) / unsafe-raw(全关)${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}      dns-ip-preference 可选 default/prefer-ipv4/prefer-ipv6/ipv4-only/ipv6-only，如需修改请编辑 ${conf_file}${SNELL_RESET}"
+
+    chown snell:snell "$SNELLV6_CONF_DIR"
+    chmod 750 "$SNELLV6_CONF_DIR"
+    chown snell:snell "$conf_file"
+    chmod 640 "$conf_file"
+
+    # 写 systemd 单元（出生即带全套稳定性防护，无需后续 drop-in）
+    local unit_file="/etc/systemd/system/snellv6-${snellv6_port}.service"
+    cat > "$unit_file" <<EOF
+[Unit]
+Description=Snell V6 Proxy Service (Port ${snellv6_port})
+After=network.target network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+StartLimitInterval=0
+StartLimitBurst=0
+
+[Service]
+Type=simple
+User=snell
+Group=snell
+ExecStart=${SNELLV6_BIN} -c ${conf_file}
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_ADMIN CAP_NET_RAW
+LimitNOFILE=32768
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=5s
+OOMScoreAdjust=-500
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=snellv6-${snellv6_port}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    if ! boot_recovery_install_assets || ! boot_recovery_patch_unit "snellv6-${snellv6_port}.service"; then
+        cleanup_partial_install_snellv6 "$snellv6_port"
+        return 1
+    fi
+
+    if ! systemctl daemon-reload; then
+        echo -e "${SNELL_RED}重载 Systemd 配置失败。${SNELL_RESET}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - v6 daemon-reload 失败" >> "$SNELLV6_LOG_FILE"
+        cleanup_partial_install_snellv6 "$snellv6_port"
+        return 1
+    fi
+    if ! systemctl enable "snellv6-${snellv6_port}.service"; then
+        echo -e "${SNELL_RED}设置开机自启失败。${SNELL_RESET}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - v6 enable 失败" >> "$SNELLV6_LOG_FILE"
+        cleanup_partial_install_snellv6 "$snellv6_port"
+        return 1
+    fi
+
+    # 先注册保留端口（start 之前，避免窗口期被 outbound 抢占）
+    snellv6_sync_reserved_ports || true
+
+    if ! systemctl start "snellv6-${snellv6_port}.service"; then
+        echo -e "${SNELL_RED}启动 Snell v6 服务失败。${SNELL_RESET}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 启动 Snell v6 失败" >> "$SNELLV6_LOG_FILE"
+        cleanup_partial_install_snellv6 "$snellv6_port"
+        return 1
+    fi
+    sleep 2
+    if ! systemctl is-active --quiet "snellv6-${snellv6_port}.service"; then
+        echo -e "${SNELL_RED}Snell v6 启动后立即崩溃，请检查日志：${SNELL_RESET}"
+        journalctl -u "snellv6-${snellv6_port}.service" -n 20 --no-pager 2>/dev/null
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Snell v6 启动后立即崩溃" >> "$SNELLV6_LOG_FILE"
+        cleanup_partial_install_snellv6 "$snellv6_port"
+        return 1
+    fi
+    echo -e "${SNELL_GREEN}Snell v6 (端口 ${snellv6_port}) 安装成功${SNELL_RESET}"
+    journalctl -u "snellv6-${snellv6_port}.service" -n 8 --no-pager 2>/dev/null || true
+
+    # 获取公网 IP（按监听模式分流）
+    local host_ip=""
+    case "$listen_mode" in
+        2)
+            host_ip=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -6 -s --max-time 5 https://ifconfig.co 2>/dev/null)
+            ;;
+        3)
+            host_ip=$(curl -4 -s --max-time 5 https://api.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null)
+            ;;
+        *)
+            host_ip=$(curl -4 -s --max-time 5 https://api.ipify.org 2>/dev/null)
+            [ -z "$host_ip" ] && host_ip=$(curl -4 -s --max-time 5 https://ifconfig.me 2>/dev/null)
+            ;;
+    esac
+    if [ -z "$host_ip" ]; then
+        echo -e "${SNELL_YELLOW}⚠ 无法自动获取公网 IP，节点链接里的 IP 需手动替换${SNELL_RESET}"
+        host_ip="<请手动填写公网IP>"
+    fi
+    local host_ip_formatted="$host_ip"
+    if echo "$host_ip" | grep -q ":"; then
+        host_ip_formatted="[${host_ip}]"
+    fi
+
+    local final_config="${node_name} = snell, ${host_ip_formatted}, ${snellv6_port}, psk=${random_psk}, version=6, reuse=true${ip_version_str}"
+    echo ""
+    echo -e "${SNELL_GREEN}节点信息输出（Surge 客户端需 Beta/TestFlight 渠道）：${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}${final_config}${SNELL_RESET}"
+
+    cat > "${SNELLV6_CONF_DIR}/config-${snellv6_port}.txt" <<EOF
+${final_config}
+EOF
+    chmod 600 "${SNELLV6_CONF_DIR}/config-${snellv6_port}.txt"
+
+    # 注册每日重启兜底（v6 仍是预发布版本，兜底更重要）
+    systemctl enable --now net-tcp-boot-watch.timer || echo 'Snell v6已安装，但定时恢复检查未启用，请检查systemd' >&2
+    snellv6_install_daily_restart_cron || true
+}
+
+# v6 更新内核 + 一键修复（合并为一项）
+snellv6_update_and_repair() {
+    local repair_failed=0
+    local unit svc_name
+    local -a units=() restart_targets=()
+
+    echo -e "${SNELL_GREEN}=== Snell v6 更新内核 + 一键修复（合并）===${SNELL_RESET}"
+    echo -e "${SNELL_CYAN}不会删除任何节点配置；补齐稳定性防护、按需更新二进制、并重启需恢复的实例。${SNELL_RESET}"
+
+    if ! snellv6_acquire_lock; then
+        return 1
+    fi
+
+    while IFS= read -r unit; do
+        units+=("$unit")
+    done < <(snellv6_list_units)
+
+    if [ "${#units[@]}" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}未检测到 Snell v6 实例，无需处理。${SNELL_RESET}"
+        snellv6_release_lock
+        return 0
+    fi
+
+    # 先补齐稳定性防护（不动二进制）
+    snellv6_apply_runtime_guards yes || repair_failed=1
+
+    # 收集需恢复实例：active 或 failed+enabled（不自动拉起用户手动停止/禁用的实例）
+    for unit in "${units[@]}"; do
+        if snell_should_restart_unit "$unit"; then
+            restart_targets+=("$unit")
+        fi
+    done
+
+    # 二进制版本校验：已是目标版本则跳过下载，仅做修复重启
+    if [ -f "$SNELLV6_BIN" ] && [ -f "$SNELLV6_VERSION_FILE" ] && \
+       [ "$(cat "$SNELLV6_VERSION_FILE" 2>/dev/null)" = "${SNELL_V6_DEFAULT_VERSION}" ]; then
+        echo -e "${SNELL_GREEN}二进制已是 v${SNELL_V6_DEFAULT_VERSION}，跳过下载，仅做修复重启。${SNELL_RESET}"
+        snellv6_restart_units_with_healthcheck "${restart_targets[@]}" || repair_failed=1
+        snellv6_health_check || repair_failed=1
+        snellv6_release_lock
+        return "$repair_failed"
+    fi
+
+    # 需要更新二进制
+    wait_for_package_manager_snell
+    if ! install_required_packages_snell; then
+        echo -e "${SNELL_RED}安装必要软件包失败，请检查网络连接。${SNELL_RESET}"
+        snellv6_release_lock
+        return 1
+    fi
+
+    local TMP_DIR
+    if ! TMP_DIR=$(snellv6_download_binary); then
+        echo -e "${SNELL_YELLOW}⚠ 下载二进制失败，跳过更新，仅做修复重启。${SNELL_RESET}"
+        snellv6_restart_units_with_healthcheck "${restart_targets[@]}" || repair_failed=1
+        snellv6_health_check || repair_failed=1
+        snellv6_release_lock
+        return 1
+    fi
+
+    if [ -f "$SNELLV6_BIN" ]; then
+        if ! cp "$SNELLV6_BIN" "${SNELLV6_BIN}.bak"; then
+            echo -e "${SNELL_RED}备份旧二进制失败，已取消更新。${SNELL_RESET}"
+            rm -rf "$TMP_DIR"
+            snellv6_release_lock
+            return 1
+        fi
+    fi
+
+    echo -e "${SNELL_GREEN}正在停止需要恢复的 Snell v6 服务...${SNELL_RESET}"
+    for svc_name in "${restart_targets[@]}"; do
+        systemctl stop "$svc_name" 2>/dev/null
+    done
+
+    if ! mv "$TMP_DIR/snell-server" "${SNELLV6_BIN}"; then
+        echo -e "${SNELL_RED}二进制替换失败，回滚...${SNELL_RESET}"
+        [ -f "${SNELLV6_BIN}.bak" ] && mv "${SNELLV6_BIN}.bak" "${SNELLV6_BIN}" 2>/dev/null
+        for svc_name in "${restart_targets[@]}"; do
+            systemctl start "$svc_name" 2>/dev/null
+        done
+        rm -rf "$TMP_DIR"
+        snellv6_release_lock
+        return 1
+    fi
+    chmod +x "${SNELLV6_BIN}"
+    rm -rf "$TMP_DIR"
+
+    echo -e "${SNELL_CYAN}正在自检 Snell v6 新二进制运行环境...${SNELL_RESET}"
+    if ! snellv6_ensure_binary_runnable "$SNELLV6_BIN"; then
+        echo -e "${SNELL_RED}Snell v6 新二进制不可运行，回滚到旧版本...${SNELL_RESET}"
+        if [ -f "${SNELLV6_BIN}.bak" ]; then
+            mv "${SNELLV6_BIN}.bak" "${SNELLV6_BIN}"
+            chmod +x "${SNELLV6_BIN}"
+        else
+            rm -f "${SNELLV6_BIN}"
+        fi
+        for svc_name in "${restart_targets[@]}"; do
+            systemctl start "$svc_name" 2>/dev/null
+        done
+        snellv6_release_lock
+        return 1
+    fi
+    echo "${SNELL_V6_DEFAULT_VERSION}" > "$SNELLV6_VERSION_FILE"
+
+    echo -e "${SNELL_GREEN}正在重启并验证 Snell v6 服务...${SNELL_RESET}"
+    if ! snellv6_restart_units_with_healthcheck "${restart_targets[@]}"; then
+        echo -e "${SNELL_RED}有 Snell v6 服务重启失败，回滚到旧版本二进制...${SNELL_RESET}"
+        if [ -f "${SNELLV6_BIN}.bak" ]; then
+            mv "${SNELLV6_BIN}.bak" "${SNELLV6_BIN}"
+            chmod +x "${SNELLV6_BIN}"
+            for svc_name in "${restart_targets[@]}"; do
+                systemctl restart "$svc_name" 2>/dev/null
+            done
+            echo -e "${SNELL_YELLOW}已回滚到旧版本，请检查日志后重试。${SNELL_RESET}"
+        fi
+        snellv6_release_lock
+        return 1
+    fi
+
+    rm -f "${SNELLV6_BIN}.bak"
+    echo -e "${SNELL_GREEN}Snell v6 更新 + 修复完成${SNELL_RESET}"
+    snellv6_health_check || true
+    list_snellv6_instances
+    snellv6_release_lock
+    return "$repair_failed"
+}
+
+# 卸载 v6（单端口 / 全部；绝不 userdel/groupdel，绝不碰 v5 任何文件）
+uninstall_snellv6() {
+    echo -e "${SNELL_GREEN}=== 卸载 Snell v6 服务 ===${SNELL_RESET}"
+
+    list_snellv6_instances
+    local instance_count=$?
+
+    if [ "$instance_count" -eq 0 ]; then
+        echo -e "${SNELL_YELLOW}未检测到任何 Snell v6 实例，无需卸载。${SNELL_RESET}"
+        return
+    fi
+
+    echo "请选择卸载方式："
+    echo "1. 卸载指定端口的 v6 实例"
+    echo "2. 卸载所有 v6 实例（含二进制/配置目录/保留端口/每日重启）"
+    echo "0. 取消"
+    read -p "请输入选项 [0-2]: " uninstall_choice
+
+    case "$uninstall_choice" in
+        1)
+            read -p "请输入要卸载的端口号: " port_to_uninstall
+            if [ -z "$port_to_uninstall" ]; then
+                echo "端口号不能为空"
+                return
+            fi
+            if [ ! -f "/etc/systemd/system/snellv6-${port_to_uninstall}.service" ]; then
+                echo -e "${SNELL_RED}未找到端口为 ${port_to_uninstall} 的 Snell v6 实例${SNELL_RESET}"
+                return
+            fi
+            echo "正在卸载服务: snellv6-${port_to_uninstall}.service ..."
+            systemctl stop "snellv6-${port_to_uninstall}.service"
+            systemctl disable "snellv6-${port_to_uninstall}.service"
+            systemctl reset-failed "snellv6-${port_to_uninstall}.service" 2>/dev/null
+            rm -f "/etc/systemd/system/snellv6-${port_to_uninstall}.service"
+            rm -rf "/etc/systemd/system/snellv6-${port_to_uninstall}.service.d" 2>/dev/null
+            rm -f "${SNELLV6_CONF_DIR}/snell-${port_to_uninstall}.conf"
+            rm -f "${SNELLV6_CONF_DIR}/config-${port_to_uninstall}.txt"
+            systemctl daemon-reload
+            snellv6_remove_ports_from_runtime "$port_to_uninstall" 2>/dev/null || true
+            snellv6_sync_reserved_ports || true
+            echo -e "${SNELL_GREEN}v6 实例 ${port_to_uninstall} 卸载成功${SNELL_RESET}"
+            ;;
+        2)
+            echo "正在卸载所有 Snell v6 实例..."
+            local service_file port removed_ports
+            removed_ports=""
+            for service_file in /etc/systemd/system/snellv6-*.service; do
+                [ -f "$service_file" ] || continue
+                port=$(echo "$service_file" | sed -E 's/.*snellv6-([0-9]+)\.service/\1/')
+                if snell_valid_port "$port"; then
+                    removed_ports="${removed_ports:+$removed_ports,}${port}"
+                fi
+                echo "卸载端口 $port ..."
+                systemctl stop "snellv6-${port}.service"
+                systemctl disable "snellv6-${port}.service"
+                systemctl reset-failed "snellv6-${port}.service" 2>/dev/null
+                rm -f "$service_file"
+                rm -rf "/etc/systemd/system/snellv6-${port}.service.d" 2>/dev/null
+            done
+
+            rm -rf "$SNELLV6_CONF_DIR"
+            rm -f "$SNELLV6_BIN"
+            # 删除 v6 保留端口文件并同步清理 runtime；不动 v5 文件和 v5 端口
+            rm -f "$SNELLV6_RESERVED_FILE"
+            snellv6_remove_ports_from_runtime "$removed_ports" 2>/dev/null || true
+            # 清理 v6 每日重启 wrapper + cron（精确标记 SnellV6每日重启，不碰 v5 的 Snell每日重启）
+            rm -f "$SNELLV6_DAILY_WRAPPER"
+            if command -v crontab >/dev/null 2>&1; then
+                local tmp_cron
+                tmp_cron=$(mktemp 2>/dev/null) && {
+                    crontab -l 2>/dev/null | grep -v "# SnellV6每日重启" > "$tmp_cron" || true
+                    crontab "$tmp_cron" 2>/dev/null
+                    rm -f "$tmp_cron"
+                }
+            fi
+
+            systemctl daemon-reload
+            echo -e "${SNELL_GREEN}所有 Snell v6 实例已卸载（snell 用户/组保留，v5 不受影响）${SNELL_RESET}"
+            ;;
+        *)
+            echo "已取消"
+            ;;
+    esac
+}
+
+# v6 管理菜单
+snellv6_menu() {
+    while true; do
+        clear
+        echo -e "${SNELL_CYAN}=== Snell v6 RC 测试专区 🧪 ===${SNELL_RESET}"
+        echo -e "${SNELL_YELLOW}⚠ v6 仍是官方预发布(RC)：客户端需 Surge Mac Beta 渠道 / iOS TestFlight；${SNELL_RESET}"
+        echo -e "${SNELL_YELLOW}  正式版发布前协议仍可能变动，两端需同步；勿承载主力线路。${SNELL_RESET}"
+        echo -e "${SNELL_CYAN}  与 v5 完全隔离：独立二进制/服务/配置目录/端口保留，互不影响。${SNELL_RESET}"
+
+        local instance_count=0 running_count=0 menu_unit
+        while IFS= read -r menu_unit; do
+            instance_count=$((instance_count + 1))
+            if systemctl is-active --quiet "$menu_unit" 2>/dev/null; then
+                running_count=$((running_count + 1))
+            fi
+        done < <(snellv6_list_units)
+        echo -e "已安装 v6 实例: ${SNELL_GREEN}${instance_count}${SNELL_RESET} 个，运行中: ${SNELL_GREEN}${running_count}${SNELL_RESET} 个"
+
+        local v6_ver="未安装"
+        [ -f "$SNELLV6_BIN" ] && v6_ver="v${SNELL_V6_DEFAULT_VERSION}"
+        echo -e "v6 内核: ${v6_ver}"
+        echo ""
+        echo "1. 安装/添加 Snell v6 实例"
+        echo "2. 卸载/删除 Snell v6 实例"
+        echo "3. 查看所有 v6 实例 / 查看节点配置"
+        echo "4. 更新 v6 内核 + 一键修复（合并）⭐ 推荐"
+        echo "5. v6 健康检查（只检测）"
+        echo "6. 检查 v6 是否有新版本 🔍"
+        echo "0. 返回上级菜单"
+        echo "======================"
+        read -p "请输入选项编号: " v6_choice
+
+        case "$v6_choice" in
+            1)
+                install_snellv6
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            2)
+                uninstall_snellv6
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            3)
+                echo ""
+                list_snellv6_instances
+                local v6_count=$?
+                if [ "$v6_count" -gt 0 ]; then
+                    echo ""
+                    read -p "输入要查看配置的端口号（直接回车跳过）: " view_port
+                    if [ -n "$view_port" ]; then
+                        if [ -f "${SNELLV6_CONF_DIR}/snell-${view_port}.conf" ]; then
+                            echo ""
+                            show_snellv6_config_live "$view_port"
+                        else
+                            echo -e "${SNELL_RED}未找到端口 ${view_port} 的 v6 配置文件${SNELL_RESET}"
+                        fi
+                    fi
+                fi
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            4)
+                snellv6_update_and_repair
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            5)
+                snellv6_health_check || true
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
+            6)
+                snellv6_check_update || true
+                echo ""
+                read -n 1 -s -r -p "按任意键继续..."
+                ;;
             0) return ;;
             *) echo -e "${SNELL_RED}无效选项${SNELL_RESET}"; sleep 1 ;;
         esac
@@ -8463,6 +11083,858 @@ snell_menu() {
 #=============================================================================
 # 星辰大海 Xray 一键多协议
 #=============================================================================
+
+# 本地 Xray 卸载：发布脚本内置，不联网下载；只接受固定操作模式。
+run_xray_safe_uninstall() {
+    if [ ! -x /usr/bin/python3 ]; then
+        echo "缺少 /usr/bin/python3，无法安全验证卸载；不会自动安装。" >&2
+        return 1
+    fi
+    /usr/bin/python3 -I - "$@" <<'XRAY_SAFE_UNINSTALL_PY'
+"""Local, conservative Xray uninstall transaction. No network/package operations."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import time
+
+XRAY_UNIT = re.compile(r"xray(?:@[^/\s]+)?\.service\Z")
+SNELL_UNIT = re.compile(r"snell[^/\s]*\.service\Z", re.I)
+STATE = "/var/lib/net-tcp-tune/xray-uninstall"
+INSTALL_RECORD = "/var/lib/net-tcp-tune/xray-install.json"
+COMMON_LOCK = "/run/net-tcp-tune-xray/lock"
+FIXED = (
+    "/usr/local/bin/xray", "/usr/local/etc/xray", "/usr/local/share/xray",
+    "/var/log/xray", "/etc/systemd/system/xray.service", "/etc/systemd/system/xray@.service",
+    "/etc/systemd/system/xray.service.d", "/etc/systemd/system/xray@.service.d",
+    "/etc/logrotate.d/xray", INSTALL_RECORD,
+)
+SNELL_PATHS = (
+    "/etc/snell", "/etc/snell-v6", "/usr/local/bin/snell-server", "/usr/local/bin/snell-server-v6",
+    "/usr/local/bin/snell-daily-restart.sh", "/usr/local/bin/snellv6-daily-restart.sh",
+    "/etc/sysctl.d/99-zzz-snell-reserved-ports.conf", "/etc/sysctl.d/99-zzy-snellv6-reserved-ports.conf",
+    "/etc/systemd/system/logrotate@.service", "/etc/systemd/system/logrotate@.timer",
+)
+PROPS = (
+    "Id", "Names", "LoadState", "ActiveState", "SubState", "UnitFileState", "MainPID",
+    "ExecMainStartTimestampMonotonic", "FragmentPath", "DropInPaths", "ExecStart", "ExecStop",
+    "ExecStopPost", "ExecStartPre", "ExecStartPost", "ExecCondition", "Requires", "RequiredBy", "Wants", "BindsTo", "BoundBy", "PartOf", "ConsistsOf", "UpheldBy",
+    "PropagatesStopTo", "StopPropagatedFrom", "Triggers", "TriggeredBy", "ControlGroup",
+)
+UNIT_KEYS = {
+    "Unit": {"Description", "Documentation", "After", "StartLimitIntervalSec", "StartLimitBurst"},
+    "Service": {"User", "Group", "CapabilityBoundingSet", "AmbientCapabilities", "NoNewPrivileges",
+                "ExecStart", "Restart", "RestartSec", "RestartPreventExitStatus", "LimitNPROC", "LimitNOFILE",
+                "RuntimeDirectory", "RuntimeDirectoryMode", "KillMode", "KillSignal", "TimeoutStopSec",
+                "OOMScoreAdjust", "Type"},
+    "Install": {"WantedBy"},
+}
+DNS_GUARD_NAME = "90-net-tcp-boot-recovery.conf"
+DNS_HELPER = "/usr/local/libexec/net-tcp-boot-recovery"
+DNS_GUARD = """# NET_TCP_BOOT_RECOVERY_V1
+[Unit]
+After=network-online.target nss-lookup.target systemd-resolved.service dns-purify-persist.service
+Wants=network-online.target
+[Service]
+ExecStartPre=/usr/local/libexec/net-tcp-boot-recovery --wait-dns 40
+"""
+
+
+class Refused(RuntimeError):
+    pass
+
+
+class Cancelled(Refused):
+    pass
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+class Environment:
+    def __init__(self, root="/"):
+        # Production always constructs Environment() with no user-supplied root.
+        self.root = Path(root)
+        self.home = pwd.getpwuid(0).pw_dir
+        self.systemctl = "/usr/bin/systemctl"
+        self.state = self.path(STATE)
+
+    def path(self, name):
+        if not isinstance(name, str) or not name.startswith("/") or ".." in Path(name).parts:
+            raise Refused("非法路径")
+        return self.root / name.lstrip("/")
+
+    def logical(self, path):
+        return "/" + str(path.relative_to(self.root)).lstrip("/")
+
+    def command(self, *args, ok=(0,)):
+        # Do not inherit PATH, BASH_ENV, JSON_PATH, proxy settings or Python variables.
+        result = subprocess.run([self.systemctl, *args], capture_output=True, text=True, timeout=40,
+                                env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
+        if result.returncode not in ok:
+            raise Refused("systemctl " + " ".join(args[:2]) + " 失败: " + result.stderr.strip()[:300])
+        return result.stdout.strip()
+
+    def units(self):
+        result = set()
+        for action in ("list-unit-files", "list-units"):
+            text = self.command(action, "--all", "--type=service", "--plain", "--no-legend", "--no-pager")
+            for line in text.splitlines():
+                if line.split():
+                    name = line.split()[0]
+                    if XRAY_UNIT.fullmatch(name) or SNELL_UNIT.fullmatch(name):
+                        result.add(name)
+        return sorted(result)
+
+    def show(self, name):
+        text = self.command("show", name, "--no-pager", "--property=" + ",".join(PROPS))
+        return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+
+    def mounts(self):
+        output = []
+        for line in self.path("/proc/self/mountinfo").read_text().splitlines():
+            part = line.split()[4]
+            part = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m[1], 8)), part)
+            output.append(part)
+        return output
+
+    def processes(self):
+        output = []
+        for proc in self.path("/proc").iterdir():
+            if not proc.name.isdigit():
+                continue
+            try:
+                exe = os.readlink(proc / "exe")
+                if exe.endswith(" (deleted)"):
+                    exe = exe[:-10]
+                if Path(exe).name == "xray" or "snell" in Path(exe).name.lower():
+                    # Process start time prevents accepting a reused PID.
+                    start = (proc / "stat").read_text().rsplit(")", 1)[1].split()[19]
+                    output.append((int(proc.name), exe, start))
+            except (OSError, IndexError):
+                continue
+        return sorted(output)
+
+    def listeners(self):
+        command = next((p for p in ("/usr/bin/ss", "/usr/sbin/ss", "/bin/ss") if Path(p).is_file()), None)
+        if command is None:
+            raise Refused("缺少 ss，不能验证监听；不会自动安装")
+        result = subprocess.run([command, "-H", "-lntup"], capture_output=True, text=True, timeout=15,
+                                env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
+        if result.returncode:
+            raise Refused("读取监听失败")
+        # Listener queue lengths are live counters, not configuration changes.
+        return sorted(" ".join(line.split()[:2] + line.split()[4:]) for line in result.stdout.splitlines()
+                      if "snell" in line.lower() or '"xray"' in line)
+
+    def confirm(self, phrase, message):
+        print(message, flush=True)
+        try:
+            # Buffered r+ streams require seeking; a terminal is not seekable.
+            fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY)
+            with os.fdopen(fd, "r", encoding="utf-8") as tty:
+                os.write(tty.fileno(), ("请输入 " + phrase + "（其他输入取消）: ").encode())
+                answer = tty.readline().strip()
+        except OSError:
+            raise Cancelled("没有交互终端；未确认，不执行删除")
+        if answer != phrase:
+            raise Cancelled("操作已取消")
+
+    def candidates(self):
+        return (*FIXED, self.home.rstrip("/") + "/xray_subscription_info.txt")
+
+    def safe_path(self, name, *, writable=False):
+        path = self.path(name)
+        current = self.root
+        for part in path.relative_to(self.root).parts:
+            current /= part
+            if current.is_symlink():
+                raise Refused("拒绝符号链接路径: " + self.logical(current))
+            if current.exists():
+                s = current.stat()
+                if current.is_dir() and (s.st_uid != 0 or s.st_mode & 0o022):
+                    raise Refused("目录不是 root 专属可信目录: " + self.logical(current))
+        if writable and path.exists() and path.stat().st_uid != 0:
+            raise Refused("恢复记录不是 root 所有")
+        return path
+
+    @staticmethod
+    def metadata_file(path):
+        if os.path.lexists(path):
+            s = path.lstat()
+            if not stat.S_ISREG(s.st_mode) or s.st_uid != 0 or s.st_nlink != 1 or s.st_mode & 0o022:
+                raise Refused("事务/安装记录类型、权限或链接异常；拒绝读写")
+
+    def tree(self, name, hashes=True):
+        base = self.path(name)
+        if not base.exists() and not base.is_symlink():
+            return {}
+        paths = [base, *sorted(base.rglob("*"))] if base.is_dir() and not base.is_symlink() else [base]
+        output = {}
+        for path in paths:
+            s = path.lstat()
+            key = self.logical(path)
+            row = {"mode": stat.S_IMODE(s.st_mode), "uid": s.st_uid, "gid": s.st_gid, "type": stat.S_IFMT(s.st_mode)}
+            if path.is_symlink():
+                row["link"] = os.readlink(path)
+            elif path.is_file() and hashes:
+                row["sha256"] = digest(path)
+            output[key] = row
+        return output
+
+    def snell_snapshot(self):
+        paths = set(SNELL_PATHS)
+        units = {}
+        for name in self.units():
+            if SNELL_UNIT.fullmatch(name):
+                info = self.show(name)
+                units[name] = {k: info.get(k, "") for k in PROPS if k not in {"ControlGroup"}}
+                for key in ("Names", "Requires", "RequiredBy", "Wants", "BindsTo", "BoundBy", "PartOf", "ConsistsOf",
+                            "UpheldBy", "PropagatesStopTo", "StopPropagatedFrom", "Triggers", "TriggeredBy"):
+                    units[name][key] = " ".join(sorted(units[name][key].split()))
+                paths.update(info.get("DropInPaths", "").split())
+                if info.get("FragmentPath"):
+                    paths.add(info["FragmentPath"])
+                for executable in re.findall(r"path=(/[^ ;{}]+)", info.get("ExecStart", "")):
+                    paths.add(executable)
+                for argument in re.findall(r"(?:^|[\s=])(/[^ ;{}]+)", info.get("ExecStart", "")):
+                    if self.path(argument).exists():
+                        paths.add(argument)
+        files = {}
+        for path in sorted(paths):
+            files.update(self.tree(path))
+        return {"units": units, "files": files,
+                "processes": [list(p) for p in self.processes() if "snell" in Path(p[1]).name.lower()],
+                "listeners": [line for line in self.listeners() if "snell" in line.lower()]}
+
+    def check_snell(self, before):
+        if self.snell_snapshot() != before:
+            raise Refused("Snell 文件/服务/进程/监听与原基线不一致；停止清理，不自动修改或重启 Snell")
+
+    def validate_unit(self, name, info):
+        if name != "xray@.service" and not XRAY_UNIT.fullmatch(name):
+            raise Refused("非 Xray 服务")
+        if info.get("LoadState") in {"not-found", ""}:
+            return
+        if info.get("LoadState") != "loaded":
+            raise Refused("Xray 服务不是正常 loaded 状态: " + name)
+        if info.get("Id") != name or set(info.get("Names", name).split()) != {name}:
+            raise Refused("Xray 服务存在别名，拒绝处理: " + name)
+        for key in ("ExecStop", "ExecStopPost", "ExecStartPost", "ExecCondition", "RequiredBy", "BoundBy", "ConsistsOf", "UpheldBy", "PropagatesStopTo", "StopPropagatedFrom", "TriggeredBy"):
+            if info.get(key):
+                raise Refused("Xray 存在停止钩子或服务联动: " + name + "/" + key)
+        if info.get("ExecStartPre"):
+            pre = info["ExecStartPre"]
+            guards = {folder + "/" + DNS_GUARD_NAME for folder in FIXED if folder.endswith(".service.d")}
+            loaded = guards.intersection(info.get("DropInPaths", "").split())
+            if (not loaded or pre.count("{") != 1 or pre.count("}") != 1 or
+                    re.findall(r"path=([^ ;{}]+)", pre) != [DNS_HELPER] or
+                    [arg.strip() for arg in re.findall(r"argv\[\]=([^;{}]+)", pre)] != [DNS_HELPER + " --wait-dns 40"] or
+                    re.findall(r"ignore_errors=([^ ;{}]+)", pre) != ["no"]):
+                raise Refused("Xray 存在非默认启动前钩子: " + name)
+            for guard in loaded:
+                self.validate_dns_guard(guard)
+        executable = re.findall(r"path=([^ ;{}]+)", info.get("ExecStart", ""))
+        if executable != ["/usr/local/bin/xray"]:
+            raise Refused("systemd 内存中的 Xray 启动程序异常，需要先核实配置")
+        command = re.search(r"argv\[\]=([^;{}]+)", info.get("ExecStart", ""))
+        if command is None or not re.fullmatch(r"/usr/local/bin/xray run -config /usr/local/etc/xray/[\w.-]+\.json", command[1].strip()):
+            raise Refused("systemd 内存中的 Xray 配置路径异常")
+        paths = [info.get("FragmentPath", ""), *info.get("DropInPaths", "").split()]
+        for path in paths:
+            if not path:
+                continue
+            if path not in FIXED and not any(path.startswith(p + "/") for p in FIXED if p.endswith(".service.d")):
+                raise Refused("非默认 Xray 服务路径: " + path)
+            self.validate_unit_file(path)
+
+    def validate_unit_file(self, name):
+        path = self.safe_path(name)
+        if not path.exists():
+            return
+        if not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
+            raise Refused("服务文件类型或所有者异常: " + name)
+        if name in {folder + "/" + DNS_GUARD_NAME for folder in FIXED if folder.endswith(".service.d")}:
+            self.validate_dns_guard(name)
+            return
+        section = ""
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1]
+                continue
+            if "=" not in line or line.endswith("\\"):
+                raise Refused("无法可靠解析服务文件: " + name)
+            key, value = line.split("=", 1)
+            if key not in UNIT_KEYS.get(section, set()):
+                raise Refused("发现非默认服务指令: " + name + "/" + key)
+            if key == "ExecStart" and value and not re.fullmatch(
+                    r"/usr/local/bin/xray run -config /usr/local/etc/xray/(?:config|%i)\.json", value):
+                raise Refused("Xray 启动程序或配置路径异常")
+            if key == "RuntimeDirectory" and value not in {"xray", "xray-%i"}:
+                raise Refused("Xray 运行目录异常")
+            if key == "WantedBy" and value != "multi-user.target":
+                raise Refused("Xray 安装目标异常")
+
+    def validate_dns_guard(self, name):
+        # Only our complete fixed-path drop-in is compatible. Do not broaden the
+        # generic unit-key allowlist or remove the helper shared with Snell.
+        path = self.safe_path(name)
+        self.metadata_file(path)
+        if not path.is_file() or path.read_text() != DNS_GUARD:
+            raise Refused("Xray DNS 启动保护不是完整默认配置")
+        helper = self.safe_path(DNS_HELPER)
+        self.metadata_file(helper)
+        if not helper.is_file() or not helper.stat().st_mode & 0o111:
+            raise Refused("Xray DNS 启动保护程序缺失或不可执行")
+
+    def config_check(self):
+        directory = self.path("/usr/local/etc/xray")
+        for path in directory.rglob("*") if directory.exists() else []:
+            if not path.is_file():
+                continue
+            if not re.fullmatch(r"[\w.-]+\.json(?:\.bak\.[\w.-]+)?", path.name):
+                raise Refused("配置目录包含无法确认归属的文件: " + self.logical(path))
+            try:
+                content = json.loads(path.read_text())
+            except (ValueError, UnicodeError):
+                raise Refused("配置或备份不是有效 JSON: " + self.logical(path))
+            if not isinstance(content, dict):
+                raise Refused("配置不是 JSON 对象")
+            if any(not isinstance(v, dict) or v.get("protocol") != "vless" for v in content.get("inbounds", [])):
+                raise Refused("发现非 VLESS 节点；不能按临时 VLESS 的范围卸载整套 Xray")
+            for key in ("access", "error"):
+                value = content.get("log", {}).get(key)
+                if value and value != "none" and not value.startswith("/var/log/xray/"):
+                    raise Refused("发现默认目录以外的 Xray 日志；需要先核实归属")
+
+    def links(self):
+        links = {}
+        for directory in ("/etc/systemd/system", "/run/systemd/system"):
+            base = self.path(directory)
+            if not base.exists():
+                continue
+            for link in base.rglob("*"):
+                if link.is_symlink() and (XRAY_UNIT.fullmatch(link.name) or link.name == "logrotate@xray.timer"):
+                    logical = self.logical(link)
+                    if link.parent.name not in {"multi-user.target.wants", "timers.target.wants"}:
+                        raise Refused("Xray 存在自定义别名/启动链接: " + logical)
+                    target = os.readlink(link)
+                    resolved = str(Path(os.path.normpath(str(link.parent / target)))) if not target.startswith("/") else target
+                    # Absolute symlinks in a sandbox still represent production paths.
+                    if resolved.startswith(str(self.root)) and self.root != Path("/"):
+                        resolved = self.logical(Path(resolved))
+                    expected = "/etc/systemd/system/" + ("xray@.service" if "@" in link.name and link.name != "logrotate@xray.timer" else link.name)
+                    if link.name == "logrotate@xray.timer":
+                        expected = "/etc/systemd/system/logrotate@.timer"
+                    if resolved != expected:
+                        raise Refused("启动链接指向非默认 Xray 文件: " + logical)
+                    links[logical] = target
+        return links
+
+    def preflight(self):
+        self.safe_path(STATE, writable=True)
+        for name in ("current.json", "current.tmp", "last-result.json"):
+            self.metadata_file(self.state / name)
+        snell = self.snell_snapshot()
+        protected = set(snell["files"]) | set(SNELL_PATHS)
+        candidates = []
+        identities = {}
+        mounts = self.mounts()
+        for name in self.candidates():
+            path = self.safe_path(name)
+            if not path.exists():
+                continue
+            for protected_path in protected:
+                if name == protected_path or name.startswith(protected_path + "/") or protected_path.startswith(name + "/"):
+                    raise Refused("删除范围与 Snell 重叠")
+            if any(m == name or m.startswith(name + "/") for m in mounts):
+                raise Refused("Xray 路径包含挂载，拒绝递归清理: " + name)
+            for item in [path, *path.rglob("*")] if path.is_dir() else [path]:
+                s = item.lstat()
+                if stat.S_ISLNK(s.st_mode) or not (stat.S_ISDIR(s.st_mode) or stat.S_ISREG(s.st_mode)) or (item.is_file() and s.st_nlink != 1):
+                    raise Refused("Xray 目录存在链接或特殊文件: " + self.logical(item))
+                identities[self.logical(item)] = [s.st_dev, s.st_ino, s.st_uid, s.st_gid, stat.S_IMODE(s.st_mode)]
+            candidates.append(name)
+        self.config_check()
+        for name, pattern in (("/usr/local/share/xray", r"(?:geoip\.dat|geosite\.dat|\.undat)"),
+                              ("/var/log/xray", r"(?:access|error)\.log(?:\.\d+)?(?:\.gz)?")):
+            directory = self.path(name)
+            if directory.exists() and any(not p.is_file() or not re.fullmatch(pattern, p.name) for p in directory.iterdir()):
+                raise Refused("目录包含未知文件，不能确认全部专属于 Xray: " + name)
+        subscription = self.path(self.home.rstrip("/") + "/xray_subscription_info.txt")
+        if subscription.exists() and any(line.strip() and not line.startswith("vless://") for line in subscription.read_text().splitlines()):
+            raise Refused("订阅文件含非 VLESS 内容，无法按临时 VLESS 范围清理")
+        rotate = self.path("/etc/logrotate.d/xray")
+        if rotate.exists():
+            lines = [line.strip() for line in rotate.read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
+            if not lines or lines[0] != "/var/log/xray/*.log {" or lines[-1] != "}" or any(
+                    not re.fullmatch(r"(?:daily|missingok|compress|delaycompress|notifempty|rotate \d+|create 0?[0-7]{3} [\w-]+ [\w-]+)", line)
+                    for line in lines[1:-1]):
+                raise Refused("日志轮转规则包含未知路径或脚本指令，拒绝处理")
+        for name in ("/etc/systemd/system/xray.service", "/etc/systemd/system/xray@.service"):
+            self.validate_unit_file(name)
+        for folder in ("/etc/systemd/system/xray.service.d", "/etc/systemd/system/xray@.service.d"):
+            for path in self.path(folder).glob("*"):
+                self.validate_unit_file(self.logical(path))
+        binary = self.path("/usr/local/bin/xray")
+        if binary.exists():
+            if not binary.is_file() or binary.stat().st_uid != 0 or binary.stat().st_mode & 0o022:
+                raise Refused("Xray 核心权限或所有者异常")
+            with binary.open("rb") as stream:
+                if stream.read(4) != b"\x7fELF":
+                    raise Refused("Xray 核心不是 ELF 文件")
+        record = self.path(INSTALL_RECORD)
+        if record.exists():
+            self.metadata_file(record)
+            installed = json.loads(record.read_text())
+            if installed.get("version") != 1 or installed.get("paths") != list(self.candidates()):
+                raise Refused("安装归属记录异常")
+            if binary.exists() and installed.get("binary_sha256") != digest(binary):
+                raise Refused("Xray 核心与安装记录不一致；需先核实更改")
+        elif binary.exists() and not any(self.path(p).exists() for p in (
+                "/etc/systemd/system/xray.service", "/etc/systemd/system/xray@.service")):
+            raise Refused("只有孤立核心，缺少服务及安装记录，无法确认归属")
+        units = {}
+        for name in self.units():
+            if XRAY_UNIT.fullmatch(name) and name != "xray@.service":
+                info = self.show(name)
+                self.validate_unit(name, info)
+                if info.get("LoadState") != "not-found":
+                    units[name] = {"active": info.get("ActiveState") == "active", "enabled": info.get("UnitFileState", "")}
+        for pid, exe, _ in self.processes():
+            if Path(exe).name == "xray":
+                if exe != "/usr/local/bin/xray":
+                    raise Refused("发现非默认路径的 Xray 进程")
+                if not any(self.show(u).get("MainPID") == str(pid) for u in units):
+                    raise Refused("发现不受已核实服务管理的 Xray 进程")
+        timer = self.show("logrotate@xray.timer")
+        timer_relevant = (timer.get("ActiveState") in {"active", "activating", "deactivating"} or
+                          timer.get("UnitFileState") in {"enabled", "enabled-runtime", "linked", "linked-runtime"} or rotate.exists())
+        if timer.get("LoadState") == "loaded" and timer_relevant:
+            # Shared templates are preserved; only known logrotate timer instances are acted on.
+            for f in ("/etc/systemd/system/logrotate@.timer", "/etc/systemd/system/logrotate@.service"):
+                path = self.safe_path(f)
+                if path.exists() and (not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022):
+                    raise Refused("公共日志模板权限异常")
+                text = path.read_text() if path.exists() else ""
+                section = ""
+                allowed = {"Unit": {"Description", "Documentation"}, "Timer": {"OnCalendar", "Persistent"},
+                           "Service": {"Type", "ExecStart"}, "Install": {"WantedBy"}}
+                if not text:
+                    raise Refused("日志轮转模板不存在，不能确认实例归属")
+                for line in text.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith(("#", ";")):
+                        continue
+                    if line.startswith("[") and line.endswith("]"):
+                        section = line[1:-1]
+                        continue
+                    if "=" not in line:
+                        raise Refused("日志轮转模板无法解析")
+                    key, value = line.split("=", 1)
+                    if key not in allowed.get(section, set()) or (
+                            key == "ExecStart" and value != "/usr/sbin/logrotate /etc/logrotate.d/%i"):
+                        raise Refused("日志轮转模板包含未知钩子或联动")
+            for name in ("logrotate@xray.timer", "logrotate@xray.service"):
+                info = self.show(name)
+                for key in ("ExecStop", "ExecStopPost", "ExecStartPre", "ExecStartPost", "RequiredBy", "BoundBy", "ConsistsOf", "PropagatesStopTo", "StopPropagatedFrom"):
+                    if info.get(key):
+                        raise Refused("日志轮转实例存在服务联动")
+            units["logrotate@xray.timer"] = {"active": timer.get("ActiveState") == "active", "enabled": timer.get("UnitFileState", "")}
+            service = self.show("logrotate@xray.service")
+            if service.get("ActiveState") in {"active", "activating", "deactivating"}:
+                raise Refused("Xray 日志轮转正在执行，请稍后重试")
+        links = self.links()
+        # All staged paths must be on the transaction filesystem. Check before any stop.
+        ancestor = self.state
+        while not ancestor.exists():
+            ancestor = ancestor.parent
+        self.safe_path(self.logical(ancestor), writable=True)
+        device = ancestor.stat().st_dev
+        if any(self.path(p).stat().st_dev != device for p in candidates):
+            raise Refused("Xray 文件跨文件系统，当前安全事务不支持；未停止服务")
+        static_files = {}
+        for name in candidates:
+            if name != "/var/log/xray":
+                static_files.update(self.tree(name))
+        return {"paths": candidates, "identities": identities, "files": static_files,
+                "units": units, "links": links, "snell": snell}
+
+    def common_lock(self, readonly=False):
+        path = self.safe_path(COMMON_LOCK, writable=True)
+        if readonly and not path.exists():
+            return None
+        if not path.exists():
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # Menu actions inherit the same open file description on fd 9.
+        try:
+            inherited = os.fstat(9)
+            current = path.stat()
+            fd = 9 if (inherited.st_dev, inherited.st_ino) == (current.st_dev, current.st_ino) else None
+        except OSError:
+            fd = None
+        if fd is None:
+            fd = os.open(path, (os.O_RDONLY if readonly else os.O_RDWR | os.O_CREAT) | os.O_NOFOLLOW, 0o600)
+        if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_nlink != 1:
+            os.close(fd)
+            raise Refused("Xray 操作锁类型异常")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            raise Refused("另一个 Xray 操作正在进行")
+        return fd
+
+    def record_install(self):
+        # Called only after successful install/update by the embedded manager.
+        self.safe_path(INSTALL_RECORD, writable=True)
+        binary = self.path("/usr/local/bin/xray")
+        if not binary.is_file() or binary.is_symlink() or binary.stat().st_uid != 0:
+            raise Refused("不能登记异常 Xray 核心")
+        for name in ("/etc/systemd/system/xray.service", "/etc/systemd/system/xray@.service"):
+            self.validate_unit_file(name)
+        target = self.path(INSTALL_RECORD)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".tmp")
+        self.metadata_file(temporary)
+        if temporary.is_symlink():
+            raise Refused("安装登记临时文件异常")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump({"version": 1, "paths": list(self.candidates()), "binary_sha256": digest(binary)}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+        self.fsync(target.parent)
+
+    def state_prepare(self):
+        self.safe_path(STATE, writable=True)
+        self.state.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(self.state, 0o700)
+
+    def save(self, data):
+        temporary = self.state / "current.tmp"
+        self.metadata_file(temporary)
+        if temporary.is_symlink():
+            raise Refused("事务临时文件异常")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump(data, stream, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, self.state / "current.json")
+        self.fsync(self.state)
+
+    @staticmethod
+    def fsync(directory):
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def read_state(self):
+        path = self.safe_path(STATE + "/current.json", writable=True)
+        self.metadata_file(path)
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text())
+        self.safe_path(STATE + "/files", writable=True)
+        if not isinstance(data, dict) or data.get("version") != 1 or data.get("phase") not in {"prepared", "stopping", "moving", "verifying", "purging"}:
+            raise Refused("事务记录损坏，停止自动处理")
+        if set(data.get("plan", {}).get("paths", [])) - set(self.candidates()):
+            raise Refused("事务路径超出白名单")
+        if len(data["plan"]["paths"]) != len(set(data["plan"]["paths"])):
+            raise Refused("事务包含重复路径")
+        if set(data["plan"].get("units", {})) - {n for n in data["plan"].get("units", {}) if XRAY_UNIT.fullmatch(n) or n == "logrotate@xray.timer"}:
+            raise Refused("事务包含非 Xray 服务")
+        for name, target in data["plan"].get("links", {}).items():
+            parent = Path(name).parent
+            if not (name.startswith(("/etc/systemd/system/", "/run/systemd/system/")) and
+                    parent.name in {"multi-user.target.wants", "timers.target.wants"} and
+                    (XRAY_UNIT.fullmatch(Path(name).name) or Path(name).name == "logrotate@xray.timer")):
+                raise Refused("事务启动链接超出白名单")
+            expected = "/etc/systemd/system/" + ("logrotate@.timer" if Path(name).name == "logrotate@xray.timer" else
+                        "xray@.service" if "@" in Path(name).name else "xray.service")
+            resolved = os.path.normpath(str(parent / target)) if not target.startswith("/") else target
+            if resolved != expected:
+                raise Refused("事务启动链接指向非 Xray 文件")
+        return data
+
+    def staged(self, index):
+        return self.state / "files" / str(index)
+
+    def validate_staged(self, data, partial=False, only=None):
+        mounts = self.mounts()
+        for index, name in enumerate(data["plan"]["paths"]):
+            if only is not None and index != only:
+                continue
+            backup = self.staged(index)
+            logical = self.logical(backup)
+            self.safe_path(logical)
+            if any(m == logical or m.startswith(logical + "/") for m in mounts):
+                raise Refused("恢复区内出现挂载，停止处理")
+            if not os.path.lexists(backup):
+                if partial:
+                    continue
+                raise Refused("恢复材料缺失: " + name)
+            expected = {p: v for p, v in data["plan"].get("restore_files", {}).items() if p == name or p.startswith(name + "/")}
+            actual = {name + p[len(logical):]: v for p, v in self.tree(logical).items()}
+            if not expected or (actual != expected if not partial else any(expected.get(p) != v for p, v in actual.items())):
+                raise Refused("恢复区内容发生变化，拒绝删除或恢复: " + name)
+
+    def rollback(self, data):
+        if data["phase"] == "purging":
+            raise Refused("已开始清除恢复材料，不能保证回滚；请继续清理")
+        if "restore_files" in data["plan"]:
+            self.validate_staged(data, partial=True)
+        errors = []
+        for i, name in reversed(list(enumerate(data["plan"]["paths"]))):
+            backup = self.staged(i)
+            original = self.safe_path(name)
+            if backup.exists():
+                if backup.is_symlink():
+                    errors.append("恢复材料为符号链接，拒绝恢复")
+                    continue
+                expected = {p: v for p, v in data["plan"].get("restore_files", {}).items() if p == name or p.startswith(name + "/")}
+                actual = {name + p[len(self.logical(backup)):]: v for p, v in self.tree(self.logical(backup)).items()}
+                if not expected or actual != expected:
+                    errors.append("恢复材料与记录不一致: " + name)
+                    continue
+                if original.exists():
+                    errors.append("原位置已有文件，不覆盖: " + name)
+                    continue
+                try:
+                    os.rename(backup, original)
+                    self.fsync(original.parent)
+                except OSError as exc:
+                    errors.append(str(exc))
+        if errors:
+            raise Refused("恢复未完成: " + "; ".join(errors))
+        restored = {}
+        for name in data["plan"]["paths"]:
+            if not self.path(name).exists():
+                raise Refused("恢复材料与原文件均缺失: " + name)
+            if "restore_files" in data["plan"] or name != "/var/log/xray":
+                restored.update(self.tree(name))
+        if restored != data["plan"].get("restore_files", data["plan"]["files"]):
+            raise Refused("恢复后的文件与原记录不一致")
+        # Revalidate unit definitions before starting anything.
+        for name in data["plan"]["units"]:
+            if XRAY_UNIT.fullmatch(name):
+                self.validate_unit_file("/etc/systemd/system/" + ("xray@.service" if "@" in name else name))
+        for name, target in data["plan"]["links"].items():
+            path = self.path(name)
+            if not (name.startswith(("/etc/systemd/system/", "/run/systemd/system/")) and
+                    path.parent.name in {"multi-user.target.wants", "timers.target.wants"} and
+                    (XRAY_UNIT.fullmatch(path.name) or path.name == "logrotate@xray.timer")):
+                raise Refused("恢复链接范围异常")
+            self.safe_path(self.logical(path.parent))
+            if os.path.lexists(path):
+                if not path.is_symlink() or os.readlink(path) != target:
+                    raise Refused("恢复链接冲突，不覆盖")
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.symlink_to(target)
+        self.command("daemon-reload")
+        for name, old in data["plan"]["units"].items():
+            self.validate_unit(name, self.show(name)) if XRAY_UNIT.fullmatch(name) else None
+            if old["active"]:
+                self.command("start", name)
+                if self.show(name).get("ActiveState") != "active":
+                    raise Refused("Xray 运行状态未恢复: " + name)
+            if self.show(name).get("UnitFileState", "") != old["enabled"]:
+                raise Refused("Xray 启用状态未恢复: " + name)
+        self.check_snell(data["plan"]["snell"])
+        self.finish("rolled_back")
+        print("已恢复此次卸载改变的 Xray 文件和状态；Snell 基线一致。")
+
+    def verify_removed(self, data):
+        for name in data["plan"]["paths"]:
+            if os.path.lexists(self.path(name)):
+                raise Refused("原位置仍有残留: " + name)
+        if any(Path(exe).name == "xray" for _, exe, _ in self.processes()):
+            raise Refused("仍存在 Xray 进程")
+        if any('"xray"' in line for line in self.listeners()):
+            raise Refused("仍存在 Xray 监听")
+        for name in data["plan"]["units"]:
+            info = self.show(name)
+            if info.get("ActiveState") in {"active", "activating", "deactivating", "reloading"}:
+                raise Refused("Xray 服务或定时器仍运行: " + name)
+            if info.get("UnitFileState") in {"enabled", "enabled-runtime", "linked", "linked-runtime"}:
+                raise Refused("Xray 服务仍启用: " + name)
+        if self.links():
+            raise Refused("仍存在 Xray 启动链接")
+        self.check_snell(data["plan"]["snell"])
+
+    def finish(self, result):
+        files = self.state / "files"
+        if files.exists():
+            if any(files.iterdir()):
+                raise Refused("恢复区仍有文件，不能标记完成")
+            files.rmdir()
+        summary = self.state / "last-result.json"
+        self.metadata_file(summary)
+        if summary.is_symlink():
+            raise Refused("结果文件异常")
+        summary.write_text(json.dumps({"result": result, "time": int(time.time())}))
+        os.chmod(summary, 0o600)
+        (self.state / "current.json").unlink()
+        self.fsync(self.state)
+
+    def complete(self, data):
+        if data["phase"] != "purging":
+            self.verify_removed(data)
+            if data["plan"]["snell"]["processes"]:
+                self.confirm("Snell已验证", "服务器侧 Snell 基线一致。请用原客户端完成连接和代理请求后再确认；取消会恢复 Xray。")
+            self.verify_removed(data)
+            self.validate_staged(data)
+            data["phase"] = "purging"
+            self.save(data)
+        for index, _ in enumerate(data["plan"]["paths"]):
+            self.validate_staged(data, partial=True, only=index)
+            path = self.staged(index)
+            if path.is_symlink():
+                raise Refused("恢复区出现符号链接，停止清理")
+            if path.exists():
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
+        self.verify_removed(data)
+        self.finish("complete")
+        print("Xray 专属文件、进程、监听和启动链接已清除；Snell 基线一致。共享依赖和公共日志模板保留。")
+
+    def uninstall(self, check=False):
+        if self.read_state():
+            raise Refused("存在未完成事务，请使用 --xray-uninstall-resume 或 --xray-uninstall-rollback")
+        plan = self.preflight()
+        if not plan["paths"] and not plan["units"] and not plan["links"]:
+            print("未发现 Xray 残留，无需卸载。")
+            return
+        print("仅处理已核实的默认 VLESS/Xray 布局。以下候选文件将暂存后清除：")
+        for name in plan["paths"]:
+            print("  " + name)
+        print("服务: " + (", ".join(plan["units"]) or "无"))
+        print("公共日志模板、Snell、网络配置、共享依赖均保留。")
+        if check:
+            print("只读预检通过；未停止服务或修改文件。")
+            return
+        self.confirm("卸载Xray", "整套临时 VLESS/Xray 将卸载。异常时停止并尝试恢复；恢复材料清除后不能保证回滚。")
+        self.state_prepare()
+        fd = os.open(self.state / "lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if self.read_state():
+                raise Refused("另一个事务已开始")
+            if self.preflight() != plan:
+                raise Refused("预检后状态发生变化，取消操作")
+            data = {"version": 1, "phase": "prepared", "plan": plan}
+            self.save(data)
+            try:
+                data["phase"] = "stopping"
+                self.save(data)
+                for name in plan["units"]:
+                    self.command("stop", name)
+                    if self.show(name).get("ActiveState") in {"active", "activating", "deactivating", "reloading"}:
+                        raise Refused("服务未停止: " + name)
+                    self.command("disable", "--no-reload", name)
+                if any(Path(exe).name == "xray" for _, exe, _ in self.processes()):
+                    raise Refused("停止后仍有 Xray 进程，不删除文件")
+                self.check_snell(plan["snell"])
+                fresh = self.preflight()
+                if fresh["identities"] != plan["identities"] or fresh["files"] != plan["files"]:
+                    raise Refused("停止服务后文件身份发生变化，不删除")
+                data["phase"] = "moving"
+                data["plan"]["restore_files"] = {}
+                for name in plan["paths"]:
+                    data["plan"]["restore_files"].update(self.tree(name))
+                self.save(data)
+                (self.state / "files").mkdir(mode=0o700)
+                for index, name in enumerate(plan["paths"]):
+                    original = self.safe_path(name)
+                    os.rename(original, self.staged(index))
+                    self.fsync(original.parent)
+                    self.fsync(self.state / "files")
+                self.command("daemon-reload")
+                data["phase"] = "verifying"
+                self.save(data)
+                self.complete(data)
+            except (Exception, KeyboardInterrupt) as exc:
+                if data["phase"] != "purging":
+                    try:
+                        self.rollback(data)
+                    except Exception as restore:
+                        raise Refused(str(exc) + "；恢复未完成: " + str(restore)) from exc
+                    raise Refused(str(exc) + "；已恢复 Xray，本次卸载未完成") from exc
+                raise Refused("Xray 已从原位置卸载，但恢复材料清理/最终核验未完成；请继续事务。" + str(exc)) from exc
+        except BlockingIOError:
+            raise Refused("另一个 Xray 操作正在进行")
+        finally:
+            os.close(fd)
+
+    def recover(self, rollback=False):
+        self.state_prepare()
+        fd = os.open(self.state / "lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            data = self.read_state()
+            if not data:
+                print("没有未完成事务。")
+                return
+            self.confirm("恢复Xray" if rollback else "继续清理", "事务阶段: " + data["phase"])
+            if rollback or data["phase"] in {"prepared", "stopping", "moving"}:
+                self.rollback(data)
+            else:
+                self.complete(data)
+        except BlockingIOError:
+            raise Refused("另一个 Xray 操作正在进行")
+        finally:
+            os.close(fd)
+
+
+def main():
+    if sys.version_info < (3, 8):
+        raise Refused("安全卸载需要 Python 3.8 或更新版本；不会自动安装")
+    if os.geteuid() != 0 or sys.platform != "linux":
+        raise Refused("此功能仅支持 root 下的 Linux/systemd；不会自动安装依赖")
+    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] not in {"--check", "--resume", "--rollback", "--record-install"}):
+        raise Refused("不支持的卸载参数")
+    mode = sys.argv[1] if len(sys.argv) == 2 else ""
+    env = Environment()
+    fd = env.common_lock(readonly=mode == "--check")
+    try:
+        if mode == "--record-install":
+            env.record_install()
+        elif mode in {"--resume", "--rollback"}:
+            env.recover(rollback=mode == "--rollback")
+        else:
+            env.uninstall(check=mode == "--check")
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (Exception, KeyboardInterrupt) as error:
+        print("未完成: " + str(error), file=sys.stderr)
+        sys.exit(1)
+XRAY_SAFE_UNINSTALL_PY
+}
 
 run_xinchendahai_xray() {
     clear
@@ -8478,7 +11950,13 @@ run_xinchendahai_xray() {
     echo ""
 
     # 创建临时脚本
-    local script_path="/tmp/xinchendahai_xray_$$.sh"
+    # 安全：使用 mktemp 生成不可预测的临时文件名，避免符号链接攻击
+    local script_path
+    script_path=$(mktemp /tmp/xinchendahai_xray_XXXXXX.sh) || {
+        echo -e "${gl_hong}❌ 创建临时文件失败${gl_bai}"
+        return 1
+    }
+    chmod 600 "$script_path"
 
     echo "正在准备星辰大海Xray增强版脚本..."
 
@@ -8488,22 +11966,24 @@ run_xinchendahai_xray() {
 
 # ==============================================================================
 # Xray VLESS-Reality & Shadowsocks 2022 多功能管理脚本
-# 版本: Final v2.9.1
-# 更新日志 (v2.9.1):
-# - [安全] 添加配置文件权限保护
-# - [安全] 增强脚本下载验证
-# - [安全] 敏感信息显示保护
-# - [稳定] 网络操作重试机制
-# - [稳定] 服务启动详细错误显示
+# 版本: Final v2.9.4
+# 更新日志 (v2.9.4):
+# - 卸载使用内置事务、固定路径和 Snell 基线核验，不联网、不删除公共模板。
+# - 增加恢复入口；菜单预检查不自动安装依赖。
+# 更新日志 (v2.9.3):
+# - [修复] 兼容 Xray x25519 的 Private key/Public key 与 PrivateKey/PublicKey 输出格式
+# - [修复] 避免 Reality 密钥对解析为空导致新增 VLESS 失败
 # ==============================================================================
 
 # --- Shell 严格模式 ---
 set -euo pipefail
 
 # --- 全局常量 ---
-readonly XRAY_SCRIPT_VERSION="Final v2.9.1"
+readonly XRAY_SCRIPT_VERSION="Final v2.9.4"
 readonly xray_config_path="/usr/local/etc/xray/config.json"
 readonly xray_binary_path="/usr/local/bin/xray"
+readonly xray_root_home="$(getent passwd 0 | cut -d: -f6)"
+readonly xray_subscription_path="${xray_root_home}/xray_subscription_info.txt"
 readonly xray_install_script_url="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 
 # --- 颜色定义 ---
@@ -8516,7 +11996,7 @@ is_quiet=false
 
 # --- 辅助函数 ---
 error() { 
-    echo -e "\n$red[✖] $1$none\n" >&2
+    echo -e "\n${red}[✖] $1$none\n" >&2
     
     # 根据错误内容提供简单建议
     case "$1" in
@@ -8529,9 +12009,9 @@ error() {
     esac
 }
 
-info() { [[ "$is_quiet" = false ]] && echo -e "\n$yellow[!] $1$none\n"; }
-success() { [[ "$is_quiet" = false ]] && echo -e "\n$green[✔] $1$none\n"; }
-warning() { [[ "$is_quiet" = false ]] && echo -e "\n$yellow[⚠] $1$none\n"; }
+info() { [[ "$is_quiet" = false ]] && echo -e "\n${yellow}[!] $1$none\n"; }
+success() { [[ "$is_quiet" = false ]] && echo -e "\n${green}[✔] $1$none\n"; }
+warning() { [[ "$is_quiet" = false ]] && echo -e "\n${yellow}[⚠] $1$none\n"; }
 
 spinner() {
     local pid="$1"
@@ -8561,7 +12041,7 @@ get_public_ip() {
                 ip=$($cmd "$url" 2>/dev/null) && [[ -n "$ip" ]] && echo "$ip" && return
             done
         done
-        ((attempts++))
+        attempts=$((attempts + 1))
         [[ $attempts -lt $max_attempts ]] && sleep 1
     done
     
@@ -8577,15 +12057,31 @@ get_public_ip() {
 pre_check() {
     [[ "$(id -u)" != 0 ]] && error "错误: 您必须以root用户身份运行此脚本" && exit 1
     if [ ! -f /etc/debian_version ]; then error "错误: 此脚本仅支持 Debian/Ubuntu 及其衍生系统。" && exit 1; fi
-    if ! command -v jq &>/dev/null || ! command -v curl &>/dev/null; then
-        info "检测到缺失的依赖 (jq/curl)，正在尝试自动安装..."
-        (DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl) &> /dev/null &
-        spinner $!
-        if ! command -v jq &>/dev/null || ! command -v curl &>/dev/null; then
-            error "依赖 (jq/curl) 自动安装失败。请手动运行 'apt update && apt install -y jq curl' 后重试。"
-            exit 1
+}
+
+ensure_xray_dependencies() {
+    require_no_xray_transaction || return 1
+    if ! command -v jq &>/dev/null || ! command -v curl &>/dev/null || [ ! -x /usr/bin/python3 ]; then
+        info "安装/更新功能需要 jq、curl、python3，正在安装依赖..."
+        if ! DEBIAN_FRONTEND=noninteractive apt-get update || ! DEBIAN_FRONTEND=noninteractive apt-get install -y jq curl python3; then
+            error "依赖安装失败。"
+            return 1
         fi
-        success "依赖已成功安装。"
+    fi
+}
+
+require_no_xray_transaction() {
+    if [ -e /var/lib/net-tcp-tune/xray-uninstall/current.json ]; then
+        error "存在未完成的 Xray 卸载事务，请先选择18继续或19恢复。"
+        return 1
+    fi
+}
+
+require_xray_tools() {
+    require_no_xray_transaction || return 1
+    if ! command -v jq &>/dev/null || ! command -v curl &>/dev/null; then
+        error "此操作需要 jq/curl；请选择安装功能准备依赖，卸载不依赖它们。"
+        return 1
     fi
 }
 
@@ -8630,6 +12126,48 @@ generate_ss_key() {
 # 生成随机 shortid (8位十六进制)
 generate_shortid() {
     openssl rand -hex 4
+}
+
+extract_xray_x25519_key() {
+    local wanted="$1"
+    awk -F':[[:space:]]*' -v wanted="$wanted" '
+        {
+            label=tolower($1)
+            gsub(/[[:space:]]/, "", label)
+            if (wanted == "private" && label == "privatekey") {
+                print $NF
+                exit
+            }
+            if (wanted == "public" && (label == "publickey" || label == "password" || label == "password(publickey)")) {
+                print $NF
+                exit
+            }
+        }
+    '
+}
+
+generate_reality_key_pair() {
+    local key_pair private_key public_key
+
+    if ! key_pair=$("$xray_binary_path" x25519 2>/dev/null); then
+        error "生成 Reality 密钥对失败！Xray x25519 命令执行失败。"
+        return 1
+    fi
+
+    private_key=$(printf '%s\n' "$key_pair" | extract_xray_x25519_key private)
+    public_key=$(printf '%s\n' "$key_pair" | extract_xray_x25519_key public)
+
+    if [[ -z "$private_key" || -z "$public_key" ]]; then
+        error "生成 Reality 密钥对失败！无法解析 Xray x25519 输出。"
+        return 1
+    fi
+
+    if ! [[ "$private_key" =~ ^[A-Za-z0-9_-]{43}$ && "$public_key" =~ ^[A-Za-z0-9_-]{43}$ ]]; then
+        error "生成 Reality 密钥对失败！Xray x25519 输出的密钥格式异常。"
+        return 1
+    fi
+
+    printf '%s|%s\n' "$private_key" "$public_key"
 }
 
 build_vless_inbound() {
@@ -8695,7 +12233,7 @@ write_config() {
                 # 提取所有自定义的 routing rules（排除默认的广告过滤规则）
                 # 判断是否为自定义规则：包含 inboundTag 或 outboundTag 以 "socks5-" 开头
                 local temp_rules
-                temp_rules=$(jq -c '[.routing.rules[]? | select(.inboundTag != null or (.outboundTag? | startswith("socks5-")))]' "$xray_config_path" 2>/dev/null)
+                temp_rules=$(jq -c '[.routing.rules[]? | select(.inboundTag != null or ((.outboundTag? // "") | startswith("socks5-")))]' "$xray_config_path" 2>/dev/null)
                 
                 # 验证提取结果是否为有效的 JSON 数组
                 if [[ -n "$temp_rules" ]] && echo "$temp_rules" | jq empty 2>/dev/null; then
@@ -8798,7 +12336,7 @@ write_config() {
 execute_official_script() {
     local args="$1"
     local script_content
-    local temp_script="/tmp/xray_install_$$.sh"
+    local temp_script
 
     # 下载官方安装脚本
     if ! script_content=$(curl -fsSL --max-time 30 "$xray_install_script_url" 2>/dev/null); then
@@ -8812,16 +12350,23 @@ execute_official_script() {
         return 1
     fi
 
+    # 安全：使用 mktemp 生成不可预测的临时文件名，避免符号链接攻击
+    temp_script=$(mktemp /tmp/xray_install_XXXXXX.sh) || {
+        error "创建临时文件失败！"
+        return 1
+    }
+    chmod 600 "$temp_script"
+
     # 写入临时文件并执行
     echo "$script_content" > "$temp_script"
     chmod +x "$temp_script"
 
     if [[ "$is_quiet" = false ]]; then
-        bash "$temp_script" $args &
+        env -u DAT_PATH -u JSON_PATH -u JSONS_PATH bash "$temp_script" $args &
         spinner $!
         wait $! || { rm -f "$temp_script"; return 1; }
     else
-        bash "$temp_script" $args &>/dev/null || { rm -f "$temp_script"; return 1; }
+        env -u DAT_PATH -u JSON_PATH -u JSONS_PATH bash "$temp_script" $args &>/dev/null || { rm -f "$temp_script"; return 1; }
     fi
 
     rm -f "$temp_script"
@@ -8859,6 +12404,10 @@ StartLimitBurst=10
 XRAY_OVR
     systemctl daemon-reload
 
+    if ! run_xray_safe_uninstall --record-install; then
+        error "Xray 安装归属登记失败，停止继续配置。"
+        return 1
+    fi
     success "Xray 核心及数据文件已准备就绪。"
 }
 
@@ -8879,9 +12428,10 @@ show_port_usage() {
     declare -A program_ports
     while read line; do
         if [[ "$line" =~ LISTEN|UNCONN ]]; then
-            local local_addr=$(echo "$line" | awk '{print $5}')
-            local port=$(echo "$local_addr" | grep -o ':[0-9]*$' | cut -d':' -f2)
-            local program=$(echo "$line" | awk '{print $7}' | cut -d'"' -f2 2>/dev/null || echo "")
+            local local_addr port program
+            local_addr=$(echo "$line" | awk '{print $5}')
+            port=$(echo "$local_addr" | grep -o ':[0-9]*$' | cut -d':' -f2) || true
+            program=$(echo "$line" | awk '{print $7}' | cut -d'"' -f2 2>/dev/null || echo "")
 
             if [ -n "$port" ] && [ -n "$program" ] && [ "$program" != "-" ]; then
                 if [ -z "${program_ports[$program]:-}" ]; then
@@ -8969,15 +12519,21 @@ prompt_for_vless_config() {
     show_port_usage
 
     while true; do
-        read -p "$(echo -e " -> 请输入 VLESS 端口 (留空随机生成): ")" p_port || true
+        read -p "$(echo -e " -> 请输入 VLESS 端口 (留空使用默认 ${default_port}): ")" p_port || true
         if [[ -z "$p_port" ]]; then
-            # 回车随机生成
-            p_port=$(generate_random_port)
-            if [ $? -eq 0 ]; then
-                info "已为您随机生成端口: ${cyan}${p_port}${none}"
+            if is_port_available "$default_port" >/dev/null 2>&1; then
+                p_port="$default_port"
+                info "使用默认端口: ${cyan}${p_port}${none}"
                 break
             else
-                continue
+                warning "默认端口 ${default_port} 不可用，正在随机生成可用端口..."
+                p_port=$(generate_random_port)
+                if [ $? -eq 0 ]; then
+                    info "已为您随机生成端口: ${cyan}${p_port}${none}"
+                    break
+                else
+                    continue
+                fi
             fi
         else
             # 手动输入
@@ -9043,15 +12599,21 @@ prompt_for_ss_config() {
     show_port_usage
 
     while true; do
-        read -p "$(echo -e " -> 请输入 Shadowsocks 端口 (留空随机生成): ")" p_port || true
+        read -p "$(echo -e " -> 请输入 Shadowsocks 端口 (留空使用默认 ${default_port}): ")" p_port || true
         if [[ -z "$p_port" ]]; then
-            # 回车随机生成
-            p_port=$(generate_random_port)
-            if [ $? -eq 0 ]; then
-                info "已为您随机生成端口: ${cyan}${p_port}${none}"
+            if is_port_available "$default_port" >/dev/null 2>&1; then
+                p_port="$default_port"
+                info "使用默认端口: ${cyan}${p_port}${none}"
                 break
             else
-                continue
+                warning "默认端口 ${default_port} 不可用，正在随机生成可用端口..."
+                p_port=$(generate_random_port)
+                if [ $? -eq 0 ]; then
+                    info "已为您随机生成端口: ${cyan}${p_port}${none}"
+                    break
+                else
+                    continue
+                fi
             fi
         else
             # 手动输入
@@ -9187,14 +12749,8 @@ add_vless_to_ss() {
     prompt_for_vless_config vless_port vless_uuid vless_domain vless_node_name "$default_vless_port"
 
     info "正在生成 Reality 密钥对..."
-    key_pair=$("$xray_binary_path" x25519)
-    private_key=$(echo "$key_pair" | awk '/PrivateKey:/ {print $2}')
-    public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $NF}')
-
-    if [[ -z "$private_key" || -z "$public_key" ]]; then
-        error "生成 Reality 密钥对失败！请检查 Xray 核心是否正常，或尝试卸载后重装。"
-        exit 1
-    fi
+    key_pair=$(generate_reality_key_pair) || return 1
+    IFS='|' read -r private_key public_key <<< "$key_pair"
 
     vless_inbound=$(build_vless_inbound "$vless_port" "$vless_uuid" "$vless_domain" "$private_key" "$public_key" "$vless_node_name")
     write_config "[$vless_inbound, $ss_inbound]"
@@ -9274,19 +12830,10 @@ update_xray() {
 }
 
 uninstall_xray() {
-    if [[ ! -f "$xray_binary_path" ]]; then error "错误: Xray 未安装。" && return; fi
-    read -p "$(echo -e "${yellow}您确定要卸载 Xray 吗？这将删除所有配置！[Y/n]: ${none}")" confirm || true
-    if [[ "$confirm" =~ ^[nN]$ ]]; then
-        info "操作已取消。"
-        return
+    # 失败不能被 set -e 带出菜单，也不能改用联网卸载兜底。
+    if ! run_xray_safe_uninstall; then
+        warning "卸载未完成，请阅读上面的原因；有未完成事务时使用恢复选项。"
     fi
-    info "正在卸载 Xray..."
-    if ! execute_official_script "remove --purge"; then
-        error "Xray 卸载失败！"
-        return 1
-    fi
-    rm -f ~/xray_subscription_info.txt
-    success "Xray 已成功卸载。"
 }
 
 # 增加 VLESS 协议
@@ -9307,14 +12854,8 @@ add_new_vless() {
 
     info "正在生成 Reality 密钥对..."
     local key_pair private_key public_key
-    key_pair=$("$xray_binary_path" x25519)
-    private_key=$(echo "$key_pair" | awk '/PrivateKey:/ {print $2}')
-    public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $NF}')
-
-    if [[ -z "$private_key" || -z "$public_key" ]]; then
-        error "生成 Reality 密钥对失败！请检查 Xray 核心是否正常。"
-        return 1
-    fi
+    key_pair=$(generate_reality_key_pair) || return 1
+    IFS='|' read -r private_key public_key <<< "$key_pair"
 
     local new_vless_inbound
     new_vless_inbound=$(build_vless_inbound "$vless_port" "$vless_uuid" "$vless_domain" "$private_key" "$public_key" "$vless_node_name")
@@ -9811,8 +13352,8 @@ view_all_info() {
             printf "%s\n" "${links_array[@]}"
         else
             draw_divider
-            printf "%s\n" "${links_array[@]}" > ~/xray_subscription_info.txt
-            success "所有订阅链接已汇总保存到: ~/xray_subscription_info.txt"
+            printf "%s\n" "${links_array[@]}" > "$xray_subscription_path"
+            success "所有订阅链接已汇总保存到: $xray_subscription_path"
             
             echo -e "\n${yellow} --- V2Ray / Clash 等客户端可直接导入以下链接 --- ${none}\n"
             for link in "${links_array[@]}"; do
@@ -9884,8 +13425,9 @@ add_socks5_proxy() {
         return
     fi
     
-    local selected_tag=$(echo "$selected_info" | cut -d'|' -f1)
-    local selected_port=$(echo "$selected_info" | cut -d'|' -f2)
+    local selected_tag selected_port
+    selected_tag=$(echo "$selected_info" | cut -d'|' -f1)
+    selected_port=$(echo "$selected_info" | cut -d'|' -f2)
     
     echo ""
     info "已选择节点: ${cyan}${selected_tag}${none} (端口: ${cyan}${selected_port}${none})"
@@ -9896,7 +13438,7 @@ add_socks5_proxy() {
     
     if [[ -n "$existing_rule" ]]; then
         echo ""
-        warn "⚠️  该节点已配置链式代理: ${cyan}${existing_rule}${none}"
+        warning "⚠️  该节点已配置链式代理: ${cyan}${existing_rule}${none}"
         read -p " 是否覆盖现有配置? [y/N]: " overwrite || true
         if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
             return
@@ -10031,7 +13573,7 @@ add_socks5_proxy() {
             success "✅ Xray 已重启"
         else
             error "❌ Xray 重启失败，请检查日志: journalctl -u xray -n 20"
-            warn "已创建备份: ${xray_config_path}.bak.*"
+            warning "已创建备份: ${xray_config_path}.bak.*"
         fi
     fi
 }
@@ -10054,7 +13596,7 @@ list_socks5_proxies() {
     local socks5_rules
     socks5_rules=$(jq -r '
         .routing.rules[]? | 
-        select(.outboundTag? | startswith("socks5-")) | 
+        select((.outboundTag? // "") | startswith("socks5-")) |
         "\(.inboundTag[0])|\(.outboundTag)"
     ' "$xray_config_path" 2>/dev/null)
     
@@ -10104,7 +13646,7 @@ delete_socks5_proxy() {
     local socks5_rules
     socks5_rules=$(jq -r '
         .routing.rules[]? | 
-        select(.outboundTag? | startswith("socks5-")) | 
+        select((.outboundTag? // "") | startswith("socks5-")) |
         "\(.inboundTag[0])|\(.outboundTag)"
     ' "$xray_config_path" 2>/dev/null)
     
@@ -10155,8 +13697,9 @@ delete_socks5_proxy() {
         return
     fi
     
-    local inbound_tag=$(echo "$selected_info" | cut -d'|' -f1)
-    local outbound_tag=$(echo "$selected_info" | cut -d'|' -f2)
+    local inbound_tag outbound_tag
+    inbound_tag=$(echo "$selected_info" | cut -d'|' -f1)
+    outbound_tag=$(echo "$selected_info" | cut -d'|' -f2)
     
     # 读取配置
     local config
@@ -10201,7 +13744,7 @@ delete_socks5_proxy() {
             success "✅ Xray 已重启"
         else
             error "❌ Xray 重启失败，请检查日志: journalctl -u xray -n 20"
-            warn "已创建备份: ${xray_config_path}.bak.*"
+            warning "已创建备份: ${xray_config_path}.bak.*"
         fi
     fi
 }
@@ -10318,14 +13861,8 @@ run_install_vless() {
     run_core_install || exit 1
     info "正在生成 Reality 密钥对..."
     local key_pair private_key public_key vless_inbound
-    key_pair=$("$xray_binary_path" x25519)
-    private_key=$(echo "$key_pair" | awk '/PrivateKey:/ {print $2}')
-    public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $NF}')
-
-    if [[ -z "$private_key" || -z "$public_key" ]]; then
-        error "生成 Reality 密钥对失败！请检查 Xray 核心是否正常，或尝试卸载后重装。"
-        exit 1
-    fi
+    key_pair=$(generate_reality_key_pair) || exit 1
+    IFS='|' read -r private_key public_key <<< "$key_pair"
 
     vless_inbound=$(build_vless_inbound "$port" "$uuid" "$domain" "$private_key" "$public_key" "$node_name")
     write_config "[$vless_inbound]"
@@ -10362,14 +13899,8 @@ run_install_dual() {
     run_core_install || exit 1
     info "正在生成 Reality 密钥对..."
     local key_pair private_key public_key vless_inbound ss_inbound
-    key_pair=$("$xray_binary_path" x25519)
-    private_key=$(echo "$key_pair" | awk '/PrivateKey:/ {print $2}')
-    public_key=$(echo "$key_pair" | awk '/PublicKey/ {print $NF}')
-
-    if [[ -z "$private_key" || -z "$public_key" ]]; then
-        error "生成 Reality 密钥对失败！请检查 Xray 核心是否正常，或尝试卸载后重装。"
-        exit 1
-    fi
+    key_pair=$(generate_reality_key_pair) || exit 1
+    IFS='|' read -r private_key public_key <<< "$key_pair"
 
     vless_inbound=$(build_vless_inbound "$vless_port" "$vless_uuid" "$vless_domain" "$private_key" "$public_key" "$vless_node_name")
     ss_inbound=$(build_ss_inbound "$ss_port" "$ss_password" "$ss_node_name")
@@ -10418,30 +13949,34 @@ main_menu() {
         printf "  ${red}%-2s${none} %-35s\n" "0." "退出脚本"
         draw_divider
 
-        read -p " 请输入选项 [0-17]: " choice || true
+        printf "  ${yellow}%-2s${none} %-35s\n" "18." "继续未完成的 Xray 卸载"
+        printf "  ${yellow}%-2s${none} %-35s\n" "19." "恢复未完成的 Xray 卸载"
+        if ! read -p " 请输入选项 [0-19]: " choice; then return; fi
 
         local needs_pause=true
 
         case "$choice" in
-            1) install_menu ;;
-            2) add_new_vless ;;
-            3) delete_vless_node ;;
-            4) modify_vless_config ;;
-            5) add_new_ss ;;
-            6) delete_ss_node ;;
-            7) modify_ss_config ;;
-            8) add_socks5_proxy ;;
-            9) list_socks5_proxies ;;
-            10) delete_socks5_proxy ;;
-            11) update_xray ;;
+            1) if ensure_xray_dependencies; then install_menu; fi ;;
+            2) if require_xray_tools; then add_new_vless; fi ;;
+            3) if require_xray_tools; then delete_vless_node; fi ;;
+            4) if require_xray_tools; then modify_vless_config; fi ;;
+            5) if require_xray_tools; then add_new_ss; fi ;;
+            6) if require_xray_tools; then delete_ss_node; fi ;;
+            7) if require_xray_tools; then modify_ss_config; fi ;;
+            8) if require_xray_tools; then add_socks5_proxy; fi ;;
+            9) if require_xray_tools; then list_socks5_proxies; fi ;;
+            10) if require_xray_tools; then delete_socks5_proxy; fi ;;
+            11) if ensure_xray_dependencies; then update_xray; fi ;;
             12) uninstall_xray ;;
-            13) restart_xray ;;
+            13) if require_no_xray_transaction; then restart_xray; fi ;;
             14) view_xray_log; needs_pause=false ;;
-            15) view_all_info ;;
-            16) manage_routing_rules ;;
-            17) wget -O vless-server.sh https://gitlab.com/chil30-group/vless-all-in-one/-/raw/main/vless-server.sh && chmod +x vless-server.sh && bash vless-server.sh; needs_pause=false ;;
+            15) if require_xray_tools; then view_all_info; fi ;;
+            16) if require_xray_tools; then manage_routing_rules; fi ;;
+            18) if ! run_xray_safe_uninstall --resume; then warning "继续清理未完成。"; fi ;;
+            19) if ! run_xray_safe_uninstall --rollback; then warning "恢复未完成。"; fi ;;
+            17) if require_no_xray_transaction; then wget -O vless-server.sh https://gitlab.com/chil30-group/vless-all-in-one/-/raw/main/vless-server.sh && chmod +x vless-server.sh && bash vless-server.sh; fi; needs_pause=false ;;
             0) success "感谢使用！"; exit 0 ;;
-            *) error "无效选项。请输入 0-17。" ;;
+            *) error "无效选项。请输入 0-19。" ;;
         esac
 
         if [ "$needs_pause" = true ]; then
@@ -10464,7 +13999,23 @@ XRAY_ENHANCED_SCRIPT_EOF
     echo ""
 
     # 执行脚本
-    if bash "$script_path"; then
+    if (
+        local lock_dir=/run/net-tcp-tune-xray
+        if ! command -v flock >/dev/null 2>&1; then echo "缺少 flock，无法保证 Xray 操作互斥。" >&2; exit 1; fi
+        if [ -L "$lock_dir" ] || { [ -e "$lock_dir" ] && { [ ! -d "$lock_dir" ] || [ "$(stat -c %u "$lock_dir")" != 0 ]; }; }; then
+            echo "Xray 操作锁目录异常。" >&2; exit 1
+        fi
+        (umask 077; mkdir -p "$lock_dir") || exit 1
+        chmod 700 "$lock_dir" || exit 1
+        if [ -L "$lock_dir/lock" ] || { [ -e "$lock_dir/lock" ] && { [ ! -f "$lock_dir/lock" ] || [ "$(stat -c %u:%h "$lock_dir/lock")" != 0:1 ]; }; }; then
+            echo "Xray 操作锁文件异常。" >&2; exit 1
+        fi
+        (umask 077; : >> "$lock_dir/lock") || exit 1
+        exec 9<>"$lock_dir/lock" || exit 1
+        if ! flock -n 9; then echo "另一个 Xray 操作正在进行。" >&2; exit 1; fi
+        export -f run_xray_safe_uninstall
+        bash "$script_path"
+    ); then
         echo ""
         echo -e "${gl_lv}✅ 星辰大海Xray增强版脚本执行完成${gl_bai}"
     else
@@ -10663,9 +14214,8 @@ download_china_ip_list() {
 update_china_ipset() {
     echo -e "${gl_kjlan}正在更新 IP 地址库...${gl_bai}"
 
-    # 使用文件锁防止并发执行
+    # 使用文件锁防止并发执行（固定使用 FD 200）
     local lock_file="/var/lock/china-ipset-update.lock"
-    local lock_fd=200
 
     # 尝试获取锁（最多等待30秒）
     exec 200>"$lock_file"
@@ -10674,7 +14224,19 @@ update_china_ipset() {
         return 1
     fi
 
+    # 安全：改用 mktemp 随机路径(600)替代 /tmp 固定文件名，避免符号链接抢占/内容污染；
+    # 用 local 覆盖全局同名变量，download_china_ip_list 经动态作用域读到的即本次路径
+    local CN_IP_LIST_FILE
+    CN_IP_LIST_FILE=$(mktemp /tmp/china-ip-list-XXXXXX.txt) || {
+        echo -e "${gl_hong}❌ 创建临时文件失败${gl_bai}"
+        flock -u 200
+        rm -f "$lock_file"
+        return 1
+    }
+    chmod 600 "$CN_IP_LIST_FILE"
+
     # 确保退出时释放锁和清理临时文件
+    # shellcheck disable=SC2064  # 故意立即展开：EXIT 触发时局部变量可能已出作用域
     trap "flock -u 200; rm -f '$lock_file' '$CN_IP_LIST_FILE'" EXIT ERR
 
     # 下载 IP 列表
@@ -10844,7 +14406,8 @@ clear_all_block_rules() {
     echo -e "${gl_huang}正在清空所有封锁规则...${gl_bai}"
 
     # 读取所有已封锁端口
-    local ports=($(get_blocked_ports))
+    local ports=()
+    mapfile -t ports < <(get_blocked_ports)
 
     if [ ${#ports[@]} -eq 0 ]; then
         echo -e "${gl_huang}⚠ 没有需要清空的规则${gl_bai}"
@@ -10885,7 +14448,8 @@ menu_add_port_block() {
     echo ""
 
     # 显示 Xray 端口
-    local xray_ports=($(get_xray_ports))
+    local xray_ports=()
+    mapfile -t xray_ports < <(get_xray_ports)
     if [ ${#xray_ports[@]} -gt 0 ]; then
         echo -e "${gl_zi}检测到 Xray 端口:${gl_bai}"
         for i in "${!xray_ports[@]}"; do
@@ -11153,7 +14717,8 @@ menu_update_ip_database() {
             echo -e "${gl_lv}✅ IP 地址库更新成功${gl_bai}"
 
             # 重新应用所有规则
-            local ports=($(get_blocked_ports))
+            local ports=()
+            mapfile -t ports < <(get_blocked_ports)
             if [ ${#ports[@]} -gt 0 ]; then
                 echo ""
                 echo -e "${gl_kjlan}正在重新应用封锁规则...${gl_bai}"
@@ -11195,7 +14760,8 @@ menu_view_block_logs() {
     echo ""
 
     # 获取已封锁端口
-    local ports=($(get_blocked_ports))
+    local ports=()
+    mapfile -t ports < <(get_blocked_ports)
 
     if [ ${#ports[@]} -eq 0 ]; then
         echo -e "${gl_huang}⚠ 没有已封锁的端口${gl_bai}"
@@ -11297,7 +14863,8 @@ manage_cn_ip_block() {
                 echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
                 echo ""
 
-                local xray_ports=($(get_xray_ports))
+                local xray_ports=()
+                mapfile -t xray_ports < <(get_xray_ports)
                 if [ ${#xray_ports[@]} -eq 0 ]; then
                     echo -e "${gl_huang}⚠ 未检测到 Xray 端口${gl_bai}"
                 else
@@ -12197,9 +15764,13 @@ install_singbox_binary() {
             echo -e "${gl_zi}[3/5] 下载 sing-box v${version} (${arch})...${gl_bai}"
             
             local download_url="https://github.com/SagerNet/sing-box/releases/download/v${version}/sing-box-${version}-linux-${arch}.tar.gz"
-            local temp_dir="/tmp/singbox-install-$$"
-            
-            mkdir -p "$temp_dir"
+            # 安全：使用 mktemp -d 生成不可预测的临时目录(700)，避免符号链接攻击
+            local temp_dir
+            temp_dir=$(mktemp -d /tmp/singbox-install-XXXXXX) || {
+                echo -e "${gl_hong}  ✗ 创建临时目录失败${gl_bai}"
+                break_end
+                return 1
+            }
             
             if ! wget --timeout=30 --tries=3 -qO "${temp_dir}/sing-box.tar.gz" "$download_url" 2>/dev/null; then
                 echo -e "${gl_hong}  ✗ 下载失败${gl_bai}"
@@ -12643,6 +16214,139 @@ SERVICEEOF
 # Sub-Store 多实例管理功能
 #=============================================================================
 
+# 与环境检查保持一致，兼容 Compose v2 / v1。
+substore_compose() {
+    if docker compose version &>/dev/null; then
+        docker compose "$@"
+    else
+        docker-compose "$@"
+    fi
+}
+
+# 只接受 origin，不接受路径、凭证或通配符；已有白名单由更新流程保留。
+validate_substore_origins() {
+    local value=$1 origin port
+    local -a origins
+    [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\r'* && "$value" != ,* && "$value" != *, && "$value" != *,,* ]] || return 1
+    IFS=',' read -ra origins <<< "$value"
+    for origin in "${origins[@]}"; do
+        [[ "$origin" =~ ^https?://([a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?|\[[0-9a-fA-F:]+\])(:([0-9]{1,5}))?$ ]] || return 1
+        port=${BASH_REMATCH[4]}
+        if [ -n "$port" ] && (( 10#$port < 1 || 10#$port > 65535 )); then
+            return 1
+        fi
+    done
+}
+
+# 从 Compose 规范化后的 YAML 读取标量，避免把注释/引号当成配置值。
+substore_config_value() {
+    local config=$1 key=$2 normalized value
+    normalized=$(substore_compose -f "$config" config) || return 1
+    value=$(printf '%s\n' "$normalized" | awk -v key="$key" '$1 == key ":" {$1=""; sub(/^[ \t]+/, ""); print; exit}')
+    value=${value#\"}; value=${value%\"}
+    value=${value#\'}; value=${value%\'}
+    [ "$value" = null ] && value=""
+    printf '%s' "$value"
+}
+
+# 缺失时迁移；传入 origin 时追加（供隧道部署使用）。不会改动其它配置或数据。
+substore_ensure_cors() {
+    local config=$1 instance_num=$2 requested=${3:-} current origins domain cfg port tmp backup
+    current=$(substore_config_value "$config" SUB_STORE_CORS_ALLOWED_ORIGINS) || return 1
+    if [ -n "$current" ]; then
+        [ -z "$requested" ] && return 0
+        [[ "$current" = '*' || ",$current," = *",$requested,"* ]] && return 0
+        origins="$current,$requested"
+    else
+        origins=$requested
+    fi
+
+    if [ -z "$origins" ]; then
+        port=$(substore_config_value "$config" SUB_STORE_BACKEND_API_PORT) || return 1
+        # 只读取本实例、且 service 端口匹配的隧道规则；不猜其它服务的域名。
+        for cfg in "${CF_CONFIGS_DIR:-/etc/cloudflared/configs}/sub-store-$instance_num.yml" \
+                   "${CF_CONFIGS_DIR:-/etc/cloudflared/configs}/sub-store-cf-tunnel-$instance_num.yaml" \
+                   "/root/sub-store-cf-tunnel-$instance_num.yaml"; do
+            [ -f "$cfg" ] || continue
+            while IFS= read -r domain; do
+                validate_substore_origins "https://$domain" || continue
+                [[ ",$origins," = *",https://$domain,"* ]] || origins="${origins:+$origins,}https://$domain"
+            done < <(awk -v backend="http://127.0.0.1:$port" '
+                $1 == "-" {host=""}
+                $1 == "-" && $2 == "hostname:" {host=$3; gsub(/[\047\042]/, "", host)}
+                $1 == "service:" && $2 == backend && host != "" {print host}
+            ' "$cfg")
+        done
+    fi
+
+    while ! validate_substore_origins "$origins"; do
+        echo "Sub-Store 需要配置浏览器页面来源，例如 https://sub.example.com（多个用逗号分隔，不含路径）。"
+        read -r -e -p "请输入允许来源（留空取消，不更新此实例）: " origins || return 1
+        [ -n "$origins" ] || return 1
+    done
+
+    # 只迁移本脚本生成的单实例 mapping 格式，非标准布局不做猜测性重写。
+    if [ "$(grep -Ec '^    environment:[[:space:]]*$' "$config")" != 1 ] ||
+       grep -Eq '^[[:space:]]+-[[:space:]]+SUB_STORE_|^[[:space:]]+environment:[[:space:]]*\{' "$config"; then
+        echo "❌ 无法安全迁移此 Compose 布局，请手动配置 SUB_STORE_CORS_ALLOWED_ORIGINS: $origins"
+        return 1
+    fi
+    tmp=$(mktemp "${config}.cors.XXXXXX") || return 1
+    cp -p "$config" "$tmp" || { rm -f "$tmp"; return 1; }
+    if ! awk -v origins="$origins" '
+        /^      SUB_STORE_CORS_ALLOWED_ORIGINS:/ {next}
+        {print}
+        /^    environment:[[:space:]]*$/ {print "      SUB_STORE_CORS_ALLOWED_ORIGINS: \042" origins "\042"}
+    ' "$config" > "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if ! substore_compose -f "$tmp" config --quiet; then
+        rm -f "$tmp"
+        echo "❌ CORS 配置校验失败，原配置保持不变"
+        return 1
+    fi
+    backup=$(mktemp "${config}.bak-cors.XXXXXX") || { rm -f "$tmp"; return 1; }
+    cp -p "$config" "$backup" && mv -f "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+    echo "✅ 已配置浏览器来源: ${origins}（原配置备份: ${backup}）"
+}
+
+# 带 Origin 验证后端，防止只有无 Origin 的探测通过却仍无法预览/保存。
+substore_verify_api() {
+    local config=$1 origins origin port prefix attempt response
+    origins=$(substore_config_value "$config" SUB_STORE_CORS_ALLOWED_ORIGINS) || return 1
+    port=$(substore_config_value "$config" SUB_STORE_BACKEND_API_PORT) || return 1
+    prefix=$(substore_config_value "$config" SUB_STORE_FRONTEND_BACKEND_PATH) || return 1
+    local -a checks
+    IFS=',' read -ra checks <<< "$origins"
+    [ "$origins" = '*' ] && checks=('https://sub-store.vercel.app')
+    [ ${#checks[@]} -gt 0 ] || return 1
+    for origin in "${checks[@]}"; do
+        for ((attempt=0; attempt<10; attempt++)); do
+            response=$(curl --noproxy '*' -fsS --max-time 3 -H "Origin: $origin" "http://127.0.0.1:$port${prefix%/}/api/utils/env" 2>/dev/null) &&
+                [[ "$response" =~ \"status\"[[:space:]]*:[[:space:]]*\"success\" ]] && break
+            sleep 1
+        done
+        if [ "$attempt" -eq 10 ]; then
+            echo "❌ 后端来源校验未通过: ${origin}，请检查容器日志；未删除订阅数据"
+            return 1
+        fi
+    done
+}
+
+substore_update_one() {
+    local config=$1 instance_num=$2
+    substore_ensure_cors "$config" "$instance_num" || return 1
+    # 拉取失败时保留运行中的旧容器，不再先 down 再尝试启动。
+    if ! substore_compose -f "$config" pull "sub-store-$instance_num"; then
+        echo "❌ 镜像拉取失败，未重建容器"
+        return 1
+    fi
+    substore_compose -f "$config" up -d --no-deps "sub-store-$instance_num" || return 1
+    substore_verify_api "$config" || return 1
+    echo "✅ 实例 store-$instance_num 更新完成，浏览器来源校验通过"
+}
+
 # 检查端口是否被占用
 check_substore_port() {
     local port=$1
@@ -12780,7 +16484,8 @@ install_substore_instance() {
     echo ""
     
     # 获取建议的实例编号
-    local instances=($(get_substore_instances))
+    local instances=()
+    read -ra instances <<< "$(get_substore_instances)"
     local suggested_num=1
     if [ ${#instances[@]} -gt 0 ]; then
         echo -e "${gl_huang}已存在 ${#instances[@]} 个实例${gl_bai}"
@@ -12790,7 +16495,7 @@ install_substore_instance() {
     # 输入实例编号
     local instance_num
     while true; do
-        read -e -p "请输入实例编号（建议: $suggested_num）: " instance_num
+        read -e -p "请输入实例编号（建议: ${suggested_num}）: " instance_num
         
         if [ -z "$instance_num" ]; then
             echo -e "${gl_hong}实例编号不能为空${gl_bai}"
@@ -12817,7 +16522,7 @@ install_substore_instance() {
     local api_port
     local default_api_port=3001
     while true; do
-        read -e -p "请输入后端 API 端口（回车使用默认 $default_api_port）: " api_port
+        read -e -p "请输入后端 API 端口（回车使用默认 ${default_api_port}）: " api_port
         
         if [ -z "$api_port" ]; then
             api_port=$default_api_port
@@ -12881,7 +16586,7 @@ install_substore_instance() {
     local data_dir
     local default_data_dir="/root/data-sub-store-$instance_num"
     
-    read -e -p "请输入数据存储目录（回车使用默认 $default_data_dir）: " data_dir
+    read -e -p "请输入数据存储目录（回车使用默认 ${default_data_dir}）: " data_dir
     
     if [ -z "$data_dir" ]; then
         data_dir="$default_data_dir"
@@ -12900,6 +16605,18 @@ install_substore_instance() {
         fi
     fi
     
+    # 浏览器来源必须与页面地址一致；后续隧道向导还会自动追加实际域名。
+    local cors_origins
+    local default_cors_origins="https://sub-store.vercel.app,http://substore.stash,https://substore.stash"
+    echo "请输入 Sub-Store 页面来源，例如 https://sub.example.com（多个用逗号分隔，不含路径）。"
+    echo "回车保留官方前端；如果接下来配置 Cloudflare Tunnel，会自动加入隧道域名。"
+    while true; do
+        read -r -e -p "浏览器来源: " cors_origins || return 1
+        cors_origins=${cors_origins:-$default_cors_origins}
+        validate_substore_origins "$cors_origins" && break
+        echo "来源格式无效，请填写 http(s)://域名[:端口]，不要填写路径或通配符。"
+    done
+
     # 确认信息
     echo ""
     echo "=================================="
@@ -12910,6 +16627,7 @@ install_substore_instance() {
     echo "服务端口:  $api_port (前后端共用)"
     echo "访问路径: /$access_path"
     echo "数据目录: $data_dir"
+    echo "浏览器来源: $cors_origins"
     echo "=================================="
     echo ""
     
@@ -12945,6 +16663,7 @@ services:
       SUB_STORE_BACKEND_API_PORT: $api_port
       SUB_STORE_BACKEND_MERGE: true
       SUB_STORE_FRONTEND_BACKEND_PATH: /$access_path
+      SUB_STORE_CORS_ALLOWED_ORIGINS: "$cors_origins"
       HOST: 127.0.0.1
     volumes:
       - $data_dir:/opt/app/data
@@ -12952,7 +16671,8 @@ EOF
     
     # 启动容器
     echo "正在启动 Sub-Store 实例..."
-    if docker compose -f "$config_file" up -d; then
+    if substore_compose -f "$config_file" config --quiet &&
+       substore_compose -f "$config_file" up -d && substore_verify_api "$config_file"; then
         echo ""
         echo -e "${gl_lv}=========================================="
         echo "  Sub-Store 实例安装成功！"
@@ -12961,7 +16681,7 @@ EOF
         echo -e "${gl_zi}实例信息：${gl_bai}"
         echo "  - 实例编号: $instance_num"
         echo "  - 容器名称: sub-store-$instance_num"
-        echo "  - 服务端口: $api_port（前后端共用，监听 127.0.0.1）"
+        echo "  - 服务端口: ${api_port}（前后端共用，监听 127.0.0.1）"
         echo "  - 访问路径: /$access_path"
         echo "  - 数据目录: $data_dir"
         echo "  - 配置文件: $config_file"
@@ -13032,12 +16752,17 @@ CFEOF
             1)
                 # Phase D:改用新模块的 Sub-Store 专用部署函数(基于 cf_helper_* 族)
                 # 原 configure_cf_tunnel 保留但不再被 Sub-Store 调用,作为历史兼容
-                cf_tunnel_deploy_for_substore "$instance_num" "$api_port" "$access_path"
+                if ! cf_tunnel_deploy_for_substore "$instance_num" "$api_port" "$access_path"; then
+                    echo "❌ Sub-Store 容器已保留，但隧道部署未完成，请查看上方错误"
+                    break_end
+                    return 1
+                fi
                 ;;
             2)
                 echo ""
                 echo -e "${gl_huang}已跳过配置${gl_bai}"
                 echo "稍后可手动配置,推荐走菜单 32 → 7 → 2 添加隧道"
+                echo "手动配置新域名时，须将页面 origin 加入 $config_file 的 SUB_STORE_CORS_ALLOWED_ORIGINS，并执行 compose up -d 生效。"
                 echo ""
                 ;;
             *)
@@ -13413,7 +17138,8 @@ update_substore_instance() {
     echo "=================================="
     echo ""
     
-    local instances=($(get_substore_instances))
+    local instances=()
+    read -ra instances <<< "$(get_substore_instances)"
     
     if [ ${#instances[@]} -eq 0 ]; then
         echo -e "${gl_huang}没有已部署的实例${gl_bai}"
@@ -13457,22 +17183,26 @@ update_substore_instance() {
             return 1
         fi
         
-        echo "正在拉取最新镜像..."
-        docker pull xream/sub-store:http-meta
-        
+        local failed=0
         for instance in "${instances[@]}"; do
             local config_file="/root/sub-store-configs/${instance}.yaml"
             local instance_num=$(echo "$instance" | sed 's/store-//')
             
             echo ""
             echo "正在更新实例: $instance"
-            docker compose -f "$config_file" down
-            docker compose -f "$config_file" up -d
-            echo -e "${gl_lv}✅ 实例 $instance 更新完成${gl_bai}"
+            if ! substore_update_one "$config_file" "$instance_num"; then
+                echo -e "${gl_hong}❌ 实例 $instance 更新未完成${gl_bai}"
+                failed=$((failed + 1))
+            fi
         done
         
         echo ""
-        echo -e "${gl_lv}所有实例更新完成！${gl_bai}"
+        if [ "$failed" -gt 0 ]; then
+            echo -e "${gl_hong}有 $failed 个实例未完成更新，请查看上方错误${gl_bai}"
+            break_end
+            return 1
+        fi
+        echo -e "${gl_lv}所有实例更新完成，来源校验通过！${gl_bai}"
         break_end
         return 0
     fi
@@ -13498,16 +17228,11 @@ update_substore_instance() {
         return 1
     fi
     
-    echo "正在拉取最新镜像..."
-    docker pull xream/sub-store:http-meta
-    
-    echo "正在停止容器..."
-    docker compose -f "$config_file" down
-    
-    echo "正在启动更新后的容器..."
-    docker compose -f "$config_file" up -d
-    
-    echo -e "${gl_lv}✅ 实例 $instance_name 更新完成！${gl_bai}"
+    if ! substore_update_one "$config_file" "$instance_num"; then
+        echo -e "${gl_hong}❌ 实例 $instance_name 更新未完成${gl_bai}"
+        break_end
+        return 1
+    fi
     
     break_end
 }
@@ -13520,7 +17245,8 @@ uninstall_substore_instance() {
     echo "=================================="
     echo ""
     
-    local instances=($(get_substore_instances))
+    local instances=()
+    read -ra instances <<< "$(get_substore_instances)"
     
     if [ ${#instances[@]} -eq 0 ]; then
         echo -e "${gl_huang}没有已部署的实例${gl_bai}"
@@ -13621,7 +17347,8 @@ list_substore_instances() {
     echo "=================================="
     echo ""
     
-    local instances=($(get_substore_instances))
+    local instances=()
+    read -ra instances <<< "$(get_substore_instances)"
     
     if [ ${#instances[@]} -eq 0 ]; then
         echo -e "${gl_huang}没有已部署的实例${gl_bai}"
@@ -13719,7 +17446,6 @@ CF_HOME="/etc/cloudflared"
 CF_CREDENTIALS_DIR="$CF_HOME/credentials"
 CF_CONFIGS_DIR="$CF_HOME/configs"
 CF_CERT_FILE="$CF_HOME/cert.pem"
-CF_MANIFEST_FILE="$CF_HOME/manifest.json"
 CF_MIGRATE_MARKER="$CF_HOME/.migrated"
 CF_LEGACY_HOME="/root/.cloudflared"
 CF_LEGACY_CERT="$CF_LEGACY_HOME/cert.pem"
@@ -13763,9 +17489,14 @@ cf_helper_install_binary() {
     local url="https://github.com/cloudflare/cloudflared/releases/latest/download/${asset}"
     echo "正在下载 cloudflared (${asset})..."
 
-    local tmp="${CF_BINARY_PATH}.tmp.$$"
+    # 安全：mktemp 随机后缀替代 PID 后缀；chmod 755 显式保持与原先 umask 结果一致
+    local tmp
+    tmp=$(mktemp "${CF_BINARY_PATH}.tmp.XXXXXX") || {
+        echo -e "${gl_hong}❌ 创建临时文件失败${gl_bai}"
+        return 1
+    }
     if wget -q --show-progress -O "$tmp" "$url" && [ -s "$tmp" ]; then
-        chmod +x "$tmp"
+        chmod 755 "$tmp"
         mv "$tmp" "$CF_BINARY_PATH"
         local ver
         ver=$("$CF_BINARY_PATH" --version 2>/dev/null | head -1)
@@ -14197,7 +17928,20 @@ _cf_get_config_from_service() {
     local service=$1
     local unit="/etc/systemd/system/${service}.service"
     [ -f "$unit" ] || return 1
-    grep -oE -- '--config [^ ]+\.(yaml|yml)' "$unit" | awk '{print $2}' | head -1
+
+    local line config_arg
+    line=$(grep -E 'ExecStart=.*--config([=[:space:]]|$)' "$unit" | head -1)
+    [ -z "$line" ] && return 1
+
+    config_arg="${line#*--config}"
+    config_arg="${config_arg#=}"
+    config_arg="${config_arg#"${config_arg%%[![:space:]]*}"}"
+
+    case "$config_arg" in
+        \"*) config_arg="${config_arg#\"}"; echo "${config_arg%%\"*}" ;;
+        \'*) config_arg="${config_arg#\'}"; echo "${config_arg%%\'*}" ;;
+        *) echo "${config_arg%%[[:space:]]*}" ;;
+    esac
 }
 
 # 从 config yaml 读单个字段(tunnel / credentials-file 等)
@@ -14978,6 +18722,12 @@ cf_tunnel_deploy_for_substore() {
     fi
     echo ""
 
+    # 合并实际页面来源并生效，再创建隧道，避免部署成功后所有浏览器 API 都被拒绝。
+    local substore_config="/root/sub-store-configs/store-$instance_num.yaml"
+    substore_ensure_cors "$substore_config" "$instance_num" "https://$domain" || return 1
+    substore_compose -f "$substore_config" up -d --no-deps "sub-store-$instance_num" || return 1
+    substore_verify_api "$substore_config" || return 1
+
     # 执行(含 P0-3 回滚 + P1-8 凭证严格校验)
     echo "  [1/4] 创建隧道..."
     local tid
@@ -15528,7 +19278,8 @@ delete_reverse_proxy() {
         return 0
     fi
 
-    local services_array=($services)
+    local services_array=()
+    mapfile -t services_array <<< "$services"
     local count=0
 
     for service in "${services_array[@]}"; do
@@ -15619,821 +19370,6 @@ manage_reverse_proxy() {
                 ;;
             3)
                 delete_reverse_proxy
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo "无效的选择"
-                sleep 2
-                ;;
-        esac
-    done
-}
-
-#=============================================================================
-# Antigravity Claude Proxy 部署管理
-#=============================================================================
-
-# 固定配置
-AG_PROXY_SERVICE_NAME="ag-proxy"
-AG_PROXY_INSTALL_DIR="/root/antigravity-claude-proxy"
-AG_PROXY_PORT="8080"
-AG_PROXY_REPO="https://github.com/badri-s2001/antigravity-claude-proxy.git"
-AG_PROXY_SERVICE_FILE="/etc/systemd/system/ag-proxy.service"
-AG_PROXY_PORT_FILE="/root/antigravity-claude-proxy/.ag-proxy-port"
-
-# 获取当前配置的端口
-ag_proxy_get_port() {
-    if [ -f "$AG_PROXY_PORT_FILE" ]; then
-        cat "$AG_PROXY_PORT_FILE"
-    else
-        echo "$AG_PROXY_PORT"
-    fi
-}
-
-# 检查端口是否可用
-ag_proxy_check_port() {
-    local port=$1
-    if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-        return 1
-    fi
-    return 0
-}
-
-# 检测 Antigravity Claude Proxy 状态
-ag_proxy_check_status() {
-    if [ ! -d "$AG_PROXY_INSTALL_DIR" ]; then
-        echo "not_installed"
-    elif ! systemctl is-enabled "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo "installed_no_service"
-    elif systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo "running"
-    else
-        echo "stopped"
-    fi
-}
-
-# 检测并安装 Node.js
-ag_proxy_install_nodejs() {
-    echo -e "${gl_kjlan}[1/6] 检测 Node.js 环境...${gl_bai}"
-
-    if command -v node &>/dev/null; then
-        local node_version=$(node -v | sed 's/v//' | cut -d. -f1)
-        if [ "$node_version" -ge 20 ]; then
-            echo -e "${gl_lv}✅ Node.js $(node -v) 已安装${gl_bai}"
-            return 0
-        else
-            echo -e "${gl_huang}⚠ Node.js 版本过低 ($(node -v))，需要 20+${gl_bai}"
-        fi
-    else
-        echo -e "${gl_huang}⚠ Node.js 未安装${gl_bai}"
-    fi
-
-    echo "正在安装 Node.js 20..."
-
-    # 检测系统类型
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        local os_id="${ID,,}"
-    fi
-
-    # 安全下载并执行设置脚本（避免 curl | bash 漏洞）
-    local setup_script=$(mktemp)
-    local script_url=""
-
-    if [[ "$os_id" == "debian" || "$os_id" == "ubuntu" ]]; then
-        script_url="https://deb.nodesource.com/setup_20.x"
-    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" || "$os_id" == "fedora" || "$os_id" == "rocky" || "$os_id" == "alma" ]]; then
-        script_url="https://rpm.nodesource.com/setup_20.x"
-    fi
-
-    if [ -n "$script_url" ]; then
-        # 下载脚本
-        if ! curl -fsSL --connect-timeout 15 --max-time 60 "$script_url" -o "$setup_script" 2>/dev/null; then
-            echo -e "${gl_hong}❌ 下载 Node.js 设置脚本失败${gl_bai}"
-            rm -f "$setup_script"
-            return 1
-        fi
-
-        # 验证脚本格式（必须是 shell 脚本）
-        if ! head -1 "$setup_script" | grep -q "^#!"; then
-            echo -e "${gl_hong}❌ 脚本格式验证失败${gl_bai}"
-            rm -f "$setup_script"
-            return 1
-        fi
-
-        # 执行脚本
-        chmod +x "$setup_script"
-        bash "$setup_script" >/dev/null 2>&1
-        rm -f "$setup_script"
-    fi
-
-    if [[ "$os_id" == "debian" || "$os_id" == "ubuntu" ]]; then
-        apt-get install -y nodejs >/dev/null 2>&1
-    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" || "$os_id" == "fedora" || "$os_id" == "rocky" || "$os_id" == "alma" ]]; then
-        if command -v dnf &>/dev/null; then
-            dnf install -y nodejs >/dev/null 2>&1
-        else
-            yum install -y nodejs >/dev/null 2>&1
-        fi
-    else
-        echo -e "${gl_hong}❌ 不支持的系统，请手动安装 Node.js 20+${gl_bai}"
-        return 1
-    fi
-
-    if command -v node &>/dev/null; then
-        echo -e "${gl_lv}✅ Node.js $(node -v) 安装成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ Node.js 安装失败${gl_bai}"
-        return 1
-    fi
-}
-
-# 克隆项目
-ag_proxy_clone_repo() {
-    echo -e "${gl_kjlan}[2/6] 拉取项目代码...${gl_bai}"
-
-    if [ -d "$AG_PROXY_INSTALL_DIR" ]; then
-        echo -e "${gl_huang}⚠ 项目目录已存在，正在更新...${gl_bai}"
-        cd "$AG_PROXY_INSTALL_DIR"
-        git pull >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            echo -e "${gl_lv}✅ 代码更新成功${gl_bai}"
-            return 0
-        else
-            echo -e "${gl_hong}❌ 代码更新失败，尝试重新克隆...${gl_bai}"
-            cd /root
-            rm -rf "$AG_PROXY_INSTALL_DIR"
-        fi
-    fi
-
-    # 安装 git（如果没有）
-    if ! command -v git &>/dev/null; then
-        echo "正在安装 git..."
-        if command -v apt-get &>/dev/null; then
-            apt-get update -qq && apt-get install -y git >/dev/null 2>&1
-        elif command -v dnf &>/dev/null; then
-            dnf install -y git >/dev/null 2>&1
-        elif command -v yum &>/dev/null; then
-            yum install -y git >/dev/null 2>&1
-        fi
-    fi
-
-    git clone "$AG_PROXY_REPO" "$AG_PROXY_INSTALL_DIR" >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -e "${gl_lv}✅ 项目克隆成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ 项目克隆失败，请检查网络连接${gl_bai}"
-        return 1
-    fi
-}
-
-# 安装依赖
-ag_proxy_install_deps() {
-    echo -e "${gl_kjlan}[3/6] 安装项目依赖...${gl_bai}"
-
-    cd "$AG_PROXY_INSTALL_DIR"
-
-    # 先检查 package.json 是否存在
-    if [ ! -f "package.json" ]; then
-        echo -e "${gl_hong}❌ package.json 不存在，项目可能未正确克隆${gl_bai}"
-        return 1
-    fi
-
-    # 检查并安装编译工具（better-sqlite3 需要）
-    echo "检测编译工具..."
-    local need_build_tools=false
-
-    if ! command -v make &>/dev/null; then
-        echo "  make: 未安装"
-        need_build_tools=true
-    else
-        echo "  make: 已安装"
-    fi
-
-    if ! command -v g++ &>/dev/null; then
-        echo "  g++: 未安装"
-        need_build_tools=true
-    else
-        echo "  g++: 已安装"
-    fi
-
-    if [ "$need_build_tools" = true ]; then
-        echo ""
-        echo "正在安装编译工具（make, g++, python3）..."
-        if command -v apt-get &>/dev/null; then
-            apt-get update -qq
-            apt-get install -y build-essential python3
-        elif command -v dnf &>/dev/null; then
-            dnf install -y make gcc-c++ python3
-        elif command -v yum &>/dev/null; then
-            yum install -y make gcc-c++ python3
-        fi
-
-        # 验证安装
-        if command -v make &>/dev/null && command -v g++ &>/dev/null; then
-            echo -e "${gl_lv}✅ 编译工具安装成功${gl_bai}"
-        else
-            echo -e "${gl_hong}❌ 编译工具安装失败，请手动安装: apt install build-essential${gl_bai}"
-            return 1
-        fi
-    fi
-
-    echo ""
-    # 安装依赖，显示进度
-    echo "正在执行 npm install（可能需要几分钟）..."
-    npm install 2>&1 | tail -30
-
-    if [ ${PIPESTATUS[0]} -eq 0 ]; then
-        echo -e "${gl_lv}✅ 依赖安装成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ 依赖安装失败，请检查上方错误信息${gl_bai}"
-        return 1
-    fi
-}
-
-# 配置端口
-ag_proxy_configure_port() {
-    echo -e "${gl_kjlan}[4/6] 配置服务端口...${gl_bai}"
-
-    local port="$AG_PROXY_PORT"
-    read -e -p "请输入访问端口 [$AG_PROXY_PORT]: " input_port
-    if [ -n "$input_port" ]; then
-        port="$input_port"
-    fi
-
-    # 检查端口是否可用
-    while ! ag_proxy_check_port "$port"; do
-        echo -e "${gl_hong}⚠️ 端口 $port 已被占用，请换一个${gl_bai}"
-        read -e -p "请输入访问端口: " port
-        if [ -z "$port" ]; then
-            port="$AG_PROXY_PORT"
-        fi
-    done
-    echo -e "${gl_lv}✅ 端口 $port 可用${gl_bai}"
-
-    # 保存端口配置
-    mkdir -p "$(dirname "$AG_PROXY_PORT_FILE")"
-    echo "$port" > "$AG_PROXY_PORT_FILE"
-    return 0
-}
-
-# 创建 systemd 服务
-ag_proxy_create_service() {
-    local port=$(ag_proxy_get_port)
-    echo -e "${gl_kjlan}[5/6] 创建 systemd 服务...${gl_bai}"
-
-    cat > "$AG_PROXY_SERVICE_FILE" <<EOF
-[Unit]
-Description=Antigravity Claude Proxy
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=${AG_PROXY_INSTALL_DIR}
-Environment=PORT=${port}
-ExecStart=/usr/bin/npm start
-Restart=always
-RestartSec=3
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-
-    if [ -f "$AG_PROXY_SERVICE_FILE" ]; then
-        echo -e "${gl_lv}✅ 服务文件创建成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ 服务文件创建失败${gl_bai}"
-        return 1
-    fi
-}
-
-# 启动服务
-ag_proxy_start_service() {
-    echo -e "${gl_kjlan}[6/6] 启动服务...${gl_bai}"
-
-    systemctl enable "$AG_PROXY_SERVICE_NAME" >/dev/null 2>&1
-    systemctl start "$AG_PROXY_SERVICE_NAME"
-
-    sleep 2
-
-    if systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务启动成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-        echo "查看日志: journalctl -u $AG_PROXY_SERVICE_NAME -n 20"
-        return 1
-    fi
-}
-
-# 一键部署
-ag_proxy_deploy() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Antigravity Claude Proxy 一键部署${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(ag_proxy_check_status)
-    if [ "$status" = "running" ]; then
-        echo -e "${gl_huang}⚠ 服务已在运行中${gl_bai}"
-        echo ""
-        read -e -p "是否重新部署？(Y/N): " confirm
-        case "$confirm" in
-            [Yy]) ;;
-            *) return ;;
-        esac
-        echo ""
-        systemctl stop "$AG_PROXY_SERVICE_NAME" 2>/dev/null
-    fi
-
-    # 执行部署步骤
-    ag_proxy_install_nodejs || { break_end; return 1; }
-    echo ""
-    ag_proxy_clone_repo || { break_end; return 1; }
-    echo ""
-    ag_proxy_install_deps || { break_end; return 1; }
-    echo ""
-    ag_proxy_configure_port || { break_end; return 1; }
-    echo ""
-    ag_proxy_create_service || { break_end; return 1; }
-    echo ""
-    ag_proxy_start_service || { break_end; return 1; }
-
-    # 获取服务器 IP
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-    local port=$(ag_proxy_get_port)
-
-    echo ""
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_lv}  ✅ 部署完成！${gl_bai}"
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "访问地址: ${gl_huang}http://${server_ip}:${port}${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【第一步】添加 Google 账号${gl_bai}"
-    echo "  打开上面的地址 → Accounts → Add Account → 完成 Google 授权"
-    echo ""
-    echo -e "${gl_kjlan}【第二步】配置本地 Claude Code${gl_bai}"
-    echo "  编辑文件: ~/.claude/settings.json"
-    echo ""
-    echo "  添加以下内容（推荐配置）："
-    echo -e "${gl_huang}  {${gl_bai}"
-    echo -e "${gl_huang}    \"env\": {${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_AUTH_TOKEN\": \"test\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_BASE_URL\": \"http://${server_ip}:${port}\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_MODEL\": \"claude-opus-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_OPUS_MODEL\": \"claude-opus-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_SONNET_MODEL\": \"claude-sonnet-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_HAIKU_MODEL\": \"gemini-3-flash\",${gl_bai}"
-    echo -e "${gl_huang}      \"CLAUDE_CODE_SUBAGENT_MODEL\": \"claude-sonnet-4-5-thinking\"${gl_bai}"
-    echo -e "${gl_huang}    }${gl_bai}"
-    echo -e "${gl_huang}  }${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}说明: Opus=主力模型, Sonnet=子代理, Haiku用Gemini省额度${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【可选】通过环境变量配置（macOS/Linux）${gl_bai}"
-    echo "  将以下命令添加到 shell 配置文件："
-    echo ""
-    echo -e "${gl_huang}  echo 'export ANTHROPIC_BASE_URL=\"http://${server_ip}:${port}\"' >> ~/.zshrc${gl_bai}"
-    echo -e "${gl_huang}  echo 'export ANTHROPIC_AUTH_TOKEN=\"test\"' >> ~/.zshrc${gl_bai}"
-    echo -e "${gl_huang}  source ~/.zshrc${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}提示: Bash 用户请将 ~/.zshrc 替换为 ~/.bashrc${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【第三步】重启 Claude Code${gl_bai}"
-    echo "  关闭并重新打开终端，然后运行 claude 即可"
-    echo ""
-    echo -e "${gl_zi}提示: 更多模型选项请访问 WebUI 的 Settings 页面${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}管理命令:${gl_bai}"
-    echo "  状态: systemctl status $AG_PROXY_SERVICE_NAME"
-    echo "  日志: journalctl -u $AG_PROXY_SERVICE_NAME -f"
-    echo "  重启: systemctl restart $AG_PROXY_SERVICE_NAME"
-    echo ""
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}命令行添加账号（无法访问 Web 时使用）:${gl_bai}"
-    echo ""
-    echo "  # 1. 停止服务"
-    echo "  systemctl stop $AG_PROXY_SERVICE_NAME"
-    echo ""
-    echo "  # 2. 添加账号（按提示在浏览器中打开链接完成 Google 授权）"
-    echo "  cd $AG_PROXY_INSTALL_DIR && npx antigravity-claude-proxy accounts add --no-browser"
-    echo ""
-    echo "  # 3. 重新启动服务"
-    echo "  systemctl start $AG_PROXY_SERVICE_NAME"
-    echo ""
-
-    break_end
-}
-
-# 查看配置指引
-ag_proxy_show_config() {
-    clear
-
-    if [ ! -d "$AG_PROXY_INSTALL_DIR" ]; then
-        echo -e "${gl_hong}❌ 项目未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 获取服务器 IP 和端口
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-    local port=$(ag_proxy_get_port)
-
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Claude Code 本地配置指引${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "访问地址: ${gl_huang}http://${server_ip}:${port}${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【第一步】添加 Google 账号${gl_bai}"
-    echo "  打开上面的地址 → Accounts → Add Account → 完成 Google 授权"
-    echo ""
-    echo -e "${gl_kjlan}【第二步】配置本地 Claude Code${gl_bai}"
-    echo "  编辑文件: ~/.claude/settings.json"
-    echo ""
-    echo "  添加以下内容（推荐配置）："
-    echo -e "${gl_huang}  {${gl_bai}"
-    echo -e "${gl_huang}    \"env\": {${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_AUTH_TOKEN\": \"test\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_BASE_URL\": \"http://${server_ip}:${port}\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_MODEL\": \"claude-opus-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_OPUS_MODEL\": \"claude-opus-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_SONNET_MODEL\": \"claude-sonnet-4-5-thinking\",${gl_bai}"
-    echo -e "${gl_huang}      \"ANTHROPIC_DEFAULT_HAIKU_MODEL\": \"gemini-3-flash\",${gl_bai}"
-    echo -e "${gl_huang}      \"CLAUDE_CODE_SUBAGENT_MODEL\": \"claude-sonnet-4-5-thinking\"${gl_bai}"
-    echo -e "${gl_huang}    }${gl_bai}"
-    echo -e "${gl_huang}  }${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}说明: Opus=主力模型, Sonnet=子代理, Haiku用Gemini省额度${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【可选】通过环境变量配置（macOS/Linux）${gl_bai}"
-    echo "  将以下命令添加到 shell 配置文件："
-    echo ""
-    echo -e "${gl_huang}  echo 'export ANTHROPIC_BASE_URL=\"http://${server_ip}:${port}\"' >> ~/.zshrc${gl_bai}"
-    echo -e "${gl_huang}  echo 'export ANTHROPIC_AUTH_TOKEN=\"test\"' >> ~/.zshrc${gl_bai}"
-    echo -e "${gl_huang}  source ~/.zshrc${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}提示: Bash 用户请将 ~/.zshrc 替换为 ~/.bashrc${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【第三步】重启 Claude Code${gl_bai}"
-    echo "  关闭并重新打开终端，然后运行 claude 即可"
-    echo ""
-    echo -e "${gl_zi}提示: 更多模型选项请访问 WebUI 的 Settings 页面${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}管理命令:${gl_bai}"
-    echo "  状态: systemctl status $AG_PROXY_SERVICE_NAME"
-    echo "  日志: journalctl -u $AG_PROXY_SERVICE_NAME -f"
-    echo "  重启: systemctl restart $AG_PROXY_SERVICE_NAME"
-    echo ""
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}命令行添加账号（无法访问 Web 时使用）:${gl_bai}"
-    echo ""
-    echo "  # 1. 停止服务"
-    echo "  systemctl stop $AG_PROXY_SERVICE_NAME"
-    echo ""
-    echo "  # 2. 添加账号（按提示在浏览器中打开链接完成 Google 授权）"
-    echo "  cd $AG_PROXY_INSTALL_DIR && npx antigravity-claude-proxy accounts add --no-browser"
-    echo ""
-    echo "  # 3. 重新启动服务"
-    echo "  systemctl start $AG_PROXY_SERVICE_NAME"
-    echo ""
-
-    break_end
-}
-
-# 更新项目
-ag_proxy_update() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  更新 Antigravity Claude Proxy${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if [ ! -d "$AG_PROXY_INSTALL_DIR" ]; then
-        echo -e "${gl_hong}❌ 项目未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo "正在拉取最新代码..."
-    cd "$AG_PROXY_INSTALL_DIR"
-    git pull
-
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo "正在更新依赖..."
-        npm install --production >/dev/null 2>&1
-
-        echo ""
-        echo "正在重启服务..."
-        systemctl restart "$AG_PROXY_SERVICE_NAME"
-
-        sleep 2
-
-        if systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-            echo ""
-            echo -e "${gl_lv}✅ 更新完成，服务已重启${gl_bai}"
-
-            # 显示版本信息
-            if [ -f "$AG_PROXY_INSTALL_DIR/package.json" ]; then
-                local version=$(sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' "$AG_PROXY_INSTALL_DIR/package.json" | head -1)
-                if [ -n "$version" ]; then
-                    echo -e "当前版本: ${gl_huang}v${version}${gl_bai}"
-                fi
-            fi
-        else
-            echo -e "${gl_hong}❌ 服务重启失败${gl_bai}"
-        fi
-    else
-        echo -e "${gl_hong}❌ 代码更新失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 查看状态
-ag_proxy_status() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Antigravity Claude Proxy 服务状态${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    systemctl status "$AG_PROXY_SERVICE_NAME" --no-pager
-
-    echo ""
-    break_end
-}
-
-# 查看日志
-ag_proxy_logs() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Antigravity Claude Proxy 日志（按 Ctrl+C 退出）${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    journalctl -u "$AG_PROXY_SERVICE_NAME" -f
-}
-
-# 启动服务
-ag_proxy_start() {
-    echo "正在启动服务..."
-    systemctl start "$AG_PROXY_SERVICE_NAME"
-    sleep 2
-
-    if systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已启动${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 停止服务
-ag_proxy_stop() {
-    echo "正在停止服务..."
-    systemctl stop "$AG_PROXY_SERVICE_NAME"
-
-    if ! systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已停止${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务停止失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 重启服务
-ag_proxy_restart() {
-    echo "正在重启服务..."
-
-    # 检测端口冲突
-    local port=$(ag_proxy_get_port)
-    local pid=$(ss -lntp 2>/dev/null | grep ":${port} " | sed -nE 's/.*pid=([0-9]+).*/\1/p' | head -1)
-    local service_pid=$(systemctl show -p MainPID "$AG_PROXY_SERVICE_NAME" 2>/dev/null | cut -d= -f2)
-
-    # 如果端口被其他进程占用（不是当前服务）
-    if [ -n "$pid" ] && [ "$pid" != "$service_pid" ] && [ "$pid" != "0" ]; then
-        echo -e "${gl_huang}⚠ 端口 ${port} 被 PID ${pid} 占用，正在释放...${gl_bai}"
-        kill "$pid" 2>/dev/null
-        sleep 1
-        if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-            kill -9 "$pid" 2>/dev/null
-            sleep 1
-        fi
-    fi
-
-    systemctl restart "$AG_PROXY_SERVICE_NAME"
-    sleep 2
-
-    if systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务重启失败${gl_bai}"
-        echo "查看日志: journalctl -u $AG_PROXY_SERVICE_NAME -n 20"
-    fi
-
-    break_end
-}
-
-# 修改端口
-ag_proxy_change_port() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  修改 Antigravity Claude Proxy 端口${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local current_port=$(ag_proxy_get_port)
-    echo -e "当前端口: ${gl_huang}${current_port}${gl_bai}"
-    echo ""
-
-    read -e -p "请输入新端口 (1-65535): " new_port
-
-    # 验证端口
-    if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-        echo -e "${gl_hong}❌ 无效的端口号${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    if [ "$new_port" = "$current_port" ]; then
-        echo -e "${gl_huang}⚠ 端口未改变${gl_bai}"
-        break_end
-        return 0
-    fi
-
-    # 检查新端口是否被占用
-    if ss -lntp 2>/dev/null | grep -q ":${new_port} "; then
-        echo -e "${gl_hong}❌ 端口 ${new_port} 已被占用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo ""
-    echo "正在修改端口..."
-
-    # 停止服务
-    systemctl stop "$AG_PROXY_SERVICE_NAME" 2>/dev/null
-
-    # 更新服务文件
-    sed -i "s/Environment=PORT=.*/Environment=PORT=${new_port}/" "$AG_PROXY_SERVICE_FILE"
-
-    # 保存端口配置
-    echo "$new_port" > "$AG_PROXY_PORT_FILE"
-
-    # 重新加载并启动
-    systemctl daemon-reload
-    systemctl start "$AG_PROXY_SERVICE_NAME"
-
-    sleep 2
-
-    if systemctl is-active "$AG_PROXY_SERVICE_NAME" &>/dev/null; then
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 端口已修改为 ${new_port}${gl_bai}"
-        echo -e "新访问地址: ${gl_huang}http://${server_ip}:${new_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 卸载
-ag_proxy_uninstall() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_hong}  卸载 Antigravity Claude Proxy${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "${gl_huang}警告: 此操作将删除服务和所有项目文件！${gl_bai}"
-    echo ""
-
-    read -e -p "确认卸载？(输入 yes 确认): " confirm
-
-    if [ "$confirm" != "yes" ]; then
-        echo "已取消"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在停止服务..."
-    systemctl stop "$AG_PROXY_SERVICE_NAME" 2>/dev/null
-    systemctl disable "$AG_PROXY_SERVICE_NAME" 2>/dev/null
-
-    echo "正在删除服务文件..."
-    rm -f "$AG_PROXY_SERVICE_FILE"
-    systemctl daemon-reload
-
-    echo "正在删除项目文件..."
-    rm -rf "$AG_PROXY_INSTALL_DIR"
-
-    echo ""
-    echo -e "${gl_lv}✅ 卸载完成${gl_bai}"
-
-    break_end
-}
-
-# Antigravity Claude Proxy 主菜单
-manage_ag_proxy() {
-    while true; do
-        clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  Antigravity Claude Proxy 部署管理${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示当前状态
-        local status=$(ag_proxy_check_status)
-        local port=$(ag_proxy_get_port)
-
-        case "$status" in
-            "not_installed")
-                echo -e "当前状态: ${gl_huang}⚠️ 未安装${gl_bai}"
-                ;;
-            "installed_no_service")
-                echo -e "当前状态: ${gl_huang}⚠️ 已安装但服务未配置${gl_bai}"
-                ;;
-            "running")
-                echo -e "当前状态: ${gl_lv}✅ 运行中${gl_bai} (端口: ${port})"
-                ;;
-            "stopped")
-                echo -e "当前状态: ${gl_hong}❌ 已停止${gl_bai}"
-                ;;
-        esac
-
-        echo ""
-        echo -e "${gl_kjlan}[部署与更新]${gl_bai}"
-        echo "1. 一键部署（首次安装）"
-        echo "2. 更新项目"
-        echo ""
-        echo -e "${gl_kjlan}[服务管理]${gl_bai}"
-        echo "3. 查看状态"
-        echo "4. 查看日志"
-        echo "5. 启动服务"
-        echo "6. 停止服务"
-        echo "7. 重启服务"
-        echo ""
-        echo -e "${gl_kjlan}[配置与卸载]${gl_bai}"
-        echo "8. 修改端口"
-        echo -e "${gl_hong}9. 卸载（删除服务+代码）${gl_bai}"
-        echo ""
-        echo -e "${gl_kjlan}[帮助]${gl_bai}"
-        echo "10. 查看 Claude Code 配置指引"
-        echo ""
-        echo "0. 返回主菜单"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择操作 [0-10]: " choice
-
-        case $choice in
-            1)
-                ag_proxy_deploy
-                ;;
-            2)
-                ag_proxy_update
-                ;;
-            3)
-                ag_proxy_status
-                ;;
-            4)
-                ag_proxy_logs
-                ;;
-            5)
-                ag_proxy_start
-                ;;
-            6)
-                ag_proxy_stop
-                ;;
-            7)
-                ag_proxy_restart
-                ;;
-            8)
-                ag_proxy_change_port
-                ;;
-            9)
-                ag_proxy_uninstall
-                ;;
-            10)
-                ag_proxy_show_config
                 ;;
             0)
                 return
@@ -17850,7 +20786,6 @@ FUCLAUDE_CONTAINER_NAME="fuclaude"
 FUCLAUDE_IMAGE="pengzhile/fuclaude"
 FUCLAUDE_DEFAULT_PORT="8181"
 FUCLAUDE_PORT_FILE="/etc/fuclaude-port"
-FUCLAUDE_CONFIG_DIR="/etc/fuclaude"
 FUCLAUDE_DATA_DIR="/var/lib/fuclaude"
 
 # 获取当前配置的端口
@@ -18117,9 +21052,6 @@ fuclaude_update() {
     if [ $? -eq 0 ]; then
         echo ""
         echo "正在重启容器..."
-
-        # 获取当前容器的环境变量
-        local old_env=$(docker inspect "$FUCLAUDE_CONTAINER_NAME" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
 
         # 获取保存的端口
         local port=$(fuclaude_get_port)
@@ -18644,9 +21576,11 @@ SUB2API_DEFAULT_PORT="8282"
 SUB2API_PORT_FILE="/etc/sub2api-port"
 SUB2API_INSTALL_SCRIPT="https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh"
 
-# 获取当前配置的端口
+# 获取当前配置的端口（以 systemd 服务文件为准，端口文件兜底）
 sub2api_get_port() {
-    if [ -f "$SUB2API_PORT_FILE" ]; then
+    if [ -f "/etc/systemd/system/sub2api.service" ]; then
+        sub2api_extract_port
+    elif [ -f "$SUB2API_PORT_FILE" ]; then
         cat "$SUB2API_PORT_FILE"
     else
         echo "$SUB2API_DEFAULT_PORT"
@@ -18677,8 +21611,14 @@ sub2api_check_status() {
 sub2api_extract_port() {
     local service_file="/etc/systemd/system/sub2api.service"
     if [ -f "$service_file" ]; then
-        # 尝试从 ExecStart 行提取端口
-        local port=$(sed -nE 's/.*:([0-9]+).*/\1/p' "$service_file" 2>/dev/null | head -1)
+        # 官方安装脚本以 Environment=SERVER_PORT=xxxx 形式写入端口
+        local port=$(sed -nE 's/^Environment=SERVER_PORT=([0-9]+)[[:space:]]*$/\1/p' "$service_file" 2>/dev/null | head -1)
+        if [ -n "$port" ]; then
+            echo "$port"
+            return
+        fi
+        # 兼容旧格式：从 地址:端口 形式提取
+        port=$(sed -nE 's/.*:([0-9]+).*/\1/p' "$service_file" 2>/dev/null | head -1)
         if [ -n "$port" ]; then
             echo "$port"
             return
@@ -18832,7 +21772,7 @@ sub2api_deploy() {
     read -e -p "按回车开始安装..." _
     echo ""
 
-    bash <(curl -fsSL "$SUB2API_INSTALL_SCRIPT")
+    run_remote_script "$SUB2API_INSTALL_SCRIPT" bash
     local install_result=$?
 
     if [ $install_result -ne 0 ]; then
@@ -18984,8 +21924,10 @@ sub2api_change_port() {
     # 修改 systemd 服务文件中的端口
     local service_file="/etc/systemd/system/sub2api.service"
     if [ -f "$service_file" ]; then
-        sed -i "s/:${current_port}/:${new_port}/g" "$service_file"
-        sed -i "s/=${current_port}/=${new_port}/g" "$service_file"
+        # 官方格式：Environment=SERVER_PORT=xxxx
+        sed -i -E "s/^(Environment=SERVER_PORT=)[0-9]+[[:space:]]*$/\1${new_port}/" "$service_file"
+        # 兼容旧格式：地址:端口
+        sed -i "s/:${current_port}\b/:${new_port}/g" "$service_file"
     fi
 
     # 保存新端口
@@ -19397,7 +22339,6 @@ CADDY_CONFIG_BACKUP_DIR="/etc/caddy/backups"
 CADDY_DOMAIN_LIST_FILE="/etc/caddy/.domain-list"
 CADDY_SITES_AVAILABLE="/etc/caddy/sites-available"
 CADDY_SITES_ENABLED="/etc/caddy/sites-enabled"
-CADDY_INSTALL_SCRIPT="https://caddyserver.com/api/download?os=linux&arch=amd64"
 
 # 获取服务器 IP
 caddy_get_server_ip() {
@@ -21038,2136 +23979,6 @@ caddy_cf_firewall_toggle() {
     fi
 }
 
-# =====================================================
-# OpenClaw 部署管理 (AI多渠道消息网关)
-# =====================================================
-
-# 常量定义
-OPENCLAW_SERVICE_NAME="openclaw-gateway"
-OPENCLAW_HOME_DIR="${HOME}/.openclaw"
-OPENCLAW_CONFIG_FILE="${HOME}/.openclaw/openclaw.json"
-OPENCLAW_ENV_FILE="${HOME}/.openclaw/.env"
-OPENCLAW_DEFAULT_PORT="18789"
-
-# 检测 OpenClaw 状态
-openclaw_check_status() {
-    if ! command -v openclaw &>/dev/null; then
-        echo "not_installed"
-    elif systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo "running"
-    elif systemctl is-enabled "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo "stopped"
-    else
-        echo "installed_no_service"
-    fi
-}
-
-# 获取当前端口
-openclaw_get_port() {
-    if [ -f "$OPENCLAW_CONFIG_FILE" ]; then
-        # 兼容 JSON5 格式（key 无引号: port: 19966）和标准 JSON（"port": 19966）
-        local port=$(sed -nE 's/.*"?port"?[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$OPENCLAW_CONFIG_FILE" 2>/dev/null | head -1)
-        if [ -n "$port" ]; then
-            echo "$port"
-            return
-        fi
-    fi
-    echo "$OPENCLAW_DEFAULT_PORT"
-}
-
-# 检查端口是否可用
-openclaw_check_port() {
-    local port=$1
-    if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-        return 1
-    fi
-    return 0
-}
-
-# 检测并安装 Node.js 22+
-openclaw_install_nodejs() {
-    echo -e "${gl_kjlan}[1/5] 检测 Node.js 环境...${gl_bai}"
-
-    if command -v node &>/dev/null; then
-        local node_version=$(node -v | sed 's/v//' | cut -d. -f1)
-        if [ "$node_version" -ge 22 ]; then
-            echo -e "${gl_lv}✅ Node.js $(node -v) 已安装${gl_bai}"
-            return 0
-        else
-            echo -e "${gl_huang}⚠ Node.js 版本过低 ($(node -v))，OpenClaw 需要 22+${gl_bai}"
-        fi
-    else
-        echo -e "${gl_huang}⚠ Node.js 未安装${gl_bai}"
-    fi
-
-    echo "正在安装 Node.js 22..."
-
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        local os_id="${ID,,}"
-    fi
-
-    local setup_script=$(mktemp)
-    local script_url=""
-
-    if [[ "$os_id" == "debian" || "$os_id" == "ubuntu" ]]; then
-        script_url="https://deb.nodesource.com/setup_22.x"
-    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" || "$os_id" == "fedora" || "$os_id" == "rocky" || "$os_id" == "alma" ]]; then
-        script_url="https://rpm.nodesource.com/setup_22.x"
-    fi
-
-    if [ -n "$script_url" ]; then
-        if ! curl -fsSL --connect-timeout 15 --max-time 60 "$script_url" -o "$setup_script" 2>/dev/null; then
-            echo -e "${gl_hong}❌ 下载 Node.js 设置脚本失败${gl_bai}"
-            rm -f "$setup_script"
-            return 1
-        fi
-
-        if ! head -1 "$setup_script" | grep -q "^#!"; then
-            echo -e "${gl_hong}❌ 脚本格式验证失败${gl_bai}"
-            rm -f "$setup_script"
-            return 1
-        fi
-
-        chmod +x "$setup_script"
-        bash "$setup_script" >/dev/null 2>&1
-        rm -f "$setup_script"
-    fi
-
-    if [[ "$os_id" == "debian" || "$os_id" == "ubuntu" ]]; then
-        apt-get install -y nodejs >/dev/null 2>&1
-    elif [[ "$os_id" == "centos" || "$os_id" == "rhel" || "$os_id" == "fedora" || "$os_id" == "rocky" || "$os_id" == "alma" ]]; then
-        if command -v dnf &>/dev/null; then
-            dnf install -y nodejs >/dev/null 2>&1
-        else
-            yum install -y nodejs >/dev/null 2>&1
-        fi
-    else
-        echo -e "${gl_hong}❌ 不支持的系统，请手动安装 Node.js 22+${gl_bai}"
-        return 1
-    fi
-
-    if command -v node &>/dev/null; then
-        local installed_ver=$(node -v | sed 's/v//' | cut -d. -f1)
-        if [ "$installed_ver" -ge 22 ]; then
-            echo -e "${gl_lv}✅ Node.js $(node -v) 安装成功${gl_bai}"
-            return 0
-        else
-            echo -e "${gl_hong}❌ 安装的 Node.js 版本仍低于 22，请手动升级${gl_bai}"
-            return 1
-        fi
-    else
-        echo -e "${gl_hong}❌ Node.js 安装失败${gl_bai}"
-        return 1
-    fi
-}
-
-# 安装 OpenClaw
-openclaw_install_pkg() {
-    echo -e "${gl_kjlan}[2/5] 安装 OpenClaw...${gl_bai}"
-    echo -e "${gl_hui}正在下载并安装，可能需要 1-3 分钟...${gl_bai}"
-    echo ""
-
-    npm install -g openclaw@latest --loglevel info
-
-    if command -v openclaw &>/dev/null; then
-        local ver=$(openclaw --version 2>/dev/null || echo "unknown")
-        echo -e "${gl_lv}✅ OpenClaw ${ver} 安装成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ OpenClaw 安装失败${gl_bai}"
-        return 1
-    fi
-}
-
-# 交互式模型配置
-openclaw_config_model() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 模型配置${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    # 步骤1: 选择 API 来源
-    echo -e "${gl_kjlan}[步骤1] 选择你的 API 来源${gl_bai}"
-    echo ""
-    echo -e "${gl_lv}── 已验证可用的反代 ──${gl_bai}"
-    echo "1. CRS 反代 (Claude)         — anthropic-messages 协议"
-    echo "2. sub2api 反代 (Gemini)      — google-generative-ai 协议"
-    echo "3. sub2api 反代 (GPT)         — openai-responses 协议"
-    echo "4. sub2api Antigravity (Claude) — anthropic-messages 协议"
-    echo ""
-    echo -e "${gl_huang}── 通用配置 ──${gl_bai}"
-    echo "5. Anthropic 直连反代（自建 Nginx/Caddy 反代）"
-    echo "6. OpenAI 兼容中转（new-api / one-api / LiteLLM 等）"
-    echo "7. OpenRouter"
-    echo "8. Google Gemini 反代（其他 Gemini 代理）"
-    echo ""
-    echo -e "${gl_zi}── 官方直连 ──${gl_bai}"
-    echo "9. Anthropic 官方 API Key"
-    echo "10. Google Gemini 官方 API Key"
-    echo "11. OpenAI 官方 API Key"
-    echo ""
-    read -e -p "请选择 [1-11]: " api_choice
-
-    local api_type=""
-    local base_url=""
-    local provider_name="my-proxy"
-    local need_base_url=true
-    local need_api_key=true
-    local preset_mode=""  # crs / sub2api-gemini / sub2api-gpt / sub2api-antigravity / 空=手动
-
-    case "$api_choice" in
-        1)
-            # CRS 反代 (Claude) - 已验证
-            preset_mode="crs"
-            api_type="anthropic-messages"
-            provider_name="crs-claude"
-            echo ""
-            echo -e "${gl_lv}已选择: CRS 反代 (Claude)${gl_bai}"
-            echo -e "${gl_zi}协议: anthropic-messages | 只需输入 CRS 地址和 API Key${gl_bai}"
-            echo ""
-            echo -e "${gl_zi}地址格式示例: http://IP:端口/api${gl_bai}"
-            echo -e "${gl_zi}Key 格式示例: cr_xxxx...${gl_bai}"
-            ;;
-        2)
-            # sub2api 反代 (Gemini) - 已验证
-            preset_mode="sub2api-gemini"
-            api_type="google-generative-ai"
-            provider_name="sub2api-gemini"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api 反代 (Gemini)${gl_bai}"
-            echo -e "${gl_zi}协议: google-generative-ai | 只需输入 sub2api 地址和 API Key${gl_bai}"
-            echo ""
-            echo -e "${gl_zi}地址格式示例: https://你的sub2api域名${gl_bai}"
-            echo -e "${gl_zi}Key 格式示例: sk-xxxx...（Gemini 专用 Key）${gl_bai}"
-            echo -e "${gl_huang}注意: sub2api 的 Claude Key 因凭证限制无法用于 OpenClaw，只有 Gemini Key 可用${gl_bai}"
-            ;;
-        3)
-            # sub2api 反代 (GPT) - 已验证
-            preset_mode="sub2api-gpt"
-            api_type="openai-responses"
-            provider_name="sub2api-gpt"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api 反代 (GPT)${gl_bai}"
-            echo -e "${gl_zi}协议: openai-responses | 只需输入 sub2api 地址和 API Key${gl_bai}"
-            echo ""
-            echo -e "${gl_zi}地址格式示例: https://你的sub2api域名${gl_bai}"
-            echo -e "${gl_zi}Key 格式示例: sk-xxxx...（GPT 专用 Key）${gl_bai}"
-            ;;
-        4)
-            # sub2api Antigravity (Claude) - 已验证
-            preset_mode="sub2api-antigravity"
-            api_type="anthropic-messages"
-            provider_name="sub2api-antigravity"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api Antigravity (Claude)${gl_bai}"
-            echo -e "${gl_zi}协议: anthropic-messages | 支持 tools，OpenClaw 完全兼容${gl_bai}"
-            echo ""
-            echo -e "${gl_zi}地址格式示例: https://你的sub2api域名/antigravity${gl_bai}"
-            echo -e "${gl_zi}Key 格式示例: sk-xxxx...（Antigravity 专用 Key）${gl_bai}"
-            echo -e "${gl_huang}注意: 高峰期偶尔返回 503，重试即可；账户池较小${gl_bai}"
-            ;;
-        5)
-            api_type="anthropic-messages"
-            echo ""
-            echo -e "${gl_zi}提示: 反代地址一般不需要 /v1 后缀${gl_bai}"
-            echo -e "${gl_huang}注意: 使用 Claude Code 凭证的反代（如 sub2api Claude）无法用于 OpenClaw${gl_bai}"
-            ;;
-        6)
-            api_type="openai-completions"
-            echo ""
-            echo -e "${gl_zi}提示: 中转地址一般需要 /v1 后缀${gl_bai}"
-            ;;
-        7)
-            api_type="openai-completions"
-            base_url="https://openrouter.ai/api/v1"
-            provider_name="openrouter"
-            need_base_url=false
-            echo ""
-            echo -e "${gl_lv}已预填 OpenRouter 地址: ${base_url}${gl_bai}"
-            ;;
-        8)
-            api_type="google-generative-ai"
-            echo ""
-            echo -e "${gl_zi}提示: Gemini 反代地址会自动添加 /v1beta 后缀${gl_bai}"
-            ;;
-        9)
-            api_type="anthropic-messages"
-            base_url="https://api.anthropic.com"
-            provider_name="anthropic"
-            need_base_url=false
-            echo ""
-            echo -e "${gl_lv}使用 Anthropic 官方 API${gl_bai}"
-            ;;
-        10)
-            api_type="google-generative-ai"
-            base_url="https://generativelanguage.googleapis.com/v1beta"
-            provider_name="google"
-            need_base_url=false
-            echo ""
-            echo -e "${gl_lv}使用 Google Gemini 官方 API${gl_bai}"
-            ;;
-        11)
-            api_type="openai-responses"
-            base_url="https://api.openai.com/v1"
-            provider_name="openai"
-            need_base_url=false
-            echo ""
-            echo -e "${gl_lv}使用 OpenAI 官方 API${gl_bai}"
-            ;;
-        *)
-            echo -e "${gl_hong}无效选择${gl_bai}"
-            break_end
-            return 1
-            ;;
-    esac
-
-    # 步骤2: 输入反代地址
-    if [ "$need_base_url" = true ]; then
-        echo ""
-        echo -e "${gl_kjlan}[步骤2] 输入反代地址${gl_bai}"
-        if [ "$preset_mode" = "crs" ]; then
-            echo -e "${gl_zi}示例: http://IP:端口/api（CRS 默认格式）${gl_bai}"
-        elif [ "$preset_mode" = "sub2api-gemini" ]; then
-            echo -e "${gl_zi}示例: https://你的sub2api域名（/v1beta 会自动添加）${gl_bai}"
-        elif [ "$preset_mode" = "sub2api-gpt" ]; then
-            echo -e "${gl_zi}示例: https://你的sub2api域名（/v1 会自动添加）${gl_bai}"
-        elif [ "$preset_mode" = "sub2api-antigravity" ]; then
-            echo -e "${gl_zi}示例: https://你的sub2api域名/antigravity（路径需包含 /antigravity）${gl_bai}"
-        elif [ "$api_type" = "google-generative-ai" ]; then
-            echo -e "${gl_zi}示例: https://your-proxy.com（/v1beta 会自动添加）${gl_bai}"
-        else
-            echo -e "${gl_zi}示例: https://your-proxy.com 或 https://your-proxy.com/v1${gl_bai}"
-        fi
-        echo ""
-        read -e -p "反代地址: " base_url
-        if [ -z "$base_url" ]; then
-            echo -e "${gl_hong}❌ 反代地址不能为空${gl_bai}"
-            break_end
-            return 1
-        fi
-        # 去除末尾的 /
-        base_url="${base_url%/}"
-        # 自动添加 API 路径后缀
-        if [ "$api_type" = "google-generative-ai" ]; then
-            if [[ ! "$base_url" =~ /v1beta$ ]] && [[ ! "$base_url" =~ /v1$ ]]; then
-                base_url="${base_url}/v1beta"
-                echo -e "${gl_lv}已自动添加后缀: ${base_url}${gl_bai}"
-            fi
-        elif [ "$preset_mode" = "sub2api-gpt" ]; then
-            if [[ ! "$base_url" =~ /v1$ ]]; then
-                base_url="${base_url}/v1"
-                echo -e "${gl_lv}已自动添加后缀: ${base_url}${gl_bai}"
-            fi
-        fi
-    fi
-
-    # 步骤3: 输入 API Key
-    echo ""
-    echo -e "${gl_kjlan}[步骤3] 输入 API Key${gl_bai}"
-    if [ "$preset_mode" = "crs" ]; then
-        echo -e "${gl_zi}CRS Key 格式: cr_xxxx...${gl_bai}"
-    elif [ "$preset_mode" = "sub2api-gemini" ]; then
-        echo -e "${gl_zi}sub2api Gemini Key 格式: sk-xxxx...${gl_bai}"
-    elif [ "$preset_mode" = "sub2api-gpt" ]; then
-        echo -e "${gl_zi}sub2api GPT Key 格式: sk-xxxx...${gl_bai}"
-    elif [ "$preset_mode" = "sub2api-antigravity" ]; then
-        echo -e "${gl_zi}sub2api Antigravity Key 格式: sk-xxxx...${gl_bai}"
-    fi
-    echo ""
-    read -e -p "API Key: " api_key
-    if [ -z "$api_key" ]; then
-        echo -e "${gl_hong}❌ API Key 不能为空${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 步骤4: 选择模型
-    echo ""
-    echo -e "${gl_kjlan}[步骤4] 选择主力模型${gl_bai}"
-    echo ""
-
-    local model_id=""
-    local model_name=""
-    local model_reasoning="false"
-    local model_input='["text"]'
-    local model_cost_input="3"
-    local model_cost_output="15"
-    local model_cost_cache_read="0.3"
-    local model_cost_cache_write="3.75"
-    local model_context="200000"
-    local model_max_tokens="16384"
-
-    if [ "$preset_mode" = "sub2api-antigravity" ]; then
-        echo "1. claude-sonnet-4-6 (推荐)"
-        echo "2. claude-sonnet-4-5"
-        echo "3. claude-sonnet-4-5-thinking (扩展思考)"
-        echo "4. claude-opus-4-5-thinking (最强思考)"
-        echo "5. 自定义模型 ID"
-        echo ""
-        read -e -p "请选择 [1-5]: " model_choice
-        case "$model_choice" in
-            1) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-            2) model_id="claude-sonnet-4-5"; model_name="Claude Sonnet 4.5" ;;
-            3) model_id="claude-sonnet-4-5-thinking"; model_name="Claude Sonnet 4.5 Thinking"; model_reasoning="true"; model_input='["text", "image"]' ;;
-            4) model_id="claude-opus-4-5-thinking"; model_name="Claude Opus 4.5 Thinking"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="15"; model_cost_output="75"; model_cost_cache_read="1.5"; model_cost_cache_write="18.75"; model_max_tokens="32768" ;;
-            5)
-                read -e -p "输入模型 ID: " model_id
-                read -e -p "输入模型显示名称: " model_name
-                ;;
-            *) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-        esac
-    elif [ "$api_type" = "anthropic-messages" ]; then
-        echo "1. claude-opus-4-6 (Opus 4.6 最强)"
-        echo "2. claude-sonnet-4-6 (Sonnet 4.6 推荐)"
-        echo "3. claude-sonnet-4-5 (Sonnet 4.5 上一代)"
-        echo "4. claude-haiku-4-5 (Haiku 4.5 快速)"
-        echo "5. 自定义模型 ID"
-        echo ""
-        read -e -p "请选择 [1-5]: " model_choice
-        case "$model_choice" in
-            1) model_id="claude-opus-4-6"; model_name="Claude Opus 4.6"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="15"; model_cost_output="75"; model_cost_cache_read="1.5"; model_cost_cache_write="18.75"; model_max_tokens="32768" ;;
-            2) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-            3) model_id="claude-sonnet-4-5"; model_name="Claude Sonnet 4.5" ;;
-            4) model_id="claude-haiku-4-5"; model_name="Claude Haiku 4.5"; model_cost_input="0.8"; model_cost_output="4"; model_cost_cache_read="0.08"; model_cost_cache_write="1" ;;
-            5)
-                read -e -p "输入模型 ID: " model_id
-                read -e -p "输入模型显示名称: " model_name
-                ;;
-            *) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-        esac
-    elif [ "$api_type" = "google-generative-ai" ]; then
-        echo "1. gemini-3.1-pro-preview (最新旗舰)"
-        echo "2. gemini-3.1-flash-lite (最便宜)"
-        echo "3. gemini-3-flash-preview (快速)"
-        echo "4. gemini-2.5-pro (推理增强)"
-        echo "5. gemini-2.5-flash (快速均衡)"
-        echo "6. 自定义模型 ID"
-        echo ""
-        read -e -p "请选择 [1-6]: " model_choice
-        case "$model_choice" in
-            1) model_id="gemini-3.1-pro-preview"; model_name="Gemini 3.1 Pro Preview"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="12"; model_cost_cache_read="0.5"; model_cost_cache_write="6"; model_context="1000000"; model_max_tokens="65536" ;;
-            2) model_id="gemini-3.1-flash-lite"; model_name="Gemini 3.1 Flash Lite"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="0.25"; model_cost_output="1.5"; model_cost_cache_read="0.0625"; model_cost_cache_write="0.375"; model_context="1000000"; model_max_tokens="65536" ;;
-            3) model_id="gemini-3-flash-preview"; model_name="Gemini 3 Flash Preview"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="0.15"; model_cost_output="0.6"; model_cost_cache_read="0.0375"; model_cost_cache_write="1"; model_context="1000000"; model_max_tokens="65536" ;;
-            4) model_id="gemini-2.5-pro"; model_name="Gemini 2.5 Pro"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="1.25"; model_cost_output="10"; model_cost_cache_read="0.315"; model_cost_cache_write="4.5"; model_context="1000000"; model_max_tokens="65536" ;;
-            5) model_id="gemini-2.5-flash"; model_name="Gemini 2.5 Flash"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="0.15"; model_cost_output="0.6"; model_cost_cache_read="0.0375"; model_cost_cache_write="1"; model_context="1000000"; model_max_tokens="65536" ;;
-            6)
-                read -e -p "输入模型 ID: " model_id
-                read -e -p "输入模型显示名称: " model_name
-                model_reasoning="true"; model_input='["text", "image"]'; model_context="1000000"; model_max_tokens="65536"
-                ;;
-            *) model_id="gemini-3.1-pro-preview"; model_name="Gemini 3.1 Pro Preview"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="12"; model_cost_cache_read="0.5"; model_cost_cache_write="6"; model_context="1000000"; model_max_tokens="65536" ;;
-        esac
-    elif [ "$api_type" = "openai-responses" ]; then
-        echo "1. gpt-5.4 (最新旗舰)"
-        echo "2. gpt-5.4-pro (Pro 最强)"
-        echo "3. gpt-5.3-instant (快速)"
-        echo "4. gpt-5.3"
-        echo "5. gpt-5.3-codex"
-        echo "6. gpt-5.2"
-        echo "7. gpt-5.2-codex"
-        echo "8. 自定义模型 ID"
-        echo ""
-        read -e -p "请选择 [1-8]: " model_choice
-        case "$model_choice" in
-            1) model_id="gpt-5.4"; model_name="GPT 5.4"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2.5"; model_cost_output="15"; model_cost_cache_read="0.625"; model_cost_cache_write="2.5"; model_context="1050000"; model_max_tokens="128000" ;;
-            2) model_id="gpt-5.4-pro"; model_name="GPT 5.4 Pro"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="15"; model_cost_output="75"; model_cost_cache_read="3.75"; model_cost_cache_write="15"; model_context="1050000"; model_max_tokens="128000" ;;
-            3) model_id="gpt-5.3-instant"; model_name="GPT 5.3 Instant"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="0.5"; model_cost_output="2"; model_cost_cache_read="0.125"; model_cost_cache_write="0.5"; model_max_tokens="32768" ;;
-            4) model_id="gpt-5.3"; model_name="GPT 5.3"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="8"; model_cost_cache_read="0.5"; model_cost_cache_write="2"; model_max_tokens="32768" ;;
-            5) model_id="gpt-5.3-codex"; model_name="GPT 5.3 Codex"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="8"; model_cost_cache_read="0.5"; model_cost_cache_write="2"; model_max_tokens="32768" ;;
-            6) model_id="gpt-5.2"; model_name="GPT 5.2"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="8"; model_cost_cache_read="0.5"; model_cost_cache_write="2"; model_max_tokens="32768" ;;
-            7) model_id="gpt-5.2-codex"; model_name="GPT 5.2 Codex"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2"; model_cost_output="8"; model_cost_cache_read="0.5"; model_cost_cache_write="2"; model_max_tokens="32768" ;;
-            8)
-                read -e -p "输入模型 ID: " model_id
-                read -e -p "输入模型显示名称: " model_name
-                model_reasoning="true"; model_input='["text", "image"]'; model_max_tokens="32768"
-                ;;
-            *) model_id="gpt-5.4"; model_name="GPT 5.4"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2.5"; model_cost_output="15"; model_cost_cache_read="0.625"; model_cost_cache_write="2.5"; model_context="1050000"; model_max_tokens="128000" ;;
-        esac
-    elif [ "$api_type" = "openai-completions" ]; then
-        echo "1. claude-opus-4-6 (通过中转)"
-        echo "2. claude-sonnet-4-6 (通过中转)"
-        echo "3. gpt-5.4 (通过中转)"
-        echo "4. gpt-4o"
-        echo "5. 自定义模型 ID"
-        echo ""
-        read -e -p "请选择 [1-5]: " model_choice
-        case "$model_choice" in
-            1) model_id="claude-opus-4-6"; model_name="Claude Opus 4.6"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="15"; model_cost_output="75"; model_cost_cache_read="1.5"; model_cost_cache_write="18.75"; model_max_tokens="32768" ;;
-            2) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-            3) model_id="gpt-5.4"; model_name="GPT 5.4"; model_reasoning="true"; model_input='["text", "image"]'; model_cost_input="2.5"; model_cost_output="15"; model_cost_cache_read="0.625"; model_cost_cache_write="2.5"; model_context="1050000"; model_max_tokens="128000" ;;
-            4) model_id="gpt-4o"; model_name="GPT-4o"; model_input='["text", "image"]'; model_cost_input="2.5"; model_cost_output="10"; model_cost_cache_read="1.25"; model_cost_cache_write="2.5"; model_context="128000"; model_max_tokens="16384" ;;
-            5)
-                read -e -p "输入模型 ID: " model_id
-                read -e -p "输入模型显示名称: " model_name
-                ;;
-            *) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6"; model_reasoning="true"; model_input='["text", "image"]' ;;
-        esac
-    fi
-
-    if [ -z "$model_id" ]; then
-        echo -e "${gl_hong}❌ 模型 ID 不能为空${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 步骤5: 选择端口
-    echo ""
-    echo -e "${gl_kjlan}[步骤5] 设置网关端口${gl_bai}"
-    local port="$OPENCLAW_DEFAULT_PORT"
-    read -e -p "网关端口 [${OPENCLAW_DEFAULT_PORT}]: " input_port
-    if [ -n "$input_port" ]; then
-        port="$input_port"
-    fi
-
-    # 生成配置
-    echo ""
-    echo -e "${gl_kjlan}正在生成配置...${gl_bai}"
-
-    mkdir -p "$OPENCLAW_HOME_DIR"
-
-    # 生成网关 token
-    local gateway_token=$(openssl rand -hex 16 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
-
-    # 写入环境变量
-    cat > "$OPENCLAW_ENV_FILE" <<EOF
-# OpenClaw 环境变量 - 由部署脚本自动生成
-OPENCLAW_API_KEY=${api_key}
-OPENCLAW_GATEWAY_TOKEN=${gateway_token}
-EOF
-    chmod 600 "$OPENCLAW_ENV_FILE"
-
-    # 生成 openclaw.json 配置（JSON5 格式）
-    cat > "$OPENCLAW_CONFIG_FILE" <<EOF
-// OpenClaw 配置 - 由部署脚本自动生成
-// 文档: https://docs.openclaw.ai/gateway/configuration
-{
-  // 网关设置
-  gateway: {
-    port: ${port},
-    mode: "local",
-    auth: {
-      token: "${gateway_token}"
-    }
-  },
-
-  // 模型配置
-  models: {
-    mode: "merge",
-    providers: {
-      "${provider_name}": {
-        baseUrl: "${base_url}",
-        apiKey: "\${OPENCLAW_API_KEY}",
-        api: "${api_type}",
-        models: [
-          { id: "${model_id}", name: "${model_name}", reasoning: ${model_reasoning}, input: ${model_input}, cost: { input: ${model_cost_input}, output: ${model_cost_output}, cacheRead: ${model_cost_cache_read}, cacheWrite: ${model_cost_cache_write} }, contextWindow: ${model_context}, maxTokens: ${model_max_tokens} }
-        ]
-      }
-    }
-  },
-
-  // Agent 默认配置
-  agents: {
-    defaults: {
-      model: {
-        primary: "${provider_name}/${model_id}"
-      }
-    }
-  }
-}
-EOF
-    chmod 600 "$OPENCLAW_CONFIG_FILE"
-    chmod 700 "$OPENCLAW_HOME_DIR"
-
-    echo -e "${gl_lv}✅ 配置文件已生成${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}配置文件: ${OPENCLAW_CONFIG_FILE}${gl_bai}"
-    echo -e "${gl_zi}环境变量: ${OPENCLAW_ENV_FILE}${gl_bai}"
-    echo ""
-
-    # 显示配置摘要
-    echo -e "${gl_kjlan}━━━ 配置摘要 ━━━${gl_bai}"
-    if [ -n "$preset_mode" ]; then
-        echo -e "配置预设:   ${gl_lv}${preset_mode}（已验证可用）${gl_bai}"
-    fi
-    echo -e "API 类型:   ${gl_huang}${api_type}${gl_bai}"
-    echo -e "反代地址:   ${gl_huang}${base_url}${gl_bai}"
-    echo -e "主力模型:   ${gl_huang}${provider_name}/${model_id}${gl_bai}"
-    echo -e "模型名称:   ${gl_huang}${model_name}${gl_bai}"
-    echo -e "网关端口:   ${gl_huang}${port}${gl_bai}"
-    echo -e "网关Token:  ${gl_huang}${gateway_token}${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-    return 0
-}
-
-# 检测当前配置是否需要 sub2api 兼容补丁
-# 条件: 使用 openai-responses API 且 baseUrl 不是 OpenAI 官方
-# 返回 0 = 需要补丁, 1 = 不需要
-openclaw_needs_patch() {
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        return 1
-    fi
-    if ! command -v node &>/dev/null; then
-        return 1
-    fi
-
-    local result
-    result=$(node -e "
-        const fs = require('fs');
-        try {
-            const content = fs.readFileSync('${OPENCLAW_CONFIG_FILE}', 'utf-8');
-            const config = new Function('return (' + content + ')')();
-            const providers = (config.models && config.models.providers) || {};
-            for (const [name, p] of Object.entries(providers)) {
-                if (p.api === 'openai-responses' && p.baseUrl && !p.baseUrl.includes('api.openai.com')) {
-                    console.log('yes');
-                    process.exit(0);
-                }
-            }
-        } catch(e) {}
-        console.log('no');
-    " 2>/dev/null)
-
-    if [ "$result" = "yes" ]; then
-        return 0
-    fi
-    return 1
-}
-
-# 为 sub2api 打 openai-responses.js 兼容补丁
-# 补丁1: 添加 instructions 字段 (sub2api 必需)
-# 补丁2: 移除 max_output_tokens (sub2api 不支持)
-# 幂等: 已打过的补丁自动跳过
-openclaw_patch_sub2api() {
-    echo ""
-    echo -e "${gl_kjlan}正在检查 sub2api 兼容补丁...${gl_bai}"
-
-    # 定位 openclaw 安装目录
-    local openclaw_root=""
-    local npm_root
-    npm_root=$(npm root -g 2>/dev/null)
-    if [ -n "$npm_root" ] && [ -d "${npm_root}/openclaw" ]; then
-        openclaw_root="${npm_root}/openclaw"
-    elif [ -d "/usr/lib/node_modules/openclaw" ]; then
-        openclaw_root="/usr/lib/node_modules/openclaw"
-    elif [ -d "/usr/local/lib/node_modules/openclaw" ]; then
-        openclaw_root="/usr/local/lib/node_modules/openclaw"
-    fi
-
-    if [ -z "$openclaw_root" ]; then
-        echo -e "${gl_hong}❌ 找不到 openclaw 安装目录，跳过补丁${gl_bai}"
-        return 1
-    fi
-
-    local patch_file="${openclaw_root}/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses.js"
-
-    if [ ! -f "$patch_file" ]; then
-        echo -e "${gl_huang}⚠ 未找到 openai-responses.js，可能 openclaw 版本已更新文件结构${gl_bai}"
-        echo -e "${gl_zi}  路径: ${patch_file}${gl_bai}"
-        return 1
-    fi
-
-    # 备份
-    cp "$patch_file" "${patch_file}.bak" 2>/dev/null
-
-    local patch_count=0
-
-    # 补丁 1: 添加 instructions 字段
-    if grep -q 'instructions: context\.systemPrompt' "$patch_file"; then
-        echo -e "${gl_lv}  ✅ 补丁 1/2: instructions 已存在，跳过${gl_bai}"
-        patch_count=$((patch_count + 1))
-    else
-        sed -i 's/        input: messages,/        input: messages,\n        instructions: context.systemPrompt || "You are a helpful assistant.",/' "$patch_file"
-        if grep -q 'instructions: context\.systemPrompt' "$patch_file"; then
-            echo -e "${gl_lv}  ✅ 补丁 1/2: 添加 instructions 字段${gl_bai}"
-            patch_count=$((patch_count + 1))
-        else
-            echo -e "${gl_hong}  ❌ 补丁 1/2: instructions 字段添加失败${gl_bai}"
-        fi
-    fi
-
-    # 补丁 2: 非 OpenAI 官方 API 时删除 max_output_tokens
-    if grep -q 'delete params\.max_output_tokens' "$patch_file"; then
-        echo -e "${gl_lv}  ✅ 补丁 2/2: max_output_tokens 补丁已存在，跳过${gl_bai}"
-        patch_count=$((patch_count + 1))
-    else
-        sed -i '/const openaiStream = await client\.responses\.create/i\            // sub2api compat: remove max_output_tokens\n            if (model.baseUrl \&\& !model.baseUrl.includes("api.openai.com")) {\n                delete params.max_output_tokens;\n            }' "$patch_file"
-        if grep -q 'delete params\.max_output_tokens' "$patch_file"; then
-            echo -e "${gl_lv}  ✅ 补丁 2/2: 移除 max_output_tokens${gl_bai}"
-            patch_count=$((patch_count + 1))
-        else
-            echo -e "${gl_hong}  ❌ 补丁 2/2: max_output_tokens 补丁失败${gl_bai}"
-        fi
-    fi
-
-    if [ "$patch_count" -eq 2 ]; then
-        echo -e "${gl_lv}✅ sub2api 兼容补丁已就绪${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_huang}⚠ 部分补丁可能未成功 (${patch_count}/2)${gl_bai}"
-        return 1
-    fi
-}
-
-# 执行 onboard 初始化
-openclaw_onboard() {
-    local port=$(openclaw_get_port)
-    echo -e "${gl_kjlan}[5/5] 创建 systemd 服务并启动网关...${gl_bai}"
-    echo ""
-
-    # 创建必要的目录
-    mkdir -p "${OPENCLAW_HOME_DIR}/agents/main/sessions"
-    mkdir -p "${OPENCLAW_HOME_DIR}/credentials"
-    mkdir -p "${OPENCLAW_HOME_DIR}/workspace"
-
-    # 获取 openclaw 实际路径
-    local openclaw_bin=$(which openclaw 2>/dev/null || echo "/usr/bin/openclaw")
-
-    # 创建 systemd 服务
-    cat > "/etc/systemd/system/${OPENCLAW_SERVICE_NAME}.service" <<EOF
-[Unit]
-Description=OpenClaw Gateway
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${openclaw_bin} gateway --port ${port} --verbose
-Restart=always
-RestartSec=5
-EnvironmentFile=-${HOME}/.openclaw/.env
-Environment=HOME=${HOME}
-WorkingDirectory=${HOME}
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable "$OPENCLAW_SERVICE_NAME" >/dev/null 2>&1
-    systemctl start "$OPENCLAW_SERVICE_NAME"
-
-    sleep 5
-
-    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ OpenClaw 网关已启动${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ 网关启动失败，查看日志:${gl_bai}"
-        journalctl -u "$OPENCLAW_SERVICE_NAME" -n 10 --no-pager
-        return 1
-    fi
-}
-
-# 一键部署
-openclaw_deploy() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 一键部署${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(openclaw_check_status)
-    if [ "$status" = "running" ]; then
-        echo -e "${gl_huang}⚠ OpenClaw 已在运行中${gl_bai}"
-        echo ""
-        read -e -p "是否重新部署？(Y/N): " confirm
-        case "$confirm" in
-            [Yy]) ;;
-            *) return ;;
-        esac
-        echo ""
-        systemctl stop "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-    fi
-
-    # 步骤1: Node.js
-    openclaw_install_nodejs || { break_end; return 1; }
-    echo ""
-
-    # 步骤2: 安装 OpenClaw
-    openclaw_install_pkg || { break_end; return 1; }
-    echo ""
-
-    # 步骤3: 交互式模型配置
-    echo -e "${gl_kjlan}[3/5] 配置模型与 API...${gl_bai}"
-    echo ""
-    openclaw_config_model || { break_end; return 1; }
-    echo ""
-
-    # 步骤4: sub2api 兼容补丁（如需要）
-    if openclaw_needs_patch; then
-        echo -e "${gl_kjlan}[4/5] 打 sub2api 兼容补丁...${gl_bai}"
-        openclaw_patch_sub2api
-        echo ""
-    fi
-
-    # 步骤5: 初始化并启动
-    openclaw_onboard || { break_end; return 1; }
-
-    # 获取服务器 IP
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-    local port=$(openclaw_get_port)
-
-    echo ""
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_lv}  ✅ OpenClaw 部署完成！${gl_bai}"
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "控制面板: ${gl_huang}http://${server_ip}:${port}/${gl_bai}"
-    echo ""
-
-    # 显示 gateway token
-    local gw_token=$(sed -nE 's/.*OPENCLAW_GATEWAY_TOKEN=(.*)/\1/p' "$OPENCLAW_ENV_FILE" 2>/dev/null)
-    if [ -n "$gw_token" ]; then
-        echo -e "网关 Token: ${gl_huang}${gw_token}${gl_bai}"
-        echo -e "${gl_zi}（远程访问控制面板时需要此 Token）${gl_bai}"
-        echo ""
-    fi
-
-    echo -e "${gl_kjlan}【下一步】连接消息频道${gl_bai}"
-    echo "  运行: openclaw channels login"
-    echo "  支持: WhatsApp / Telegram / Discord / Slack 等"
-    echo ""
-    echo -e "${gl_kjlan}【聊天命令】（在消息平台中使用）${gl_bai}"
-    echo "  /status  — 查看会话状态"
-    echo "  /new     — 清空上下文"
-    echo "  /think   — 调整推理级别"
-    echo ""
-    echo -e "${gl_kjlan}【安全说明】${gl_bai}"
-    echo "  网关默认绑定 loopback，外部访问需 SSH 隧道:"
-    echo -e "  ${gl_huang}ssh -N -L ${port}:127.0.0.1:${port} root@${server_ip}${gl_bai}"
-    echo "  检查安全: openclaw doctor"
-    echo ""
-    echo -e "${gl_kjlan}管理命令:${gl_bai}"
-    echo "  状态: systemctl status $OPENCLAW_SERVICE_NAME"
-    echo "  日志: journalctl -u $OPENCLAW_SERVICE_NAME -f"
-    echo "  重启: systemctl restart $OPENCLAW_SERVICE_NAME"
-    echo ""
-
-    break_end
-}
-
-# 更新 OpenClaw
-openclaw_update() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  更新 OpenClaw${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if ! command -v openclaw &>/dev/null; then
-        echo -e "${gl_hong}❌ OpenClaw 未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    local old_ver=$(openclaw --version 2>/dev/null || echo "unknown")
-    echo -e "当前版本: ${gl_huang}${old_ver}${gl_bai}"
-    echo ""
-
-    echo "正在更新..."
-    npm install -g openclaw@latest 2>&1 | tail -10
-
-    local new_ver=$(openclaw --version 2>/dev/null || echo "unknown")
-    echo ""
-
-    if [ "$old_ver" = "$new_ver" ]; then
-        echo -e "${gl_lv}✅ 已是最新版本 (${new_ver})${gl_bai}"
-    else
-        echo -e "${gl_lv}✅ 已更新: ${old_ver} → ${new_ver}${gl_bai}"
-    fi
-
-    # npm 更新会覆盖补丁文件，需要重新打补丁
-    if openclaw_needs_patch; then
-        openclaw_patch_sub2api
-    fi
-
-    echo ""
-    echo "正在重启服务..."
-    systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-
-    sleep 2
-    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-    else
-        echo -e "${gl_huang}⚠ 服务未通过 systemctl 管理，请手动重启${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 查看状态
-openclaw_status() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 服务状态${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if command -v openclaw &>/dev/null; then
-        echo -e "版本: ${gl_huang}$(openclaw --version 2>/dev/null || echo 'unknown')${gl_bai}"
-        echo ""
-    fi
-
-    systemctl status "$OPENCLAW_SERVICE_NAME" --no-pager 2>/dev/null || \
-        echo -e "${gl_huang}⚠ systemd 服务不存在，可能需要重新执行 onboard${gl_bai}"
-
-    echo ""
-    break_end
-}
-
-# 查看日志
-openclaw_logs() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 日志（按 Ctrl+C 退出）${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    journalctl -u "$OPENCLAW_SERVICE_NAME" -f 2>/dev/null || \
-        echo -e "${gl_huang}⚠ 无法读取日志，服务可能未通过 systemd 管理${gl_bai}"
-}
-
-# 启动服务
-openclaw_start() {
-    echo "正在启动服务..."
-    systemctl start "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-    sleep 2
-
-    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已启动${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务启动失败，查看日志: journalctl -u $OPENCLAW_SERVICE_NAME -n 20${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 停止服务
-openclaw_stop() {
-    echo "正在停止服务..."
-    systemctl stop "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-
-    if ! systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已停止${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务停止失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 重启服务
-openclaw_restart() {
-    echo "正在重启服务..."
-
-    local port=$(openclaw_get_port)
-    local pid=$(ss -lntp 2>/dev/null | grep ":${port} " | sed -nE 's/.*pid=([0-9]+).*/\1/p' | head -1)
-    local service_pid=$(systemctl show -p MainPID "$OPENCLAW_SERVICE_NAME" 2>/dev/null | cut -d= -f2)
-
-    if [ -n "$pid" ] && [ "$pid" != "$service_pid" ] && [ "$pid" != "0" ]; then
-        echo -e "${gl_huang}⚠ 端口 ${port} 被 PID ${pid} 占用，正在释放...${gl_bai}"
-        kill "$pid" 2>/dev/null
-        sleep 1
-        if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-            kill -9 "$pid" 2>/dev/null
-            sleep 1
-        fi
-    fi
-
-    systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-    sleep 2
-
-    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 服务重启失败${gl_bai}"
-        echo "查看日志: journalctl -u $OPENCLAW_SERVICE_NAME -n 20"
-    fi
-
-    break_end
-}
-
-# 更新频道配置到 openclaw.json（通过 Node.js 合并 JSON5）
-openclaw_update_channel() {
-    local channel_name="$1"
-    local channel_config_json="$2"
-
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        echo -e "${gl_hong}❌ 配置文件不存在，请先部署 OpenClaw${gl_bai}"
-        return 1
-    fi
-
-    local tmp_channel=$(mktemp)
-    local tmp_script=$(mktemp)
-    echo "$channel_config_json" > "$tmp_channel"
-
-    cat > "$tmp_script" << 'NODESCRIPT'
-const fs = require('fs');
-const configPath = process.argv[2];
-const channelName = process.argv[3];
-const channelFile = process.argv[4];
-const newChannelConfig = JSON.parse(fs.readFileSync(channelFile, 'utf-8'));
-
-const content = fs.readFileSync(configPath, 'utf-8');
-let config;
-try {
-    config = new Function('return (' + content + ')')();
-} catch(e) {
-    console.error('无法解析配置文件: ' + e.message);
-    process.exit(1);
-}
-
-if (!config.channels) config.channels = {};
-config.channels[channelName] = newChannelConfig;
-
-// 同时启用对应插件（防止 doctor --fix 禁用后无法自动恢复）
-if (!config.plugins) config.plugins = {};
-if (!config.plugins.entries) config.plugins.entries = {};
-if (!config.plugins.entries[channelName]) config.plugins.entries[channelName] = {};
-config.plugins.entries[channelName].enabled = true;
-
-const output = '// OpenClaw 配置 - 由部署脚本自动生成\n// 文档: https://docs.openclaw.ai/gateway/configuration\n' + JSON.stringify(config, null, 2) + '\n';
-fs.writeFileSync(configPath, output);
-NODESCRIPT
-
-    node "$tmp_script" "$OPENCLAW_CONFIG_FILE" "$channel_name" "$tmp_channel" 2>&1
-    local result=$?
-    rm -f "$tmp_channel" "$tmp_script"
-    return $result
-}
-
-# 从 openclaw.json 移除频道配置
-openclaw_remove_channel() {
-    local channel_name="$1"
-
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        echo "配置文件不存在"
-        return 1
-    fi
-
-    local tmp_script=$(mktemp)
-    cat > "$tmp_script" << 'NODESCRIPT'
-const fs = require('fs');
-const configPath = process.argv[2];
-const channelName = process.argv[3];
-
-const content = fs.readFileSync(configPath, 'utf-8');
-let config;
-try {
-    config = new Function('return (' + content + ')')();
-} catch(e) {
-    console.error('无法解析配置文件');
-    process.exit(1);
-}
-
-if (config.channels && config.channels[channelName]) {
-    delete config.channels[channelName];
-    // 同时禁用对应插件
-    if (config.plugins && config.plugins.entries && config.plugins.entries[channelName]) {
-        config.plugins.entries[channelName].enabled = false;
-    }
-    const output = '// OpenClaw 配置 - 由部署脚本自动生成\n// 文档: https://docs.openclaw.ai/gateway/configuration\n' + JSON.stringify(config, null, 2) + '\n';
-    fs.writeFileSync(configPath, output);
-    console.log('已移除 ' + channelName + ' 频道配置');
-} else {
-    console.log('频道 ' + channelName + ' 未在配置中找到');
-}
-NODESCRIPT
-
-    node "$tmp_script" "$OPENCLAW_CONFIG_FILE" "$channel_name" 2>&1
-    local result=$?
-    rm -f "$tmp_script"
-    return $result
-}
-
-# 频道管理菜单
-openclaw_channels() {
-    if ! command -v openclaw &>/dev/null; then
-        echo -e "${gl_hong}❌ OpenClaw 未安装，请先执行「一键部署」${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    while true; do
-        clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  OpenClaw 频道管理${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示已配置的频道（从配置文件读取）
-        echo -e "${gl_lv}── 已配置的频道 ──${gl_bai}"
-        if [ -f "$OPENCLAW_CONFIG_FILE" ]; then
-            node -e '
-                const fs = require("fs");
-                const content = fs.readFileSync(process.argv[1], "utf-8");
-                try {
-                    const config = new Function("return (" + content + ")")();
-                    const ch = config.channels || {};
-                    const names = Object.keys(ch);
-                    if (names.length === 0) { console.log("  暂无已配置的频道"); }
-                    else {
-                        for (const n of names) {
-                            const enabled = ch[n].enabled !== false ? "✅" : "❌";
-                            console.log("  " + enabled + " " + n);
-                        }
-                    }
-                } catch(e) { console.log("  暂无已配置的频道"); }
-            ' "$OPENCLAW_CONFIG_FILE" 2>/dev/null || echo "  暂无已配置的频道"
-        else
-            echo "  暂无已配置的频道"
-        fi
-        echo ""
-
-        echo -e "${gl_kjlan}[配置频道]${gl_bai}"
-        echo "1. Telegram Bot      — 输入 Bot Token"
-        echo "2. WhatsApp          — 终端扫码登录"
-        echo "3. Discord Bot       — 输入 Bot Token"
-        echo "4. Slack             — 输入 App Token + Bot Token"
-        echo ""
-        echo -e "${gl_kjlan}[频道管理]${gl_bai}"
-        echo "5. 查看频道状态"
-        echo "6. 查看频道日志"
-        echo "7. 断开/删除频道"
-        echo ""
-        echo "0. 返回"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择 [0-7]: " ch_choice
-
-        case $ch_choice in
-            1)
-                # Telegram
-                clear
-                echo -e "${gl_kjlan}━━━ 配置 Telegram Bot ━━━${gl_bai}"
-                echo ""
-                echo -e "${gl_zi}📋 获取 Bot Token 步骤:${gl_bai}"
-                echo -e "  1. 打开 Telegram，搜索 ${gl_huang}@BotFather${gl_bai}"
-                echo "  2. 发送 /newbot 创建新 Bot"
-                echo "  3. 按提示设置 Bot 名称和用户名（用户名必须以 bot 结尾）"
-                echo "  4. 复制 BotFather 给的 Token"
-                echo ""
-                echo -e "${gl_zi}Token 格式: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz${gl_bai}"
-                echo ""
-
-                read -e -p "请输入 Telegram Bot Token: " tg_token
-                if [ -z "$tg_token" ]; then
-                    echo -e "${gl_hong}❌ Token 不能为空${gl_bai}"
-                    break_end
-                    continue
-                fi
-
-                echo ""
-                echo "正在写入 Telegram 配置..."
-                local tg_json="{\"botToken\":\"${tg_token}\",\"enabled\":true,\"dmPolicy\":\"pairing\",\"groupPolicy\":\"allowlist\",\"streamMode\":\"partial\",\"textChunkLimit\":4000,\"dmHistoryLimit\":50,\"historyLimit\":50}"
-                openclaw_update_channel "telegram" "$tg_json"
-
-                if [ $? -eq 0 ]; then
-                    echo ""
-                    echo -e "${gl_lv}✅ Telegram Bot 配置成功${gl_bai}"
-                    echo ""
-                    echo -e "${gl_zi}下一步:${gl_bai}"
-                    echo "  1. 在 Telegram 中搜索你的 Bot 并发送一条消息"
-                    echo "  2. Bot 会回复一个配对码（pairing code）"
-                    echo -e "  3. 在服务器运行: ${gl_huang}openclaw pairing approve telegram <配对码>${gl_bai}"
-
-                    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                        systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                        sleep 2
-                        echo ""
-                        echo -e "${gl_lv}✅ 服务已重启，配置已生效${gl_bai}"
-                    fi
-                else
-                    echo ""
-                    echo -e "${gl_hong}❌ 配置写入失败${gl_bai}"
-                fi
-                break_end
-                ;;
-            2)
-                # WhatsApp
-                clear
-                echo -e "${gl_kjlan}━━━ 配置 WhatsApp ━━━${gl_bai}"
-                echo ""
-                echo -e "${gl_zi}📋 登录步骤:${gl_bai}"
-                echo "  1. 先写入 WhatsApp 频道配置"
-                echo "  2. 终端会显示 QR 二维码"
-                echo "  3. 打开手机 WhatsApp → 设置 → 已关联设备 → 关联设备"
-                echo "  4. 扫描终端中的 QR 码（60秒内有效，超时重新运行）"
-                echo ""
-                echo -e "${gl_huang}⚠ 注意事项:${gl_bai}"
-                echo "  • 需要使用真实手机号，虚拟号码可能被封禁"
-                echo "  • 一个 WhatsApp 号码只能绑定一个 OpenClaw 网关"
-                echo ""
-
-                read -e -p "准备好了吗？(Y/N): " confirm
-                case "$confirm" in
-                    [Yy])
-                        echo ""
-                        echo "正在写入 WhatsApp 配置..."
-                        local wa_json='{"enabled":true,"dmPolicy":"pairing","groupPolicy":"allowlist","streamMode":"partial","historyLimit":50,"dmHistoryLimit":50}'
-                        openclaw_update_channel "whatsapp" "$wa_json"
-
-                        if [ $? -eq 0 ]; then
-                            echo -e "${gl_lv}✅ WhatsApp 配置已写入${gl_bai}"
-                            echo ""
-
-                            if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                                systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                                sleep 2
-                            fi
-
-                            echo "正在启动 WhatsApp 登录（显示 QR 码）..."
-                            echo ""
-                            openclaw channels login 2>&1
-                        else
-                            echo -e "${gl_hong}❌ 配置写入失败${gl_bai}"
-                        fi
-                        ;;
-                    *)
-                        echo "已取消"
-                        ;;
-                esac
-                break_end
-                ;;
-            3)
-                # Discord
-                clear
-                echo -e "${gl_kjlan}━━━ 配置 Discord Bot ━━━${gl_bai}"
-                echo ""
-                echo -e "${gl_zi}📋 获取 Bot Token 步骤:${gl_bai}"
-                echo -e "  1. 打开 ${gl_huang}https://discord.com/developers/applications${gl_bai}"
-                echo "  2. 点击 New Application → 输入名称 → 创建"
-                echo "  3. 左侧 Bot 页面 → Reset Token → 复制 Token"
-                echo -e "  4. 开启 ${gl_huang}Privileged Gateway Intents${gl_bai}:"
-                echo "     • Message Content Intent（必须开启）"
-                echo "     • Server Members Intent（推荐开启）"
-                echo "  5. OAuth2 → URL Generator → 勾选 bot + applications.commands"
-                echo "     权限: View Channels / Send Messages / Read Message History"
-                echo "  6. 用生成的邀请链接把 Bot 添加到你的服务器"
-                echo ""
-
-                read -e -p "请输入 Discord Bot Token: " dc_token
-                if [ -z "$dc_token" ]; then
-                    echo -e "${gl_hong}❌ Token 不能为空${gl_bai}"
-                    break_end
-                    continue
-                fi
-
-                echo ""
-                echo "正在写入 Discord 配置..."
-                local dc_json="{\"token\":\"${dc_token}\",\"enabled\":true,\"dm\":{\"enabled\":true,\"policy\":\"pairing\"},\"groupPolicy\":\"allowlist\",\"textChunkLimit\":2000,\"historyLimit\":20}"
-                openclaw_update_channel "discord" "$dc_json"
-
-                if [ $? -eq 0 ]; then
-                    echo ""
-                    echo -e "${gl_lv}✅ Discord Bot 配置成功${gl_bai}"
-                    echo ""
-                    echo -e "${gl_zi}确保已用邀请链接将 Bot 添加到你的 Discord 服务器${gl_bai}"
-
-                    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                        systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                        sleep 2
-                        echo -e "${gl_lv}✅ 服务已重启，配置已生效${gl_bai}"
-                    fi
-                else
-                    echo ""
-                    echo -e "${gl_hong}❌ 配置写入失败${gl_bai}"
-                fi
-                break_end
-                ;;
-            4)
-                # Slack
-                clear
-                echo -e "${gl_kjlan}━━━ 配置 Slack ━━━${gl_bai}"
-                echo ""
-                echo -e "${gl_zi}📋 获取 Token 步骤:${gl_bai}"
-                echo -e "  1. 打开 ${gl_huang}https://api.slack.com/apps${gl_bai} → Create New App → From Scratch"
-                echo -e "  2. 开启 ${gl_huang}Socket Mode${gl_bai}"
-                echo "  3. Basic Information → App-Level Tokens → Generate Token"
-                echo -e "     Scope: connections:write → 复制 App Token（${gl_huang}xapp-${gl_bai} 开头）"
-                echo "  4. OAuth & Permissions → 添加 Bot Token Scopes:"
-                echo "     chat:write / channels:history / groups:history"
-                echo "     im:history / channels:read / users:read"
-                echo -e "  5. Install to Workspace → 复制 Bot Token（${gl_huang}xoxb-${gl_bai} 开头）"
-                echo "  6. Event Subscriptions → Enable → Subscribe to message.* events"
-                echo ""
-                echo -e "${gl_huang}Slack 需要两个 Token:${gl_bai}"
-                echo ""
-
-                read -e -p "App Token (xapp-开头): " slack_app_token
-                if [ -z "$slack_app_token" ]; then
-                    echo -e "${gl_hong}❌ App Token 不能为空${gl_bai}"
-                    break_end
-                    continue
-                fi
-
-                read -e -p "Bot Token (xoxb-开头): " slack_bot_token
-                if [ -z "$slack_bot_token" ]; then
-                    echo -e "${gl_hong}❌ Bot Token 不能为空${gl_bai}"
-                    break_end
-                    continue
-                fi
-
-                echo ""
-                echo "正在写入 Slack 配置..."
-                local slack_json="{\"appToken\":\"${slack_app_token}\",\"botToken\":\"${slack_bot_token}\",\"enabled\":true,\"dmPolicy\":\"pairing\",\"groupPolicy\":\"allowlist\",\"streamMode\":\"partial\",\"historyLimit\":50}"
-                openclaw_update_channel "slack" "$slack_json"
-
-                if [ $? -eq 0 ]; then
-                    echo ""
-                    echo -e "${gl_lv}✅ Slack 配置已保存${gl_bai}"
-
-                    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                        systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                        sleep 2
-                        echo -e "${gl_lv}✅ 服务已重启，配置已生效${gl_bai}"
-                    fi
-                else
-                    echo ""
-                    echo -e "${gl_hong}❌ 配置写入失败${gl_bai}"
-                fi
-                break_end
-                ;;
-            5)
-                # 查看频道状态
-                clear
-                echo -e "${gl_kjlan}━━━ 频道状态 ━━━${gl_bai}"
-                echo ""
-                openclaw channels status --probe 2>&1 || \
-                openclaw channels status 2>&1 || \
-                openclaw gateway status 2>&1 || \
-                echo "无法获取频道状态"
-                echo ""
-                break_end
-                ;;
-            6)
-                # 查看频道日志
-                clear
-                echo -e "${gl_kjlan}━━━ 频道日志（最近 50 行）━━━${gl_bai}"
-                echo ""
-                journalctl -u "$OPENCLAW_SERVICE_NAME" --no-pager -n 50 2>/dev/null || \
-                openclaw logs 2>&1 || \
-                echo "无法获取频道日志"
-                echo ""
-                break_end
-                ;;
-            7)
-                # 断开/删除频道
-                clear
-                echo -e "${gl_kjlan}━━━ 断开频道 ━━━${gl_bai}"
-                echo ""
-                echo "选择要断开的频道:"
-                echo "1. Telegram"
-                echo "2. WhatsApp"
-                echo "3. Discord"
-                echo "4. Slack"
-                echo ""
-                echo "0. 取消"
-                echo ""
-
-                read -e -p "请选择 [0-4]: " rm_choice
-                local channel_name=""
-                case $rm_choice in
-                    1) channel_name="telegram" ;;
-                    2) channel_name="whatsapp" ;;
-                    3) channel_name="discord" ;;
-                    4) channel_name="slack" ;;
-                    0) continue ;;
-                    *)
-                        echo "无效选择"
-                        break_end
-                        continue
-                        ;;
-                esac
-
-                echo ""
-                read -e -p "确认断开 ${channel_name}？(Y/N): " confirm
-                case "$confirm" in
-                    [Yy])
-                        echo ""
-                        openclaw_remove_channel "$channel_name"
-                        echo ""
-                        echo -e "${gl_lv}✅ 已断开 ${channel_name}${gl_bai}"
-
-                        if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                            systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                            sleep 2
-                            echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-                        fi
-                        ;;
-                    *)
-                        echo "已取消"
-                        ;;
-                esac
-                break_end
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo "无效的选择"
-                sleep 2
-                ;;
-        esac
-    done
-}
-
-# 查看当前配置
-openclaw_show_config() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 当前配置${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        echo -e "${gl_huang}⚠ 配置文件不存在: ${OPENCLAW_CONFIG_FILE}${gl_bai}"
-        echo ""
-        break_end
-        return
-    fi
-
-    # 格式化摘要
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-    local port=$(openclaw_get_port)
-    local gw_token=$(sed -nE 's/.*OPENCLAW_GATEWAY_TOKEN=(.*)/\1/p' "$OPENCLAW_ENV_FILE" 2>/dev/null)
-
-    node -e "
-        const fs = require('fs');
-        const content = fs.readFileSync('${OPENCLAW_CONFIG_FILE}', 'utf-8');
-        try {
-            const config = new Function('return (' + content + ')')();
-            const providers = config.models && config.models.providers || {};
-            const keys = Object.keys(providers);
-            const defaults = config.agents && config.agents.defaults && config.agents.defaults.model || {};
-            for (const name of keys) {
-                const p = providers[name];
-                console.log('  Provider:  ' + name);
-                console.log('  API 类型:  ' + (p.api || 'unknown'));
-                console.log('  反代地址:  ' + (p.baseUrl || 'unknown'));
-                const models = p.models || [];
-                if (models.length > 0) {
-                    console.log('  可用模型:  ' + models.map(m => m.id).join(', '));
-                }
-            }
-            if (defaults.primary) console.log('  主力模型:  ' + defaults.primary);
-
-            const ch = config.channels || {};
-            const chNames = Object.keys(ch);
-            if (chNames.length > 0) {
-                console.log('');
-                console.log('  已配置频道: ' + chNames.map(n => { const e = ch[n].enabled !== false; return (e ? '✅' : '❌') + ' ' + n; }).join('  |  '));
-            }
-        } catch(e) { console.log('  无法解析配置'); }
-    " 2>/dev/null
-
-    echo ""
-    echo -e "${gl_kjlan}━━━ 部署信息 ━━━${gl_bai}"
-    echo -e "网关端口:   ${gl_huang}${port}${gl_bai}"
-    if [ -n "$gw_token" ]; then
-        echo -e "网关 Token: ${gl_huang}${gw_token}${gl_bai}"
-    fi
-    echo -e "控制面板:   ${gl_huang}http://${server_ip}:${port}/${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}━━━ 访问方式 ━━━${gl_bai}"
-    echo -e "SSH 隧道:   ${gl_huang}ssh -N -L ${port}:127.0.0.1:${port} root@${server_ip}${gl_bai}"
-    echo -e "然后访问:   ${gl_huang}http://localhost:${port}/${gl_bai}"
-    echo ""
-
-    echo -e "${gl_kjlan}━━━ 管理命令 ━━━${gl_bai}"
-    echo "  状态: systemctl status $OPENCLAW_SERVICE_NAME"
-    echo "  日志: journalctl -u $OPENCLAW_SERVICE_NAME -f"
-    echo "  重启: systemctl restart $OPENCLAW_SERVICE_NAME"
-    echo ""
-
-    # 查看原始文件
-    read -e -p "是否查看原始配置文件？(Y/N): " show_raw
-    case "$show_raw" in
-        [Yy])
-            echo ""
-            echo -e "${gl_zi}── ${OPENCLAW_CONFIG_FILE} ──${gl_bai}"
-            cat "$OPENCLAW_CONFIG_FILE"
-            echo ""
-            if [ -f "$OPENCLAW_ENV_FILE" ]; then
-                echo -e "${gl_zi}── ${OPENCLAW_ENV_FILE}（脱敏）──${gl_bai}"
-                sed 's/\(=\).*/\1****（已隐藏）/' "$OPENCLAW_ENV_FILE"
-            fi
-            ;;
-    esac
-
-    echo ""
-    break_end
-}
-
-# 编辑配置文件
-openclaw_edit_config() {
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        echo -e "${gl_huang}⚠ 配置文件不存在，是否创建默认配置？${gl_bai}"
-        read -e -p "(Y/N): " confirm
-        case "$confirm" in
-            [Yy])
-                mkdir -p "$OPENCLAW_HOME_DIR"
-                echo '{}' > "$OPENCLAW_CONFIG_FILE"
-                ;;
-            *)
-                return
-                ;;
-        esac
-    fi
-
-    local editor="nano"
-    if command -v vim &>/dev/null; then
-        editor="vim"
-    fi
-    if command -v nano &>/dev/null; then
-        editor="nano"
-    fi
-
-    $editor "$OPENCLAW_CONFIG_FILE"
-
-    echo ""
-    echo -e "${gl_zi}提示: 修改配置后需重启服务生效 (systemctl restart $OPENCLAW_SERVICE_NAME)${gl_bai}"
-
-    read -e -p "是否现在重启服务？(Y/N): " confirm
-    case "$confirm" in
-        [Yy])
-            systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-            sleep 2
-            if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-            else
-                echo -e "${gl_hong}❌ 服务重启失败，请检查配置是否正确${gl_bai}"
-            fi
-            ;;
-    esac
-
-    break_end
-}
-
-# 快速替换 API（保留现有设置）
-openclaw_quick_api() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  快速替换 API（保留端口/频道等现有设置）${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if ! command -v openclaw &>/dev/null; then
-        echo -e "${gl_hong}❌ OpenClaw 未安装${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    if [ ! -f "$OPENCLAW_CONFIG_FILE" ]; then
-        echo -e "${gl_hong}❌ 配置文件不存在，请先执行「一键部署」${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 显示当前 API 配置
-    echo -e "${gl_lv}── 当前 API 配置 ──${gl_bai}"
-    node -e "
-        const fs = require('fs');
-        const content = fs.readFileSync('${OPENCLAW_CONFIG_FILE}', 'utf-8');
-        try {
-            const config = new Function('return (' + content + ')')();
-            const providers = config.models && config.models.providers || {};
-            const keys = Object.keys(providers);
-            if (keys.length === 0) { console.log('  暂无 API 配置'); }
-            for (const name of keys) {
-                const p = providers[name];
-                console.log('  Provider:  ' + name);
-                console.log('  API 类型:  ' + (p.api || 'unknown'));
-                console.log('  地址:      ' + (p.baseUrl || 'unknown'));
-                const models = p.models || [];
-                if (models.length > 0) {
-                    console.log('  模型:      ' + models.map(m => m.id).join(', '));
-                }
-            }
-        } catch(e) { console.log('  无法解析当前配置'); }
-    " 2>/dev/null || echo "  无法读取当前配置"
-    echo ""
-
-    # 选择新的 API
-    echo -e "${gl_huang}选择要配置的 API:${gl_bai}"
-    echo ""
-    echo -e "${gl_lv}── 已验证可用的反代 ──${gl_bai}"
-    echo "1. CRS 反代 (Claude)         — anthropic-messages"
-    echo "2. sub2api 反代 (Gemini)      — google-generative-ai"
-    echo "3. sub2api 反代 (GPT)         — openai-responses"
-    echo "4. sub2api Antigravity (Claude) — anthropic-messages"
-    echo ""
-    echo -e "${gl_huang}── 通用配置 ──${gl_bai}"
-    echo "5. 自定义 Anthropic 反代"
-    echo "6. 自定义 OpenAI 兼容"
-    echo ""
-
-    read -e -p "请选择 [1-6]: " api_choice
-
-    local api_type="" provider_name="" preset_mode=""
-    local base_url="" api_key="" model_id="" model_name=""
-    local model_reasoning="false" model_input='["text"]' model_cost_input="3" model_cost_output="15"
-    local model_cost_cache_read="0.3" model_cost_cache_write="3.75"
-    local model_context="200000" model_max_tokens="16384"
-
-    case $api_choice in
-        1)
-            preset_mode="crs"
-            api_type="anthropic-messages"
-            provider_name="crs-claude"
-            echo ""
-            echo -e "${gl_lv}已选择: CRS 反代 (Claude)${gl_bai}"
-            echo -e "${gl_zi}地址格式: http://IP:端口/api${gl_bai}"
-            ;;
-        2)
-            preset_mode="sub2api-gemini"
-            api_type="google-generative-ai"
-            provider_name="sub2api-gemini"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api 反代 (Gemini)${gl_bai}"
-            echo -e "${gl_zi}地址格式: https://你的sub2api域名${gl_bai}"
-            ;;
-        3)
-            preset_mode="sub2api-gpt"
-            api_type="openai-responses"
-            provider_name="sub2api-gpt"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api 反代 (GPT)${gl_bai}"
-            echo -e "${gl_zi}地址格式: https://你的sub2api域名${gl_bai}"
-            ;;
-        4)
-            preset_mode="sub2api-antigravity"
-            api_type="anthropic-messages"
-            provider_name="sub2api-antigravity"
-            echo ""
-            echo -e "${gl_lv}已选择: sub2api Antigravity (Claude)${gl_bai}"
-            echo -e "${gl_zi}地址格式: https://你的sub2api域名/antigravity${gl_bai}"
-            echo -e "${gl_huang}注意: 高峰期偶尔返回 503，重试即可${gl_bai}"
-            ;;
-        5)
-            api_type="anthropic-messages"
-            provider_name="custom-anthropic"
-            echo ""
-            echo -e "${gl_zi}地址格式: https://your-proxy.com${gl_bai}"
-            ;;
-        6)
-            api_type="openai-completions"
-            provider_name="custom-openai"
-            echo ""
-            echo -e "${gl_zi}地址格式: https://your-proxy.com/v1${gl_bai}"
-            ;;
-        *)
-            echo "无效选择"
-            break_end
-            return
-            ;;
-    esac
-
-    # 输入地址
-    echo ""
-    read -e -p "反代地址: " base_url
-    if [ -z "$base_url" ]; then
-        echo -e "${gl_hong}❌ 地址不能为空${gl_bai}"
-        break_end
-        return
-    fi
-    base_url="${base_url%/}"
-
-    # 自动添加后缀
-    if [ "$api_type" = "google-generative-ai" ]; then
-        if [[ ! "$base_url" =~ /v1beta$ ]] && [[ ! "$base_url" =~ /v1$ ]]; then
-            base_url="${base_url}/v1beta"
-            echo -e "${gl_lv}已自动添加后缀: ${base_url}${gl_bai}"
-        fi
-    elif [ "$preset_mode" = "sub2api-gpt" ]; then
-        if [[ ! "$base_url" =~ /v1$ ]]; then
-            base_url="${base_url}/v1"
-            echo -e "${gl_lv}已自动添加后缀: ${base_url}${gl_bai}"
-        fi
-    fi
-
-    # 输入 Key
-    echo ""
-    read -e -p "API Key: " api_key
-    if [ -z "$api_key" ]; then
-        echo -e "${gl_hong}❌ Key 不能为空${gl_bai}"
-        break_end
-        return
-    fi
-
-    # 快速模型选择
-    echo ""
-    echo -e "${gl_kjlan}选择模型:${gl_bai}"
-    if [ "$preset_mode" = "crs" ]; then
-        echo "1. claude-opus-4-6 (推荐)"
-        echo "2. claude-sonnet-4-6"
-        echo "3. claude-sonnet-4-5"
-        echo "4. claude-haiku-4-5"
-        echo "5. 自定义"
-        read -e -p "请选择 [1-5]: " m_choice
-        case $m_choice in
-            1) model_id="claude-opus-4-6"; model_name="Claude Opus 4.6" ;;
-            2) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6" ;;
-            3) model_id="claude-sonnet-4-5"; model_name="Claude Sonnet 4.5" ;;
-            4) model_id="claude-haiku-4-5"; model_name="Claude Haiku 4.5" ;;
-            5) read -e -p "模型 ID: " model_id; model_name="$model_id" ;;
-            *) model_id="claude-opus-4-6"; model_name="Claude Opus 4.6" ;;
-        esac
-    elif [ "$preset_mode" = "sub2api-antigravity" ]; then
-        echo "1. claude-sonnet-4-6 (推荐)"
-        echo "2. claude-sonnet-4-5"
-        echo "3. claude-sonnet-4-5-thinking (扩展思考)"
-        echo "4. claude-opus-4-5-thinking (最强思考)"
-        echo "5. 自定义"
-        read -e -p "请选择 [1-5]: " m_choice
-        case $m_choice in
-            1) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6" ;;
-            2) model_id="claude-sonnet-4-5"; model_name="Claude Sonnet 4.5" ;;
-            3) model_id="claude-sonnet-4-5-thinking"; model_name="Claude Sonnet 4.5 Thinking" ;;
-            4) model_id="claude-opus-4-5-thinking"; model_name="Claude Opus 4.5 Thinking" ;;
-            5) read -e -p "模型 ID: " model_id; model_name="$model_id" ;;
-            *) model_id="claude-sonnet-4-6"; model_name="Claude Sonnet 4.6" ;;
-        esac
-    elif [ "$preset_mode" = "sub2api-gemini" ]; then
-        echo "1. gemini-3.1-pro-preview (推荐)"
-        echo "2. gemini-3.1-flash-lite"
-        echo "3. gemini-3-flash-preview"
-        echo "4. gemini-2.5-pro"
-        echo "5. gemini-2.5-flash"
-        echo "6. 自定义"
-        read -e -p "请选择 [1-6]: " m_choice
-        case $m_choice in
-            1) model_id="gemini-3.1-pro-preview"; model_name="Gemini 3.1 Pro Preview" ;;
-            2) model_id="gemini-3.1-flash-lite"; model_name="Gemini 3.1 Flash Lite" ;;
-            3) model_id="gemini-3-flash-preview"; model_name="Gemini 3 Flash Preview" ;;
-            4) model_id="gemini-2.5-pro"; model_name="Gemini 2.5 Pro" ;;
-            5) model_id="gemini-2.5-flash"; model_name="Gemini 2.5 Flash" ;;
-            6) read -e -p "模型 ID: " model_id; model_name="$model_id" ;;
-            *) model_id="gemini-3.1-pro-preview"; model_name="Gemini 3.1 Pro Preview" ;;
-        esac
-    elif [ "$preset_mode" = "sub2api-gpt" ]; then
-        echo "1. gpt-5.4 (推荐)"
-        echo "2. gpt-5.4-pro"
-        echo "3. gpt-5.3-instant"
-        echo "4. gpt-5.3"
-        echo "5. gpt-5.3-codex"
-        echo "6. gpt-5.2"
-        echo "7. gpt-5.2-codex"
-        echo "8. 自定义"
-        read -e -p "请选择 [1-8]: " m_choice
-        case $m_choice in
-            1) model_id="gpt-5.4"; model_name="GPT 5.4" ;;
-            2) model_id="gpt-5.4-pro"; model_name="GPT 5.4 Pro" ;;
-            3) model_id="gpt-5.3-instant"; model_name="GPT 5.3 Instant" ;;
-            4) model_id="gpt-5.3"; model_name="GPT 5.3" ;;
-            5) model_id="gpt-5.3-codex"; model_name="GPT 5.3 Codex" ;;
-            6) model_id="gpt-5.2"; model_name="GPT 5.2" ;;
-            7) model_id="gpt-5.2-codex"; model_name="GPT 5.2 Codex" ;;
-            8) read -e -p "模型 ID: " model_id; model_name="$model_id" ;;
-            *) model_id="gpt-5.4"; model_name="GPT 5.4" ;;
-        esac
-    else
-        read -e -p "模型 ID: " model_id
-        model_name="$model_id"
-    fi
-
-    if [ -z "$model_id" ]; then
-        echo -e "${gl_hong}❌ 模型不能为空${gl_bai}"
-        break_end
-        return
-    fi
-
-    echo ""
-    echo -e "${gl_kjlan}━━━ 确认配置 ━━━${gl_bai}"
-    echo -e "API 类型:   ${gl_huang}${api_type}${gl_bai}"
-    echo -e "反代地址:   ${gl_huang}${base_url}${gl_bai}"
-    echo -e "模型:       ${gl_huang}${model_id}${gl_bai}"
-    echo ""
-
-    read -e -p "确认替换 API 配置？(Y/N): " confirm
-    if [[ ! "$confirm" =~ [Yy] ]]; then
-        echo "已取消"
-        break_end
-        return
-    fi
-
-    # 写入新 provider 数据到临时 JSON 文件
-    local tmp_json=$(mktemp /tmp/openclaw_api_XXXXXX.json)
-    cat > "$tmp_json" <<APIJSON
-{
-    "providers": {
-        "${provider_name}": {
-            "baseUrl": "${base_url}",
-            "apiKey": "\${OPENCLAW_API_KEY}",
-            "api": "${api_type}",
-            "models": [
-                {
-                    "id": "${model_id}",
-                    "name": "${model_name}",
-                    "reasoning": ${model_reasoning},
-                    "input": ${model_input},
-                    "cost": { "input": ${model_cost_input}, "output": ${model_cost_output}, "cacheRead": ${model_cost_cache_read}, "cacheWrite": ${model_cost_cache_write} },
-                    "contextWindow": ${model_context},
-                    "maxTokens": ${model_max_tokens}
-                }
-            ]
-        }
-    },
-    "primaryModel": "${provider_name}/${model_id}"
-}
-APIJSON
-
-    # 用 Node.js 合并配置（只替换 models + agents.defaults.model，保留其他一切）
-    echo ""
-    echo "正在更新配置..."
-    node -e "
-        const fs = require('fs');
-        const configPath = '${OPENCLAW_CONFIG_FILE}';
-        const newDataPath = '${tmp_json}';
-
-        // 读取现有配置（JSON5: 用 Function 解析，JS 引擎原生支持注释）
-        const content = fs.readFileSync(configPath, 'utf-8');
-        let config;
-        try {
-            config = new Function('return (' + content + ')')();
-        } catch(e) {
-            console.error('❌ 无法解析现有配置: ' + e.message);
-            process.exit(1);
-        }
-
-        // 读取新 provider 数据
-        const newData = JSON.parse(fs.readFileSync(newDataPath, 'utf-8'));
-
-        // 只替换 models.providers 和 agents.defaults.model
-        config.models = config.models || {};
-        config.models.mode = 'merge';
-        config.models.providers = newData.providers;
-
-        config.agents = config.agents || {};
-        config.agents.defaults = config.agents.defaults || {};
-        config.agents.defaults.model = { primary: newData.primaryModel };
-
-        // 写回（保留 gateway/channels 等所有其他配置）
-        const header = '// OpenClaw 配置 - API 由脚本快速配置\n// 文档: https://docs.openclaw.ai/gateway/configuration\n';
-        fs.writeFileSync(configPath, header + JSON.stringify(config, null, 2) + '\n');
-        console.log('✅ 配置文件已更新');
-    " 2>&1
-
-    local node_exit=$?
-    rm -f "$tmp_json"
-
-    if [ $node_exit -ne 0 ]; then
-        echo -e "${gl_hong}❌ 配置更新失败${gl_bai}"
-        break_end
-        return
-    fi
-
-    # 更新 .env 中的 API Key
-    if [ -f "$OPENCLAW_ENV_FILE" ]; then
-        sed -i "s|^OPENCLAW_API_KEY=.*|OPENCLAW_API_KEY=${api_key}|" "$OPENCLAW_ENV_FILE"
-        echo "✅ API Key 已更新"
-    else
-        mkdir -p "$OPENCLAW_HOME_DIR"
-        echo "OPENCLAW_API_KEY=${api_key}" > "$OPENCLAW_ENV_FILE"
-        chmod 600 "$OPENCLAW_ENV_FILE"
-        echo "✅ 环境变量文件已创建"
-    fi
-
-    # sub2api 兼容补丁（如需要）
-    if [ "$api_type" = "openai-responses" ] && [[ ! "$base_url" =~ api\.openai\.com ]]; then
-        openclaw_patch_sub2api
-    fi
-
-    # 重启服务
-    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-        systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-        sleep 2
-        if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-            echo -e "${gl_lv}✅ 服务已重启，API 已生效${gl_bai}"
-        else
-            echo -e "${gl_hong}❌ 服务重启失败，查看日志: journalctl -u ${OPENCLAW_SERVICE_NAME} -n 20${gl_bai}"
-        fi
-    else
-        echo -e "${gl_huang}⚠ 服务未运行，请手动启动: systemctl start ${OPENCLAW_SERVICE_NAME}${gl_bai}"
-    fi
-
-    echo ""
-    echo -e "${gl_kjlan}━━━ 替换完成 ━━━${gl_bai}"
-    echo -e "API 类型:   ${gl_huang}${api_type}${gl_bai}"
-    echo -e "反代地址:   ${gl_huang}${base_url}${gl_bai}"
-    echo -e "主力模型:   ${gl_huang}${provider_name}/${model_id}${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}原有的端口、频道、网关 Token 等设置均已保留${gl_bai}"
-
-    break_end
-}
-
-# 安全检查
-openclaw_doctor() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OpenClaw 安全检查${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    if ! command -v openclaw &>/dev/null; then
-        echo -e "${gl_hong}❌ OpenClaw 未安装${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    openclaw doctor
-    echo ""
-
-    read -e -p "是否自动修复发现的问题？(Y/N): " confirm
-    case "$confirm" in
-        [Yy])
-            echo ""
-            openclaw doctor --fix
-            ;;
-    esac
-
-    break_end
-}
-
-# 卸载 OpenClaw
-openclaw_uninstall() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_hong}  卸载 OpenClaw${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "${gl_huang}警告: 此操作将删除 OpenClaw 及其所有配置！${gl_bai}"
-    echo ""
-    echo "将删除以下内容:"
-    echo "  - OpenClaw 全局包"
-    echo "  - systemd 服务"
-    echo "  - 配置目录 ${OPENCLAW_HOME_DIR}"
-    echo ""
-
-    read -e -p "确认卸载？(输入 yes 确认): " confirm
-
-    if [ "$confirm" != "yes" ]; then
-        echo "已取消"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在停止服务..."
-    systemctl stop "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-    systemctl disable "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-
-    echo "正在删除 systemd 服务..."
-    rm -f "/etc/systemd/system/${OPENCLAW_SERVICE_NAME}.service"
-    systemctl daemon-reload 2>/dev/null
-
-    echo "正在卸载 OpenClaw..."
-    npm uninstall -g openclaw 2>/dev/null
-
-    echo ""
-    read -e -p "是否同时删除配置目录 ${OPENCLAW_HOME_DIR}？(Y/N): " del_config
-    case "$del_config" in
-        [Yy])
-            rm -rf "$OPENCLAW_HOME_DIR"
-            echo -e "${gl_lv}✅ 配置目录已删除${gl_bai}"
-            ;;
-        *)
-            echo -e "${gl_zi}配置目录已保留，下次安装可复用${gl_bai}"
-            ;;
-    esac
-
-    echo ""
-    echo -e "${gl_lv}✅ OpenClaw 卸载完成${gl_bai}"
-
-    break_end
-}
-
-# OpenClaw 主菜单
-manage_openclaw() {
-    while true; do
-        clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  OpenClaw 部署管理 (AI多渠道消息网关)${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示当前状态
-        local status=$(openclaw_check_status)
-        local port=$(openclaw_get_port)
-
-        case "$status" in
-            "not_installed")
-                echo -e "当前状态: ${gl_huang}⚠ 未安装${gl_bai}"
-                ;;
-            "installed_no_service")
-                echo -e "当前状态: ${gl_huang}⚠ 已安装但服务未配置${gl_bai}"
-                ;;
-            "running")
-                echo -e "当前状态: ${gl_lv}✅ 运行中${gl_bai} (端口: ${port})"
-                ;;
-            "stopped")
-                echo -e "当前状态: ${gl_hong}❌ 已停止${gl_bai}"
-                ;;
-        esac
-
-        echo ""
-        echo -e "${gl_kjlan}[部署与更新]${gl_bai}"
-        echo "1. 一键部署（首次安装）"
-        echo "2. 更新版本"
-        echo ""
-        echo -e "${gl_kjlan}[服务管理]${gl_bai}"
-        echo "3. 查看状态"
-        echo "4. 查看日志"
-        echo "5. 启动服务"
-        echo "6. 停止服务"
-        echo "7. 重启服务"
-        echo ""
-        echo -e "${gl_kjlan}[配置管理]${gl_bai}"
-        echo "8. 模型配置（完整配置/首次部署）"
-        echo "9. 快速替换 API（保留现有设置）"
-        echo "10. 频道管理（登录/配置）"
-        echo "11. 查看当前配置"
-        echo "12. 编辑配置文件"
-        echo "13. 安全检查（doctor）"
-        echo "14. sub2api 兼容补丁（手动重打）"
-        echo ""
-        echo -e "${gl_hong}15. 卸载 OpenClaw${gl_bai}"
-        echo ""
-        echo "0. 返回主菜单"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择操作 [0-15]: " choice
-
-        case $choice in
-            1)
-                openclaw_deploy
-                ;;
-            2)
-                openclaw_update
-                ;;
-            3)
-                openclaw_status
-                ;;
-            4)
-                openclaw_logs
-                ;;
-            5)
-                openclaw_start
-                ;;
-            6)
-                openclaw_stop
-                ;;
-            7)
-                openclaw_restart
-                ;;
-            8)
-                openclaw_config_model
-                echo ""
-                # sub2api 兼容补丁（如需要）
-                if openclaw_needs_patch; then
-                    openclaw_patch_sub2api
-                    echo ""
-                fi
-                # 检查服务是否存在再决定重启
-                if systemctl list-unit-files "${OPENCLAW_SERVICE_NAME}.service" &>/dev/null && \
-                   systemctl cat "$OPENCLAW_SERVICE_NAME" &>/dev/null 2>&1; then
-                    read -e -p "是否重启服务使配置生效？(Y/N): " confirm
-                    case "$confirm" in
-                        [Yy])
-                            systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                            sleep 2
-                            if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                                echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-                            else
-                                echo -e "${gl_hong}❌ 服务重启失败，查看日志: journalctl -u ${OPENCLAW_SERVICE_NAME} -n 20${gl_bai}"
-                            fi
-                            ;;
-                    esac
-                else
-                    echo -e "${gl_huang}⚠ systemd 服务尚未创建，请先运行「1. 一键部署」完成完整部署${gl_bai}"
-                fi
-                break_end
-                ;;
-            9)
-                openclaw_quick_api
-                ;;
-            10)
-                openclaw_channels
-                ;;
-            11)
-                openclaw_show_config
-                ;;
-            12)
-                openclaw_edit_config
-                ;;
-            13)
-                openclaw_doctor
-                ;;
-            14)
-                clear
-                echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-                echo -e "${gl_kjlan}  sub2api 兼容补丁${gl_bai}"
-                echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-                echo ""
-                echo -e "${gl_zi}补丁说明:${gl_bai}"
-                echo "  1. 添加 instructions 字段 (sub2api Responses API 必需)"
-                echo "  2. 移除 max_output_tokens (sub2api 不支持该参数)"
-                echo ""
-                echo -e "${gl_zi}适用场景:${gl_bai}"
-                echo "  • 使用 sub2api GPT 等非 OpenAI 官方的 openai-responses 反代"
-                echo "  • openclaw 更新后补丁被覆盖需要重新打"
-                echo ""
-                if openclaw_needs_patch; then
-                    echo -e "${gl_huang}检测到当前配置使用 openai-responses 反代，建议打补丁${gl_bai}"
-                else
-                    echo -e "${gl_zi}当前配置未使用 openai-responses 反代，补丁可能不需要${gl_bai}"
-                fi
-                echo ""
-                read -e -p "是否执行补丁？(Y/N): " confirm
-                case "$confirm" in
-                    [Yy])
-                        openclaw_patch_sub2api
-                        echo ""
-                        if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                            read -e -p "是否重启服务使补丁生效？(Y/N): " restart_confirm
-                            case "$restart_confirm" in
-                                [Yy])
-                                    systemctl restart "$OPENCLAW_SERVICE_NAME" 2>/dev/null
-                                    sleep 2
-                                    if systemctl is-active "$OPENCLAW_SERVICE_NAME" &>/dev/null; then
-                                        echo -e "${gl_lv}✅ 服务已重启${gl_bai}"
-                                    else
-                                        echo -e "${gl_hong}❌ 服务重启失败${gl_bai}"
-                                    fi
-                                    ;;
-                            esac
-                        fi
-                        ;;
-                    *)
-                        echo "已取消"
-                        ;;
-                esac
-                break_end
-                ;;
-            15)
-                openclaw_uninstall
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo "无效的选择"
-                sleep 2
-                ;;
-        esac
-    done
-}
-
 # ============================================================================
 # OpenAI Responses API → Chat Completions 转换代理（多实例）
 # ============================================================================
@@ -23213,11 +24024,23 @@ resp_proxy_iupstream() {
         sed 's/.*"upstream_url"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//'
 }
 
-# 读取实例 API Key
+# 读取实例 API Key（上游密钥）
 resp_proxy_ikey() {
     local cfg; cfg=$(resp_proxy_icfg "$1")
     [ -f "$cfg" ] && grep -o '"api_key"[[:space:]]*:[[:space:]]*"[^"]*"' "$cfg" | \
         sed 's/.*"api_key"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//'
+}
+
+# 读取实例访问密钥（客户端调用代理时需携带的 Bearer token）
+resp_proxy_ipkey() {
+    local cfg; cfg=$(resp_proxy_icfg "$1")
+    [ -f "$cfg" ] && grep -o '"proxy_key"[[:space:]]*:[[:space:]]*"[^"]*"' "$cfg" | \
+        sed 's/.*"proxy_key"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//'
+}
+
+# 生成一个新的访问密钥
+resp_proxy_gen_pkey() {
+    LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48
 }
 
 # 自动分配空闲端口
@@ -23227,8 +24050,8 @@ resp_proxy_free_port() {
         local used=0
         ss -tlnp 2>/dev/null | grep -q ":${p} " && used=1
         if [ $used -eq 0 ]; then
-            find "$RESP_PROXY_BASE_DIR" -name 'config.json' 2>/dev/null | \
-                xargs grep -l "\"port\"[[:space:]]*:[[:space:]]*${p}" 2>/dev/null | \
+            find "$RESP_PROXY_BASE_DIR" -name 'config.json' -print0 2>/dev/null | \
+                xargs -0 -r grep -l "\"port\"[[:space:]]*:[[:space:]]*${p}" 2>/dev/null | \
                 grep -q . && used=1
         fi
         [ $used -eq 0 ] && break
@@ -23243,6 +24066,7 @@ resp_proxy_write_script() {
 import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { URL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23250,7 +24074,24 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(__dirname, 'config.json');
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-const { upstream_url, api_key, port } = config;
+const { upstream_url, api_key, port, proxy_key } = config;
+
+// 常数时间比较，避免时序侧信道泄露密钥
+function timingSafeCompare(a, b) {
+    const bufA = Buffer.from(String(a));
+    const bufB = Buffer.from(String(b));
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// 校验调用方是否携带了正确的访问密钥；未配置密钥时一律拒绝（失败关闭）
+function isAuthorized(req) {
+    if (!proxy_key) return false;
+    const authHeader = req.headers['authorization'] || '';
+    const m = /^Bearer\s+(.+)$/.exec(authHeader);
+    if (!m) return false;
+    return timingSafeCompare(m[1], proxy_key);
+}
 
 function forwardRequest(upstreamUrl, reqData, authHeader) {
     return new Promise((resolve, reject) => {
@@ -23316,10 +24157,15 @@ function parseUpstreamResponse(body) {
 }
 
 const server = http.createServer(async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    if (!isAuthorized(req)) {
+        res.writeHead(401, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({ error: { message: 'Unauthorized: missing or invalid Bearer token', type: 'invalid_request_error' } }));
+        return;
+    }
 
     if (req.url === '/v1/models' && req.method === 'GET') {
         res.writeHead(200, {'Content-Type': 'application/json'});
@@ -23390,6 +24236,81 @@ server.listen(port, () => {
 PROXYEOF
 }
 
+resp_proxy_node_major() {
+    command -v node >/dev/null 2>&1 || return 1
+
+    local version major
+    version=$(node -v 2>/dev/null) || return 1
+    major=${version#v}
+    major=${major%%.*}
+
+    [[ "$major" =~ ^[0-9]+$ ]] || return 1
+    echo "$major"
+}
+
+resp_proxy_ensure_nodejs() {
+    local min_major="${1:-18}"
+    local source_major="${2:-22}"
+    local current_major setup_url
+
+    if current_major=$(resp_proxy_node_major); then
+        if [ "$current_major" -ge "$min_major" ]; then
+            return 0
+        fi
+        echo -e "${gl_huang}⚠ Node.js 版本过低 ($(node -v))，需要 v${min_major}+${gl_bai}"
+    else
+        echo -e "${gl_huang}未检测到 Node.js，正在安装...${gl_bai}"
+    fi
+
+    if command -v apt-get >/dev/null 2>&1 || command -v apt >/dev/null 2>&1; then
+        setup_url="https://deb.nodesource.com/setup_${source_major}.x"
+        if ! run_remote_script "$setup_url" bash; then
+            echo -e "${gl_hong}❌ NodeSource 源配置失败，已停止安装 Node.js${gl_bai}"
+            return 1
+        fi
+
+        if command -v apt-get >/dev/null 2>&1; then
+            DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+        else
+            DEBIAN_FRONTEND=noninteractive apt install -y nodejs
+        fi
+    elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v microdnf >/dev/null 2>&1; then
+        setup_url="https://rpm.nodesource.com/setup_${source_major}.x"
+        if ! run_remote_script "$setup_url" bash; then
+            echo -e "${gl_hong}❌ NodeSource 源配置失败，已停止安装 Node.js${gl_bai}"
+            return 1
+        fi
+
+        if command -v dnf >/dev/null 2>&1; then
+            dnf install -y nodejs
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y nodejs
+        else
+            microdnf install -y nodejs
+        fi
+    else
+        echo -e "${gl_hong}❌ 未找到 apt/apt-get/dnf/yum/microdnf，请手动安装 Node.js v${min_major}+${gl_bai}"
+        return 1
+    fi
+    local install_rc=$?
+    if [ $install_rc -ne 0 ]; then
+        echo -e "${gl_hong}❌ Node.js 安装失败，请检查包管理器输出${gl_bai}"
+        return 1
+    fi
+
+    if ! current_major=$(resp_proxy_node_major); then
+        echo -e "${gl_hong}❌ Node.js 安装后仍不可用，请检查 PATH 或包管理器输出${gl_bai}"
+        return 1
+    fi
+
+    if [ "$current_major" -lt "$min_major" ]; then
+        echo -e "${gl_hong}❌ Node.js 版本过低 ($(node -v))，需要 v${min_major}+${gl_bai}"
+        return 1
+    fi
+
+    return 0
+}
+
 # ── 部署新实例 ─────────────────────────────────────────────────────────────────
 resp_proxy_deploy() {
     local name="$1"
@@ -23403,20 +24324,7 @@ resp_proxy_deploy() {
     echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
     echo ""
 
-    if ! command -v node &>/dev/null; then
-        echo -e "${gl_huang}未检测到 Node.js，正在安装...${gl_bai}"
-        if command -v apt &>/dev/null; then
-            curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs
-        elif command -v yum &>/dev/null; then
-            curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - && yum install -y nodejs
-        else
-            echo -e "${gl_hong}❌ 无法自动安装 Node.js，请手动安装后重试${gl_bai}"
-            break_end; return 1
-        fi
-    fi
-    local node_ver; node_ver=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1)
-    if [ "$node_ver" -lt 18 ] 2>/dev/null; then
-        echo -e "${gl_hong}❌ Node.js 版本过低 ($(node -v))，需要 v18+${gl_bai}"
+    if ! resp_proxy_ensure_nodejs 18 22; then
         break_end; return 1
     fi
     echo -e "${gl_lv}✓ Node.js $(node -v)${gl_bai}"
@@ -23436,14 +24344,20 @@ resp_proxy_deploy() {
     read -e -p "代理监听端口 [${suggested_port}]: " proxy_port
     proxy_port="${proxy_port:-$suggested_port}"
 
+    local proxy_key; proxy_key=$(resp_proxy_gen_pkey)
+
     mkdir -p "$idir"
+    # 安全：目录先收紧到仅 root 可进，再写入含密钥的配置
+    chmod 700 "$idir"
     cat > "$cfg" << CONFIGEOF
 {
     "upstream_url": "${upstream_url}",
     "api_key": "${api_key}",
-    "port": ${proxy_port}
+    "port": ${proxy_port},
+    "proxy_key": "${proxy_key}"
 }
 CONFIGEOF
+    chmod 600 "$cfg"
 
     resp_proxy_write_script "$script"
 
@@ -23476,7 +24390,8 @@ SVCEOF
         echo -e "${gl_lv}✅ 实例 [${name}] 部署成功！${gl_bai}"
         echo ""
         echo -e "代理地址: ${gl_huang}http://${server_ip}:${proxy_port}/v1/chat/completions${gl_bai}"
-        echo -e "API Key:  ${gl_zi}${api_key}${gl_bai}"
+        echo -e "访问密钥: ${gl_zi}${proxy_key}${gl_bai}"
+        echo -e "${gl_hui}客户端需在请求头携带 Authorization: Bearer ${proxy_key}${gl_bai}"
         echo -e "模型:     ${gl_zi}按上游支持的填写 (如 gpt-5.3-codex / o3)${gl_bai}"
     else
         echo -e "${gl_hong}❌ 启动失败：journalctl -u ${svc} -n 20${gl_bai}"
@@ -23487,7 +24402,8 @@ SVCEOF
 # ── 修改实例配置 ───────────────────────────────────────────────────────────────
 resp_proxy_config() {
     local name="$1"
-    local cfg svc; cfg=$(resp_proxy_icfg "$name"); svc=$(resp_proxy_isvc "$name")
+    local cfg svc script; cfg=$(resp_proxy_icfg "$name"); svc=$(resp_proxy_isvc "$name")
+    script=$(resp_proxy_iscript "$name")
     clear
     echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
     echo -e "${gl_kjlan}  修改配置: ${gl_huang}${name}${gl_bai}"
@@ -23501,28 +24417,47 @@ resp_proxy_config() {
     read -e -p "上游服务地址: " new_upstream; new_upstream="${new_upstream%/}"
     read -e -p "API Key: " new_key
     read -e -p "代理监听端口 [$(resp_proxy_iport "$name")]: " new_port
-    local final_upstream final_key final_port
+    local final_upstream final_key final_port final_pkey
     final_upstream="${new_upstream:-$(resp_proxy_iupstream "$name")}"
     final_key="${new_key:-$(resp_proxy_ikey "$name")}"
     final_port="${new_port:-$(resp_proxy_iport "$name")}"
+    # 保留已有访问密钥；若实例是本次修复前部署的旧实例（没有访问密钥），现在补发一个
+    final_pkey="$(resp_proxy_ipkey "$name")"
+    [ -z "$final_pkey" ] && final_pkey="$(resp_proxy_gen_pkey)"
     if [ -z "$final_upstream" ] || [ -z "$final_key" ]; then
         echo -e "${gl_hong}❌ 上游地址和 API Key 不能为空${gl_bai}"; break_end; return 1
     fi
+    # 安全：旧实例(修复前部署)目录是默认 755，写入前一并收紧
+    chmod 700 "$(resp_proxy_idir "$name")"
     cat > "$cfg" << CONFIGEOF
 {
     "upstream_url": "${final_upstream}",
     "api_key": "${final_key}",
-    "port": ${final_port}
+    "port": ${final_port},
+    "proxy_key": "${final_pkey}"
 }
 CONFIGEOF
+    chmod 600 "$cfg"
+    # 同步重写 proxy.mjs：旧实例的运行进程此前从未校验访问密钥，
+    # 仅更新 config.json 不会让正在运行的服务变得可鉴权，必须一并重新生成脚本
+    resp_proxy_write_script "$script"
     echo ""
     echo -e "${gl_lv}✅ 配置已更新${gl_bai}"
+    echo -e "访问密钥: ${gl_zi}${final_pkey}${gl_bai}"
+    echo -e "${gl_hui}客户端需在请求头携带 Authorization: Bearer ${final_pkey}（服务重启后生效）${gl_bai}"
     echo ""
     read -e -p "是否重启服务使配置生效？(Y/N): " confirm
     case "$confirm" in
         [Yy])
             systemctl restart "$svc" 2>/dev/null; sleep 2
-            systemctl is-active "$svc" &>/dev/null && echo -e "${gl_lv}✅ 已重启${gl_bai}" || echo -e "${gl_hong}❌ 重启失败${gl_bai}"
+            if systemctl is-active "$svc" &>/dev/null; then
+                echo -e "${gl_lv}✅ 已重启，访问密钥已生效${gl_bai}"
+            else
+                echo -e "${gl_hong}❌ 重启失败${gl_bai}"
+            fi
+            ;;
+        *)
+            echo -e "${gl_huang}⚠ 未重启，服务仍在运行旧代码，访问密钥尚未生效${gl_bai}"
             ;;
     esac
     break_end
@@ -23542,7 +24477,7 @@ resp_proxy_status() {
     if [ -f "$(resp_proxy_icfg "$name")" ]; then
         local port upstream key server_ip
         port=$(resp_proxy_iport "$name"); upstream=$(resp_proxy_iupstream "$name")
-        key=$(resp_proxy_ikey "$name")
+        key=$(resp_proxy_ipkey "$name")
         server_ip=$(curl -s4 --max-time 3 ifconfig.me 2>/dev/null || echo "你的IP")
         echo -e "${gl_kjlan}沉浸式翻译配置:${gl_bai}"
         echo -e "  API URL: ${gl_huang}http://${server_ip}:${port}/v1/chat/completions${gl_bai}"
@@ -23702,2390 +24637,2318 @@ resp_proxy_check_status() { echo "not_installed"; }
 resp_proxy_get_port() { echo "$RESP_PROXY_PORT_START"; }
 resp_proxy_get_upstream() { echo ""; }
 
-# 以下是旧版代码占位，保证旧变量引用不报错
-RESP_PROXY_INSTALL_DIR="$RESP_PROXY_BASE_DIR"
-RESP_PROXY_SCRIPT="$RESP_PROXY_BASE_DIR/proxy.mjs"
-RESP_PROXY_CONFIG="$RESP_PROXY_BASE_DIR/config.json"
-RESP_PROXY_SERVICE="openai-resp-proxy"
-RESP_PROXY_DEFAULT_PORT="$RESP_PROXY_PORT_START"
-
 #=============================================================================
-# CLIProxyAPI (CLI转API代理)
+# 端口流量计费与到期管理 (Port Traffic Monitor, 菜单 33)
 #=============================================================================
-CPA_CONTAINER_NAME="cli-proxy-api"
-CPA_IMAGE="eceasy/cli-proxy-api:latest"
-CPA_INSTALL_DIR="/opt/cli-proxy-api"
-CPA_DEFAULT_PORT="8317"
-CPA_PORT_FILE="/etc/cli-proxy-api-port"
-CPA_SECRET_FILE="/etc/cli-proxy-api-secret"
+# 基于 nftables 计数器/配额 + tc 限速实现按端口流量计费、配额管控、到期自动停机。
+# 独立模块，不依赖任何外部私有脚本或联动接口。
 
-# 获取当前端口
-cpa_get_port() {
-    if [ -f "$CPA_PORT_FILE" ]; then
-        cat "$CPA_PORT_FILE"
-    else
-        echo "$CPA_DEFAULT_PORT"
+PTM_CONFIG_DIR="/etc/ptm"
+PTM_CONFIG_FILE="${PTM_CONFIG_DIR}/config.json"
+PTM_LOG_DIR="${PTM_CONFIG_DIR}/logs"
+PTM_NOTIFICATION_LOG="${PTM_LOG_DIR}/notification.log"
+PTM_RESET_HISTORY_LOG="${PTM_CONFIG_DIR}/reset_history.log"
+PTM_TABLE_NAME="ptm_traffic"
+PTM_TABLE_FAMILY="inet"
+PTM_CONFIG_LOCK_FILE="/var/run/ptm-config.lock"
+PTM_DAILY_SCRIPT="/usr/local/bin/ptm-daily-check.sh"
+PTM_RESET_SCRIPT="/usr/local/bin/ptm-reset-check.sh"
+PTM_BOOT_RESTORE_SCRIPT="/usr/local/bin/ptm-boot-restore.sh"
+PTM_BOOT_RESTORE_SERVICE="/etc/systemd/system/ptm-boot-restore.service"
+PTM_TRAFFIC_SNAPSHOT="${PTM_CONFIG_DIR}/traffic_snapshot.json"
+PTM_EMAIL_MAX_RETRIES=2
+PTM_EMAIL_CONNECT_TIMEOUT=10
+PTM_EMAIL_MAX_TIMEOUT=30
+
+# ---- 基础工具 ----
+
+ptm_beijing_time() {
+    TZ='Asia/Shanghai' date "$@"
+}
+
+ptm_log_notification() {
+    local message="$1"
+    local timestamp
+    timestamp=$(ptm_beijing_time '+%Y-%m-%d %H:%M:%S')
+    mkdir -p "$PTM_LOG_DIR"
+    echo "[$timestamp] $message" >> "$PTM_NOTIFICATION_LOG"
+    if [ -f "$PTM_NOTIFICATION_LOG" ] && [ "$(wc -l < "$PTM_NOTIFICATION_LOG")" -gt 1000 ]; then
+        tail -n 500 "$PTM_NOTIFICATION_LOG" > "${PTM_NOTIFICATION_LOG}.tmp"
+        mv "${PTM_NOTIFICATION_LOG}.tmp" "$PTM_NOTIFICATION_LOG"
     fi
 }
 
-# 获取管理密钥
-cpa_get_secret() {
-    if [ -f "$CPA_SECRET_FILE" ]; then
-        cat "$CPA_SECRET_FILE"
-    else
-        echo ""
-    fi
+ptm_check_dependencies() {
+    install_package nft tc jq
 }
 
-# 检查端口是否可用
-cpa_check_port() {
-    local port=$1
-    if ss -lntp 2>/dev/null | grep -q ":${port} "; then
+ptm_acquire_config_lock() {
+    exec 233>"$PTM_CONFIG_LOCK_FILE"
+    flock -w 60 233 || {
+        echo -e "${gl_hong}获取配置锁超时${gl_bai}" >&2
         return 1
-    fi
-    return 0
+    }
 }
 
-# 检查状态
-cpa_check_status() {
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CPA_CONTAINER_NAME}"; then
-        echo "running"
-    elif docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CPA_CONTAINER_NAME}"; then
-        echo "stopped"
-    elif [ -d "$CPA_INSTALL_DIR" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        echo "installed_no_container"
-    else
-        echo "not_installed"
-    fi
+ptm_release_config_lock() {
+    flock -u 233 2>/dev/null || true
 }
 
-# 安装 Docker
-cpa_install_docker() {
-    if command -v docker &>/dev/null; then
-        echo -e "${gl_lv}✅ Docker 已安装${gl_bai}"
-        return 0
-    fi
+ptm_update_config() {
+    local jq_expression="$1"
+    local tmp_file="${PTM_CONFIG_FILE}.tmp"
 
-    echo "正在安装 Docker..."
-    run_remote_script "https://get.docker.com" sh
+    ptm_acquire_config_lock || return 1
 
-    if [ $? -eq 0 ]; then
-        systemctl enable docker
-        systemctl start docker
-        echo -e "${gl_lv}✅ Docker 安装成功${gl_bai}"
-        return 0
+    if jq "$jq_expression" "$PTM_CONFIG_FILE" > "$tmp_file" 2>/dev/null && [ -s "$tmp_file" ]; then
+        chmod 600 "$tmp_file"
+        mv "$tmp_file" "$PTM_CONFIG_FILE"
+        ptm_release_config_lock
     else
-        echo -e "${gl_hong}❌ Docker 安装失败${gl_bai}"
-        return 1
-    fi
-}
-
-# 获取 docker compose 命令
-cpa_compose_cmd() {
-    if docker compose version &>/dev/null 2>&1; then
-        echo "docker compose"
-    elif command -v docker-compose &>/dev/null; then
-        echo "docker-compose"
-    else
-        echo ""
-    fi
-}
-
-# 一键部署
-cpa_deploy() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  一键部署 CLIProxyAPI (CLI转API代理)${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(cpa_check_status)
-    if [ "$status" != "not_installed" ]; then
-        echo -e "${gl_huang}⚠️ CLIProxyAPI 已安装${gl_bai}"
-        read -e -p "是否重新部署？(y/n) [n]: " reinstall
-        if [ "$reinstall" != "y" ] && [ "$reinstall" != "Y" ]; then
-            break_end
-            return 0
-        fi
-        local compose_cmd=$(cpa_compose_cmd)
-        if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-            cd "$CPA_INSTALL_DIR" && $compose_cmd down 2>/dev/null
-        fi
-    fi
-
-    # [1/5] 安装 Docker
-    echo ""
-    echo -e "${gl_kjlan}[1/5] 检查 Docker 环境...${gl_bai}"
-    cpa_install_docker || { break_end; return 1; }
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用，请检查 Docker 安装${gl_bai}"
-        break_end
-        return 1
-    fi
-    echo -e "${gl_lv}✅ $compose_cmd 可用${gl_bai}"
-
-    # [2/5] 创建目录
-    echo ""
-    echo -e "${gl_kjlan}[2/5] 创建目录结构...${gl_bai}"
-    mkdir -p "$CPA_INSTALL_DIR/auths"
-    mkdir -p "$CPA_INSTALL_DIR/logs"
-    echo -e "${gl_lv}✅ 目录创建完成${gl_bai}"
-
-    # [3/5] 配置参数
-    echo ""
-    echo -e "${gl_kjlan}[3/5] 配置服务参数...${gl_bai}"
-    echo ""
-
-    # API 端口
-    local api_port="$CPA_DEFAULT_PORT"
-    read -e -p "请输入 API 端口 [$CPA_DEFAULT_PORT]: " input_port
-    if [ -n "$input_port" ]; then
-        api_port="$input_port"
-    fi
-    while ! cpa_check_port "$api_port"; do
-        echo -e "${gl_hong}⚠️ 端口 $api_port 已被占用${gl_bai}"
-        read -e -p "请输入 API 端口: " api_port
-        [ -z "$api_port" ] && api_port="$CPA_DEFAULT_PORT"
-    done
-    echo -e "${gl_lv}✅ API 端口 $api_port 可用${gl_bai}"
-
-    # 检查 OAuth 回调端口是否冲突，冲突的自动跳过映射
-    local oauth_ports="8085 1455 54545 51121 11451"
-    local available_oauth_ports=""
-    local skipped_ports=""
-    for p in $oauth_ports; do
-        if cpa_check_port "$p"; then
-            available_oauth_ports="${available_oauth_ports}      - \"${p}:${p}\"\n"
-        else
-            echo -e "${gl_huang}⚠️ OAuth 回调端口 $p 已被占用，跳过映射（OAuth 登录该通道可能不可用）${gl_bai}"
-            skipped_ports="${skipped_ports} ${p}"
-        fi
-    done
-
-    # 管理密钥
-    echo ""
-    local secret_key=$(openssl rand -hex 16 2>/dev/null || head -c 32 /dev/urandom | xxd -p | head -c 32)
-    read -e -p "设置管理密钥 [随机生成: $secret_key]: " input_secret
-    if [ -n "$input_secret" ]; then
-        secret_key="$input_secret"
-    fi
-
-    # [4/5] 生成配置文件
-    echo ""
-    echo -e "${gl_kjlan}[4/5] 生成配置文件...${gl_bai}"
-
-    # 生成 config.yaml
-    cat > "$CPA_INSTALL_DIR/config.yaml" << CONFIGEOF
-# CLIProxyAPI 配置文件
-# port 为容器内部端口，外部端口在 docker-compose.yml 中映射
-host: ""
-port: 8317
-remote-management:
-  allow-remote: true
-  secret-key: "$secret_key"
-  disable-control-panel: false
-auth-dir: /root/.cli-proxy-api
-debug: false
-logging-to-file: true
-request-retry: 3
-CONFIGEOF
-
-    # 生成 docker-compose.yml（只映射可用的 OAuth 端口）
-    {
-        echo "services:"
-        echo "  cli-proxy-api:"
-        echo "    image: ${CPA_IMAGE}"
-        echo "    container_name: ${CPA_CONTAINER_NAME}"
-        echo "    ports:"
-        echo "      - \"${api_port}:8317\""
-        for p in $oauth_ports; do
-            if cpa_check_port "$p"; then
-                echo "      - \"${p}:${p}\""
-            fi
-        done
-        echo "    volumes:"
-        echo "      - ./config.yaml:/CLIProxyAPI/config.yaml"
-        echo "      - ./auths:/root/.cli-proxy-api"
-        echo "      - ./logs:/CLIProxyAPI/logs"
-        echo "    restart: unless-stopped"
-    } > "$CPA_INSTALL_DIR/docker-compose.yml"
-
-    echo -e "${gl_lv}✅ 配置文件生成完成${gl_bai}"
-
-    # [5/5] 启动服务
-    echo ""
-    echo -e "${gl_kjlan}[5/5] 启动 CLIProxyAPI 服务...${gl_bai}"
-
-    cd "$CPA_INSTALL_DIR"
-    $compose_cmd up -d
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-        echo ""
-        echo -e "${gl_huang}提示: 可尝试手动执行以下命令后重试:${gl_bai}"
-        echo "  systemctl restart docker"
-        break_end
-        return 1
-    fi
-
-    # 保存配置
-    echo "$api_port" > "$CPA_PORT_FILE"
-    echo "$secret_key" > "$CPA_SECRET_FILE"
-
-    # 等待启动
-    echo ""
-    echo "等待服务启动..."
-    sleep 5
-
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    echo ""
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_lv}  ✅ CLIProxyAPI 部署完成！${gl_bai}"
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "API 地址:    ${gl_huang}http://${server_ip}:${api_port}/v1${gl_bai}"
-    echo -e "管理面板:    ${gl_huang}http://${server_ip}:${api_port}/management.html${gl_bai}"
-    echo -e "管理密钥:    ${gl_huang}${secret_key}${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【说明】${gl_bai}"
-    echo "  - 管理面板首次访问会自动下载前端资源"
-    echo "  - 请在管理面板中配置 OAuth 登录或 API Key"
-    echo "  - 建议配置 TLS 以确保传输安全"
-    if [ -n "$skipped_ports" ]; then
-        echo ""
-        echo -e "${gl_huang}  ⚠️ 跳过的端口:${skipped_ports}（被其他服务占用）${gl_bai}"
-        echo -e "${gl_huang}  如需 OAuth 登录，请先停止占用端口的服务后重新部署${gl_bai}"
-    fi
-    echo ""
-
-    break_end
-}
-
-# 更新服务
-cpa_update() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  更新 CLIProxyAPI${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(cpa_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ CLIProxyAPI 未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo "正在拉取最新镜像..."
-    docker pull "$CPA_IMAGE"
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 镜像拉取失败${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo ""
-    echo "正在重启服务..."
-    cd "$CPA_INSTALL_DIR"
-    $compose_cmd down
-    $compose_cmd up -d
-
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo -e "${gl_lv}✅ 更新完成${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 重启失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 查看状态
-cpa_status() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  CLIProxyAPI 状态${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(cpa_check_status)
-    local api_port=$(cpa_get_port)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    case "$status" in
-        "running")
-            echo -e "状态: ${gl_lv}✅ 运行中${gl_bai}"
-            echo -e "API 地址:  ${gl_huang}http://${server_ip}:${api_port}/v1${gl_bai}"
-            echo -e "管理面板:  ${gl_huang}http://${server_ip}:${api_port}/management.html${gl_bai}"
-            echo ""
-            echo "容器详情:"
-            docker ps --filter "name=$CPA_CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            ;;
-        "stopped")
-            echo -e "状态: ${gl_hong}❌ 已停止${gl_bai}"
-            echo ""
-            echo "请使用「启动服务」选项启动"
-            ;;
-        "installed_no_container")
-            echo -e "状态: ${gl_huang}⚠️ 已安装但容器未创建${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」重新部署"
-            ;;
-        "not_installed")
-            echo -e "状态: ${gl_hui}未安装${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」选项安装"
-            ;;
-    esac
-
-    echo ""
-    break_end
-}
-
-# 查看日志
-cpa_logs() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  CLIProxyAPI 日志${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}按 Ctrl+C 退出日志查看${gl_bai}"
-    echo ""
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd logs -f --tail 100
-    else
-        docker logs "$CPA_CONTAINER_NAME" -f --tail 100
-    fi
-}
-
-# 启动服务
-cpa_start() {
-    echo ""
-    echo "正在启动 CLIProxyAPI..."
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd up -d
-    else
-        docker start "$CPA_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        local api_port=$(cpa_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 启动成功${gl_bai}"
-        echo -e "API 地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 启动失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 停止服务
-cpa_stop() {
-    echo ""
-    echo "正在停止 CLIProxyAPI..."
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd stop
-    else
-        docker stop "$CPA_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        echo -e "${gl_lv}✅ 已停止${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 停止失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 重启服务
-cpa_restart() {
-    echo ""
-    echo "正在重启 CLIProxyAPI..."
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd restart
-    else
-        docker restart "$CPA_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        local api_port=$(cpa_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 重启成功${gl_bai}"
-        echo -e "API 地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 重启失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 查看配置信息
-cpa_show_config() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  CLIProxyAPI 配置信息${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local api_port=$(cpa_get_port)
-    local secret_key=$(cpa_get_secret)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    echo -e "安装目录:    ${gl_huang}$CPA_INSTALL_DIR${gl_bai}"
-    echo -e "配置文件:    ${gl_huang}$CPA_INSTALL_DIR/config.yaml${gl_bai}"
-    echo -e "令牌目录:    ${gl_huang}$CPA_INSTALL_DIR/auths${gl_bai}"
-    echo -e "日志目录:    ${gl_huang}$CPA_INSTALL_DIR/logs${gl_bai}"
-    echo -e "API 端口:    ${gl_huang}$api_port${gl_bai}"
-    echo -e "管理密钥:    ${gl_huang}${secret_key:-未设置}${gl_bai}"
-    echo -e "API 地址:    ${gl_huang}http://${server_ip}:${api_port}/v1${gl_bai}"
-    echo -e "管理面板:    ${gl_huang}http://${server_ip}:${api_port}/management.html${gl_bai}"
-
-    echo ""
-    break_end
-}
-
-# 修改端口
-cpa_change_port() {
-    echo ""
-    local current_port=$(cpa_get_port)
-    echo -e "当前 API 端口: ${gl_huang}$current_port${gl_bai}"
-    echo ""
-
-    read -e -p "请输入新的 API 端口: " new_port
-
-    if [ -z "$new_port" ]; then
-        echo "取消修改"
-        break_end
-        return 0
-    fi
-
-    if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-        echo -e "${gl_hong}❌ 无效的端口号: $new_port${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    if [ "$new_port" = "$current_port" ]; then
-        echo -e "${gl_huang}⚠️ 端口未改变${gl_bai}"
-        break_end
-        return 0
-    fi
-
-    # 先检查新端口是否可用（在停止服务之前）
-    if ! cpa_check_port "$new_port"; then
-        echo -e "${gl_hong}❌ 端口 $new_port 已被占用，请选择其他端口${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo ""
-    echo "正在修改端口..."
-
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 停止服务
-    cd "$CPA_INSTALL_DIR" && $compose_cmd down
-
-    # 重写 docker-compose.yml（只映射可用的 OAuth 端口）
-    local oauth_ports="8085 1455 54545 51121 11451"
-    {
-        echo "services:"
-        echo "  cli-proxy-api:"
-        echo "    image: ${CPA_IMAGE}"
-        echo "    container_name: ${CPA_CONTAINER_NAME}"
-        echo "    ports:"
-        echo "      - \"${new_port}:8317\""
-        for p in $oauth_ports; do
-            if cpa_check_port "$p"; then
-                echo "      - \"${p}:${p}\""
-            fi
-        done
-        echo "    volumes:"
-        echo "      - ./config.yaml:/CLIProxyAPI/config.yaml"
-        echo "      - ./auths:/root/.cli-proxy-api"
-        echo "      - ./logs:/CLIProxyAPI/logs"
-        echo "    restart: unless-stopped"
-    } > "$CPA_INSTALL_DIR/docker-compose.yml"
-
-    $compose_cmd up -d
-
-    if [ $? -eq 0 ]; then
-        echo "$new_port" > "$CPA_PORT_FILE"
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 端口修改成功${gl_bai}"
-        echo -e "API 地址: ${gl_huang}http://${server_ip}:${new_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 端口修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 修改管理密钥
-cpa_change_secret() {
-    echo ""
-    local current_secret=$(cpa_get_secret)
-    echo -e "当前管理密钥: ${gl_huang}${current_secret:-未设置}${gl_bai}"
-    echo ""
-
-    read -e -p "请输入新的管理密钥: " new_secret
-
-    if [ -z "$new_secret" ]; then
-        echo "未输入密钥，取消修改"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在修改管理密钥..."
-
-    # 更新 config.yaml 中的 secret-key（用 | 作分隔符避免特殊字符冲突）
-    if [ -f "$CPA_INSTALL_DIR/config.yaml" ]; then
-        sed -i "s|secret-key: .*|secret-key: \"$new_secret\"|" "$CPA_INSTALL_DIR/config.yaml"
-    fi
-
-    # 重启服务使配置生效
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd restart
-    else
-        docker restart "$CPA_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        echo "$new_secret" > "$CPA_SECRET_FILE"
-        local api_port=$(cpa_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 管理密钥修改成功${gl_bai}"
-        echo -e "新密钥: ${gl_huang}$new_secret${gl_bai}"
-        echo -e "API 地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 卸载
-cpa_uninstall() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_hong}  卸载 CLIProxyAPI${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(cpa_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ CLIProxyAPI 未安装${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo -e "${gl_hong}⚠️ 此操作将删除 CLIProxyAPI 容器和镜像${gl_bai}"
-    echo ""
-    read -e -p "是否同时删除配置和数据？(y/n) [n]: " delete_data
-    echo ""
-    read -e -p "确认卸载？(y/n) [n]: " confirm
-
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo "取消卸载"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在卸载..."
-
-    # 停止并删除容器
-    local compose_cmd=$(cpa_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CPA_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CPA_INSTALL_DIR" && $compose_cmd down --rmi all 2>/dev/null
-    else
-        docker stop "$CPA_CONTAINER_NAME" 2>/dev/null
-        docker rm "$CPA_CONTAINER_NAME" 2>/dev/null
-        docker rmi "$CPA_IMAGE" 2>/dev/null
-    fi
-
-    # 删除数据
-    if [ "$delete_data" = "y" ] || [ "$delete_data" = "Y" ]; then
-        rm -rf "$CPA_INSTALL_DIR"
-        echo -e "${gl_lv}✅ 容器、镜像和数据已全部删除${gl_bai}"
-    else
-        echo -e "${gl_lv}✅ 容器已删除，配置保留在 $CPA_INSTALL_DIR${gl_bai}"
-    fi
-
-    # 删除端口和密钥文件
-    rm -f "$CPA_PORT_FILE"
-    rm -f "$CPA_SECRET_FILE"
-
-    break_end
-}
-
-# CLIProxyAPI 管理主菜单
-manage_cliproxyapi() {
-    while true; do
-        clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  CLIProxyAPI 部署管理 (CLI转API代理)${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示当前状态
-        local status=$(cpa_check_status)
-        local api_port=$(cpa_get_port)
-
-        case "$status" in
-            "running")
-                echo -e "当前状态: ${gl_lv}✅ 运行中${gl_bai} (端口: ${api_port})"
-                ;;
-            "stopped")
-                echo -e "当前状态: ${gl_hong}❌ 已停止${gl_bai}"
-                ;;
-            "installed_no_container")
-                echo -e "当前状态: ${gl_huang}⚠️ 已安装但容器未创建${gl_bai}"
-                ;;
-            "not_installed")
-                echo -e "当前状态: ${gl_hui}未安装${gl_bai}"
-                ;;
-        esac
-
-        echo ""
-        echo -e "${gl_kjlan}[部署与更新]${gl_bai}"
-        echo "1. 一键部署（首次安装）"
-        echo "2. 更新服务"
-        echo ""
-        echo -e "${gl_kjlan}[服务管理]${gl_bai}"
-        echo "3. 查看状态"
-        echo "4. 查看日志"
-        echo "5. 启动服务"
-        echo "6. 停止服务"
-        echo "7. 重启服务"
-        echo ""
-        echo -e "${gl_kjlan}[配置与信息]${gl_bai}"
-        echo "8. 查看配置信息"
-        echo "9. 修改端口"
-        echo "10. 修改管理密钥"
-        echo ""
-        echo -e "${gl_kjlan}[卸载]${gl_bai}"
-        echo -e "${gl_hong}99. 卸载（删除容器+镜像）${gl_bai}"
-        echo ""
-        echo "0. 返回上级菜单"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择操作 [0-10, 99]: " choice
-
-        case $choice in
-            1)
-                cpa_deploy
-                ;;
-            2)
-                cpa_update
-                ;;
-            3)
-                cpa_status
-                ;;
-            4)
-                cpa_logs
-                ;;
-            5)
-                cpa_start
-                ;;
-            6)
-                cpa_stop
-                ;;
-            7)
-                cpa_restart
-                ;;
-            8)
-                cpa_show_config
-                ;;
-            9)
-                cpa_change_port
-                ;;
-            10)
-                cpa_change_secret
-                ;;
-            99)
-                cpa_uninstall
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo "无效的选择"
-                sleep 1
-                ;;
-        esac
-    done
-}
-
-#=============================================================================
-# Codex Console (OpenAI 批量注册控制台)
-#=============================================================================
-CODEX_CONSOLE_CONTAINER_NAME="codex-console"
-CODEX_CONSOLE_REPO="https://github.com/dou-jiang/codex-console.git"
-CODEX_CONSOLE_INSTALL_DIR="/opt/codex-console"
-CODEX_CONSOLE_DEFAULT_WEBUI_PORT="1455"
-CODEX_CONSOLE_DEFAULT_NOVNC_PORT="6080"
-CODEX_CONSOLE_PORT_FILE="/etc/codex-console-port"
-CODEX_CONSOLE_NOVNC_PORT_FILE="/etc/codex-console-novnc-port"
-CODEX_CONSOLE_DATA_DIR="/opt/codex-console/data"
-CODEX_CONSOLE_LOGS_DIR="/opt/codex-console/logs"
-
-# 获取当前 WebUI 端口
-codex_console_get_port() {
-    if [ -f "$CODEX_CONSOLE_PORT_FILE" ]; then
-        cat "$CODEX_CONSOLE_PORT_FILE"
-    else
-        echo "$CODEX_CONSOLE_DEFAULT_WEBUI_PORT"
-    fi
-}
-
-# 获取当前 noVNC 端口
-codex_console_get_novnc_port() {
-    if [ -f "$CODEX_CONSOLE_NOVNC_PORT_FILE" ]; then
-        cat "$CODEX_CONSOLE_NOVNC_PORT_FILE"
-    else
-        echo "$CODEX_CONSOLE_DEFAULT_NOVNC_PORT"
-    fi
-}
-
-# 检查状态
-codex_console_check_status() {
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CODEX_CONSOLE_CONTAINER_NAME}"; then
-        echo "running"
-    elif docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${CODEX_CONSOLE_CONTAINER_NAME}"; then
-        echo "stopped"
-    elif [ -d "$CODEX_CONSOLE_INSTALL_DIR/.git" ]; then
-        echo "installed_no_container"
-    else
-        echo "not_installed"
-    fi
-}
-
-# 检查端口是否可用
-codex_console_check_port() {
-    local port=$1
-    if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-        return 1
-    fi
-    return 0
-}
-
-# 安装 Docker
-codex_console_install_docker() {
-    if command -v docker &>/dev/null; then
-        echo -e "${gl_lv}✅ Docker 已安装${gl_bai}"
-        return 0
-    fi
-
-    echo "正在安装 Docker..."
-    run_remote_script "https://get.docker.com" sh
-
-    if [ $? -eq 0 ]; then
-        systemctl enable docker
-        systemctl start docker
-        echo -e "${gl_lv}✅ Docker 安装成功${gl_bai}"
-        return 0
-    else
-        echo -e "${gl_hong}❌ Docker 安装失败${gl_bai}"
+        rm -f "$tmp_file"
+        ptm_release_config_lock
+        echo -e "${gl_hong}配置更新失败，保留原配置${gl_bai}" >&2
         return 1
     fi
 }
 
-# 获取 docker compose 命令
-codex_console_compose_cmd() {
-    if docker compose version &>/dev/null 2>&1; then
-        echo "docker compose"
-    elif command -v docker-compose &>/dev/null; then
-        echo "docker-compose"
-    else
-        echo ""
-    fi
-}
-
-# 一键部署
-codex_console_deploy() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  一键部署 Codex Console (OpenAI批量注册控制台)${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(codex_console_check_status)
-    if [ "$status" != "not_installed" ]; then
-        echo -e "${gl_huang}⚠️ Codex Console 已安装${gl_bai}"
-        read -e -p "是否重新部署？(y/n) [n]: " reinstall
-        if [ "$reinstall" != "y" ] && [ "$reinstall" != "Y" ]; then
-            break_end
-            return 0
-        fi
-        # 停止并删除现有容器
-        local compose_cmd=$(codex_console_compose_cmd)
-        if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-            cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd down 2>/dev/null
-        fi
-    fi
-
-    # [1/5] 安装 Docker
-    echo ""
-    echo -e "${gl_kjlan}[1/5] 检查 Docker 环境...${gl_bai}"
-    codex_console_install_docker || { break_end; return 1; }
-
-    # 检查 docker compose
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用，请检查 Docker 安装${gl_bai}"
-        break_end
-        return 1
-    fi
-    echo -e "${gl_lv}✅ $compose_cmd 可用${gl_bai}"
-
-    # [2/5] 克隆项目
-    echo ""
-    echo -e "${gl_kjlan}[2/5] 克隆 Codex Console 项目...${gl_bai}"
-    if [ -d "$CODEX_CONSOLE_INSTALL_DIR/.git" ]; then
-        echo "项目目录已存在，拉取最新代码..."
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && git pull
-    else
-        rm -rf "$CODEX_CONSOLE_INSTALL_DIR"
-        git clone "$CODEX_CONSOLE_REPO" "$CODEX_CONSOLE_INSTALL_DIR"
-    fi
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 项目克隆失败${gl_bai}"
-        break_end
-        return 1
-    fi
-    echo -e "${gl_lv}✅ 项目代码就绪${gl_bai}"
-
-    # [3/5] 配置参数
-    echo ""
-    echo -e "${gl_kjlan}[3/5] 配置服务参数...${gl_bai}"
-    echo ""
-
-    # WebUI 端口
-    local webui_port="$CODEX_CONSOLE_DEFAULT_WEBUI_PORT"
-    read -e -p "请输入 WebUI 端口 [$CODEX_CONSOLE_DEFAULT_WEBUI_PORT]: " input_port
-    if [ -n "$input_port" ]; then
-        webui_port="$input_port"
-    fi
-    while ! codex_console_check_port "$webui_port"; do
-        echo -e "${gl_hong}⚠️ 端口 $webui_port 已被占用${gl_bai}"
-        read -e -p "请输入 WebUI 端口: " webui_port
-        [ -z "$webui_port" ] && webui_port="$CODEX_CONSOLE_DEFAULT_WEBUI_PORT"
-    done
-    echo -e "${gl_lv}✅ WebUI 端口 $webui_port 可用${gl_bai}"
-
-    # noVNC 端口
-    echo ""
-    local novnc_port="$CODEX_CONSOLE_DEFAULT_NOVNC_PORT"
-    read -e -p "请输入 noVNC 端口 [$CODEX_CONSOLE_DEFAULT_NOVNC_PORT]: " input_novnc
-    if [ -n "$input_novnc" ]; then
-        novnc_port="$input_novnc"
-    fi
-    while ! codex_console_check_port "$novnc_port"; do
-        echo -e "${gl_hong}⚠️ 端口 $novnc_port 已被占用${gl_bai}"
-        read -e -p "请输入 noVNC 端口: " novnc_port
-        [ -z "$novnc_port" ] && novnc_port="$CODEX_CONSOLE_DEFAULT_NOVNC_PORT"
-    done
-    echo -e "${gl_lv}✅ noVNC 端口 $novnc_port 可用${gl_bai}"
-
-    # 访问密码
-    echo ""
-    local access_password="admin123"
-    read -e -p "设置访问密码 [admin123]: " input_password
-    if [ -n "$input_password" ]; then
-        access_password="$input_password"
-    fi
-
-    # [4/5] 生成 docker-compose 配置
-    echo ""
-    echo -e "${gl_kjlan}[4/5] 生成配置并构建镜像...${gl_bai}"
-
-    # 创建数据目录
-    mkdir -p "$CODEX_CONSOLE_DATA_DIR"
-    mkdir -p "$CODEX_CONSOLE_LOGS_DIR"
-
-    # 覆写 docker-compose.yml 用自定义端口
-    cat > "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" << COMPOSEEOF
-version: '3.8'
-
-services:
-  webui:
-    build: .
-    container_name: ${CODEX_CONSOLE_CONTAINER_NAME}
-    shm_size: "1gb"
-    ports:
-      - "${webui_port}:1455"
-      - "${novnc_port}:6080"
-    environment:
-      - WEBUI_HOST=0.0.0.0
-      - WEBUI_PORT=1455
-      - DISPLAY=:99
-      - ENABLE_VNC=1
-      - VNC_PORT=5900
-      - NOVNC_PORT=6080
-      - DEBUG=0
-      - LOG_LEVEL=info
-      - WEBUI_ACCESS_PASSWORD=${access_password}
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    restart: unless-stopped
-COMPOSEEOF
-
-    # 构建并启动
-    cd "$CODEX_CONSOLE_INSTALL_DIR"
-    $compose_cmd build
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 镜像构建失败${gl_bai}"
-        break_end
-        return 1
-    fi
-    echo -e "${gl_lv}✅ 镜像构建成功${gl_bai}"
-
-    # [5/5] 启动服务
-    echo ""
-    echo -e "${gl_kjlan}[5/5] 启动 Codex Console 服务...${gl_bai}"
-
-    $compose_cmd up -d
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-        echo ""
-        echo -e "${gl_huang}提示: 可尝试手动执行以下命令后重试:${gl_bai}"
-        echo "  systemctl restart docker"
-        break_end
-        return 1
-    fi
-
-    # 保存端口配置
-    echo "$webui_port" > "$CODEX_CONSOLE_PORT_FILE"
-    echo "$novnc_port" > "$CODEX_CONSOLE_NOVNC_PORT_FILE"
-
-    # 等待启动
-    echo ""
-    echo "等待服务启动..."
-    sleep 5
-
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    echo ""
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_lv}  ✅ Codex Console 部署完成！${gl_bai}"
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "WebUI 地址:  ${gl_huang}http://${server_ip}:${webui_port}${gl_bai}"
-    echo -e "noVNC 地址:  ${gl_huang}http://${server_ip}:${novnc_port}${gl_bai}"
-    echo -e "访问密码:    ${gl_huang}${access_password}${gl_bai}"
-    echo ""
-    echo -e "${gl_kjlan}【说明】${gl_bai}"
-    echo "  - WebUI 是主控制台界面，用于任务管理和批量操作"
-    echo "  - noVNC 是浏览器远程桌面，用于自动化绑卡可视化"
-    echo "  - 请务必修改默认密码以确保安全"
-    echo ""
-
-    break_end
-}
-
-# 更新项目
-codex_console_update() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  更新 Codex Console${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(codex_console_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ Codex Console 未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo "正在拉取最新代码..."
-    cd "$CODEX_CONSOLE_INSTALL_DIR" && git pull
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 代码拉取失败${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo ""
-    echo "正在重新构建镜像..."
-    $compose_cmd build --no-cache
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 镜像构建失败${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo ""
-    echo "正在重启服务..."
-    $compose_cmd down
-    $compose_cmd up -d
-
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo -e "${gl_lv}✅ 更新完成${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 重启失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 查看状态
-codex_console_status() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Codex Console 状态${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(codex_console_check_status)
-    local webui_port=$(codex_console_get_port)
-    local novnc_port=$(codex_console_get_novnc_port)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    case "$status" in
-        "running")
-            echo -e "状态: ${gl_lv}✅ 运行中${gl_bai}"
-            echo -e "WebUI:  ${gl_huang}http://${server_ip}:${webui_port}${gl_bai}"
-            echo -e "noVNC:  ${gl_huang}http://${server_ip}:${novnc_port}${gl_bai}"
-            echo ""
-            echo "容器详情:"
-            docker ps --filter "name=$CODEX_CONSOLE_CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            ;;
-        "stopped")
-            echo -e "状态: ${gl_hong}❌ 已停止${gl_bai}"
-            echo ""
-            echo "请使用「启动服务」选项启动"
-            ;;
-        "installed_no_container")
-            echo -e "状态: ${gl_huang}⚠️ 已安装但容器未创建${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」重新部署"
-            ;;
-        "not_installed")
-            echo -e "状态: ${gl_hui}未安装${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」选项安装"
-            ;;
-    esac
-
-    echo ""
-    break_end
-}
-
-# 查看日志
-codex_console_logs() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Codex Console 日志${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}按 Ctrl+C 退出日志查看${gl_bai}"
-    echo ""
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd logs -f --tail 100
-    else
-        docker logs "$CODEX_CONSOLE_CONTAINER_NAME" -f --tail 100
-    fi
-}
-
-# 启动服务
-codex_console_start() {
-    echo ""
-    echo "正在启动 Codex Console..."
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd up -d
-    else
-        docker start "$CODEX_CONSOLE_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        local webui_port=$(codex_console_get_port)
-        local novnc_port=$(codex_console_get_novnc_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 启动成功${gl_bai}"
-        echo -e "WebUI: ${gl_huang}http://${server_ip}:${webui_port}${gl_bai}"
-        echo -e "noVNC: ${gl_huang}http://${server_ip}:${novnc_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 启动失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 停止服务
-codex_console_stop() {
-    echo ""
-    echo "正在停止 Codex Console..."
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd stop
-    else
-        docker stop "$CODEX_CONSOLE_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        echo -e "${gl_lv}✅ 已停止${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 停止失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 重启服务
-codex_console_restart() {
-    echo ""
-    echo "正在重启 Codex Console..."
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd restart
-    else
-        docker restart "$CODEX_CONSOLE_CONTAINER_NAME"
-    fi
-
-    if [ $? -eq 0 ]; then
-        local webui_port=$(codex_console_get_port)
-        local novnc_port=$(codex_console_get_novnc_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 重启成功${gl_bai}"
-        echo -e "WebUI: ${gl_huang}http://${server_ip}:${webui_port}${gl_bai}"
-        echo -e "noVNC: ${gl_huang}http://${server_ip}:${novnc_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 重启失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 修改端口
-codex_console_change_port() {
-    echo ""
-    local current_webui=$(codex_console_get_port)
-    local current_novnc=$(codex_console_get_novnc_port)
-    echo -e "当前 WebUI 端口: ${gl_huang}$current_webui${gl_bai}"
-    echo -e "当前 noVNC 端口: ${gl_huang}$current_novnc${gl_bai}"
-    echo ""
-
-    echo "修改哪个端口？"
-    echo "1. WebUI 端口"
-    echo "2. noVNC 端口"
-    echo "3. 同时修改两个"
-    echo "0. 取消"
-    echo ""
-    read -e -p "请选择 [0-3]: " port_choice
-
-    local new_webui="$current_webui"
-    local new_novnc="$current_novnc"
-
-    case $port_choice in
-        1)
-            read -e -p "请输入新的 WebUI 端口: " new_webui
-            [ -z "$new_webui" ] && { echo "取消修改"; break_end; return 0; }
-            ;;
-        2)
-            read -e -p "请输入新的 noVNC 端口: " new_novnc
-            [ -z "$new_novnc" ] && { echo "取消修改"; break_end; return 0; }
-            ;;
-        3)
-            read -e -p "请输入新的 WebUI 端口: " new_webui
-            [ -z "$new_webui" ] && new_webui="$current_webui"
-            read -e -p "请输入新的 noVNC 端口: " new_novnc
-            [ -z "$new_novnc" ] && new_novnc="$current_novnc"
-            ;;
-        *)
-            return 0
-            ;;
-    esac
-
-    # 验证端口
-    for p in "$new_webui" "$new_novnc"; do
-        if ! [[ "$p" =~ ^[0-9]+$ ]] || [ "$p" -lt 1 ] || [ "$p" -gt 65535 ]; then
-            echo -e "${gl_hong}❌ 无效的端口号: $p${gl_bai}"
-            break_end
-            return 1
-        fi
-    done
-
-    if [ "$new_webui" = "$current_webui" ] && [ "$new_novnc" = "$current_novnc" ]; then
-        echo -e "${gl_huang}⚠️ 端口未改变${gl_bai}"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在修改端口..."
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    # 获取当前密码
-    local current_password=$(docker inspect "$CODEX_CONSOLE_CONTAINER_NAME" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep "WEBUI_ACCESS_PASSWORD=" | cut -d= -f2-)
-    [ -z "$current_password" ] && current_password="admin123"
-
-    # 停止服务
-    cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd down
-
-    # 重写 docker-compose.yml
-    cat > "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" << COMPOSEEOF
-version: '3.8'
-
-services:
-  webui:
-    build: .
-    container_name: ${CODEX_CONSOLE_CONTAINER_NAME}
-    shm_size: "1gb"
-    ports:
-      - "${new_webui}:1455"
-      - "${new_novnc}:6080"
-    environment:
-      - WEBUI_HOST=0.0.0.0
-      - WEBUI_PORT=1455
-      - DISPLAY=:99
-      - ENABLE_VNC=1
-      - VNC_PORT=5900
-      - NOVNC_PORT=6080
-      - DEBUG=0
-      - LOG_LEVEL=info
-      - WEBUI_ACCESS_PASSWORD=${current_password}
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    restart: unless-stopped
-COMPOSEEOF
-
-    $compose_cmd up -d
-
-    if [ $? -eq 0 ]; then
-        echo "$new_webui" > "$CODEX_CONSOLE_PORT_FILE"
-        echo "$new_novnc" > "$CODEX_CONSOLE_NOVNC_PORT_FILE"
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 端口修改成功${gl_bai}"
-        echo -e "WebUI: ${gl_huang}http://${server_ip}:${new_webui}${gl_bai}"
-        echo -e "noVNC: ${gl_huang}http://${server_ip}:${new_novnc}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 端口修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 修改访问密码
-codex_console_change_password() {
-    echo ""
-    read -e -p "请输入新的访问密码: " new_password
-
-    if [ -z "$new_password" ]; then
-        echo "未输入密码，取消修改"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在修改密码..."
-
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -z "$compose_cmd" ]; then
-        echo -e "${gl_hong}❌ docker compose 不可用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    local webui_port=$(codex_console_get_port)
-    local novnc_port=$(codex_console_get_novnc_port)
-
-    # 停止服务
-    cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd down
-
-    # 重写 docker-compose.yml
-    cat > "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" << COMPOSEEOF
-version: '3.8'
-
-services:
-  webui:
-    build: .
-    container_name: ${CODEX_CONSOLE_CONTAINER_NAME}
-    shm_size: "1gb"
-    ports:
-      - "${webui_port}:1455"
-      - "${novnc_port}:6080"
-    environment:
-      - WEBUI_HOST=0.0.0.0
-      - WEBUI_PORT=1455
-      - DISPLAY=:99
-      - ENABLE_VNC=1
-      - VNC_PORT=5900
-      - NOVNC_PORT=6080
-      - DEBUG=0
-      - LOG_LEVEL=info
-      - WEBUI_ACCESS_PASSWORD=${new_password}
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    restart: unless-stopped
-COMPOSEEOF
-
-    $compose_cmd up -d
-
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo -e "${gl_lv}✅ 密码修改成功${gl_bai}"
-        echo -e "新密码: ${gl_huang}$new_password${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 密码修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 查看配置信息
-codex_console_show_config() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  Codex Console 配置信息${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local webui_port=$(codex_console_get_port)
-    local novnc_port=$(codex_console_get_novnc_port)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    echo -e "安装目录:    ${gl_huang}$CODEX_CONSOLE_INSTALL_DIR${gl_bai}"
-    echo -e "数据目录:    ${gl_huang}$CODEX_CONSOLE_DATA_DIR${gl_bai}"
-    echo -e "日志目录:    ${gl_huang}$CODEX_CONSOLE_LOGS_DIR${gl_bai}"
-    echo -e "WebUI 端口:  ${gl_huang}$webui_port${gl_bai}"
-    echo -e "noVNC 端口:  ${gl_huang}$novnc_port${gl_bai}"
-    echo -e "WebUI 地址:  ${gl_huang}http://${server_ip}:${webui_port}${gl_bai}"
-    echo -e "noVNC 地址:  ${gl_huang}http://${server_ip}:${novnc_port}${gl_bai}"
-
-    echo ""
-    echo "容器环境变量:"
-    docker inspect "$CODEX_CONSOLE_CONTAINER_NAME" --format '{{range .Config.Env}}  {{println .}}{{end}}' 2>/dev/null | grep -E "WEBUI_|VNC|DISPLAY|DEBUG|LOG_LEVEL"
-
-    echo ""
-    break_end
-}
-
-# 卸载
-codex_console_uninstall() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_hong}  卸载 Codex Console${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(codex_console_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ Codex Console 未安装${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo -e "${gl_hong}⚠️ 此操作将删除 Codex Console 容器和镜像${gl_bai}"
-    echo ""
-    read -e -p "是否同时删除项目目录和数据？(y/n) [n]: " delete_data
-    echo ""
-    read -e -p "确认卸载？(y/n) [n]: " confirm
-
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo "取消卸载"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在卸载..."
-
-    # 停止并删除容器
-    local compose_cmd=$(codex_console_compose_cmd)
-    if [ -n "$compose_cmd" ] && [ -f "$CODEX_CONSOLE_INSTALL_DIR/docker-compose.yml" ]; then
-        cd "$CODEX_CONSOLE_INSTALL_DIR" && $compose_cmd down --rmi local 2>/dev/null
-    else
-        docker stop "$CODEX_CONSOLE_CONTAINER_NAME" 2>/dev/null
-        docker rm "$CODEX_CONSOLE_CONTAINER_NAME" 2>/dev/null
-    fi
-
-    # 删除项目目录和数据
-    if [ "$delete_data" = "y" ] || [ "$delete_data" = "Y" ]; then
-        rm -rf "$CODEX_CONSOLE_INSTALL_DIR"
-        echo -e "${gl_lv}✅ 容器、镜像和项目数据已全部删除${gl_bai}"
-    else
-        echo -e "${gl_lv}✅ 容器已删除，项目目录保留在 $CODEX_CONSOLE_INSTALL_DIR${gl_bai}"
-    fi
-
-    # 删除端口配置文件
-    rm -f "$CODEX_CONSOLE_PORT_FILE"
-    rm -f "$CODEX_CONSOLE_NOVNC_PORT_FILE"
-
-    break_end
-}
-
-# Codex Console 管理主菜单
-manage_codex_console() {
-    while true; do
-        clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  Codex Console 部署管理 (OpenAI批量注册)${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示当前状态
-        local status=$(codex_console_check_status)
-        local webui_port=$(codex_console_get_port)
-        local novnc_port=$(codex_console_get_novnc_port)
-
-        case "$status" in
-            "running")
-                echo -e "当前状态: ${gl_lv}✅ 运行中${gl_bai} (WebUI: ${webui_port} | noVNC: ${novnc_port})"
-                ;;
-            "stopped")
-                echo -e "当前状态: ${gl_hong}❌ 已停止${gl_bai}"
-                ;;
-            "installed_no_container")
-                echo -e "当前状态: ${gl_huang}⚠️ 已安装但容器未创建${gl_bai}"
-                ;;
-            "not_installed")
-                echo -e "当前状态: ${gl_hui}未安装${gl_bai}"
-                ;;
-        esac
-
-        echo ""
-        echo -e "${gl_kjlan}[部署与更新]${gl_bai}"
-        echo "1. 一键部署（首次安装）"
-        echo "2. 更新项目"
-        echo ""
-        echo -e "${gl_kjlan}[服务管理]${gl_bai}"
-        echo "3. 查看状态"
-        echo "4. 查看日志"
-        echo "5. 启动服务"
-        echo "6. 停止服务"
-        echo "7. 重启服务"
-        echo ""
-        echo -e "${gl_kjlan}[配置与信息]${gl_bai}"
-        echo "8. 查看配置信息"
-        echo "9. 修改端口"
-        echo "10. 修改访问密码"
-        echo ""
-        echo -e "${gl_kjlan}[卸载]${gl_bai}"
-        echo -e "${gl_hong}99. 卸载（删除容器+镜像）${gl_bai}"
-        echo ""
-        echo "0. 返回上级菜单"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择操作 [0-10, 99]: " choice
-
-        case $choice in
-            1)
-                codex_console_deploy
-                ;;
-            2)
-                codex_console_update
-                ;;
-            3)
-                codex_console_status
-                ;;
-            4)
-                codex_console_logs
-                ;;
-            5)
-                codex_console_start
-                ;;
-            6)
-                codex_console_stop
-                ;;
-            7)
-                codex_console_restart
-                ;;
-            8)
-                codex_console_show_config
-                ;;
-            9)
-                codex_console_change_port
-                ;;
-            10)
-                codex_console_change_password
-                ;;
-            99)
-                codex_console_uninstall
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo "无效的选择"
-                sleep 1
-                ;;
-        esac
-    done
-}
-
-#=============================================================================
-# OAI2 令牌注册面板 (dan-web)
-#=============================================================================
-OAI2_INSTALL_DIR="/opt/oai2"
-OAI2_DEFAULT_PORT="25666"
-OAI2_PORT_FILE="/etc/oai2-port"
-OAI2_TOKEN_FILE="/etc/oai2-token"
-OAI2_BINARY_NAME="dan-web-linux-amd64"
-OAI2_SERVICE_NAME="oai2"
-
-# 获取当前端口
-oai2_get_port() {
-    if [ -f "$OAI2_PORT_FILE" ]; then
-        cat "$OAI2_PORT_FILE"
-    else
-        echo "$OAI2_DEFAULT_PORT"
-    fi
-}
-
-# 获取登录 Token
-oai2_get_token() {
-    if [ -f "$OAI2_TOKEN_FILE" ]; then
-        cat "$OAI2_TOKEN_FILE"
-    else
-        echo ""
-    fi
-}
-
-# 检查端口是否可用
-oai2_check_port() {
-    local port=$1
-    if ss -lntp 2>/dev/null | grep -q ":${port} "; then
-        return 1
-    fi
-    return 0
-}
-
-# 检查状态
-oai2_check_status() {
-    if systemctl is-active --quiet "$OAI2_SERVICE_NAME" 2>/dev/null; then
-        echo "running"
-    elif [ -f "/etc/systemd/system/${OAI2_SERVICE_NAME}.service" ]; then
-        echo "stopped"
-    elif [ -d "$OAI2_INSTALL_DIR" ] && [ -f "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME" ]; then
-        echo "installed_no_service"
-    else
-        echo "not_installed"
-    fi
-}
-
-# 生成默认配置文件
-oai2_generate_config() {
-    local port="$1"
-    local web_token="$2"
-    local cpa_url="$3"
-    local cpa_token="$4"
-
-    mkdir -p "$OAI2_INSTALL_DIR/config"
-    cat > "$OAI2_INSTALL_DIR/config/web_config.json" << 'CONFIGEOF'
+ptm_init_config() {
+    mkdir -p "$PTM_CONFIG_DIR" "$PTM_LOG_DIR"
+    if [ ! -f "$PTM_CONFIG_FILE" ]; then
+        cat > "$PTM_CONFIG_FILE" <<'PTMEOF'
 {
-  "target_min_tokens": 15000,
-  "auto_fill_start_gap": 1,
-  "check_interval_minutes": 1,
-  "manual_default_threads": 68,
-  "manual_register_retries": 3,
-  "web_token": "WEB_TOKEN_PLACEHOLDER",
-  "enabled_email_domains": [
-    "*.icoa.qzz.io",
-    "*.icoe.pp.ua",
-    "*.icoa.pp.ua",
-    "*.uoou.cc.cd",
-    "*.icoa.us.ci",
-    "icoa.vex.mom",
-    "icoa.zle.ee",
-    "icoamail.sylu.net",
-    "chat-ui.webn.cc",
-    "codex.vision.moe",
-    "*.ice.qq11.top",
-    "*.myanglealtman.tech",
-    "*.ice.lyzswx.eu.org",
-    "a.i00.de5.net",
-    "*.ice.aoko.cc.cd",
-    "*.ice.aoko.eu.cc",
-    "*.ice.chaldea.eu.cc",
-    "*.ice.mssk.eu.cc",
-    "*.ice.mssk.qzz.io",
-    "*.linux.archerguo.de5.net",
-    "*.linux.airforceone.online",
-    "*.ice.kitakamis.online",
-    "*.ice.0987134.xyz",
-    "*.ice.icecodex.us.ci",
-    "*.ice.oo.oogoo.top",
-    "*.ice.jiayou0328.us.ci",
-    "icoa.raw.mom",
-    "icoa.raw.best",
-    "*.icecream.707979.xyz",
-    "*.ice.help.itbasee.top",
-    "*.ice.863973.dpdns.org",
-    "*.ice.tinytiger.top",
-    "*.ice.yucici.qzz.io",
-    "*.love.biaozi.de5.net",
-    "*.love.dogge.de5.net",
-    "*.love.mobil.dpdns.org",
-    "*.love.vercel.dpdns.org",
-    "*.love.google.nyc.mn"
-  ],
-  "mail_domain_options": [
-    "*.icoa.qzz.io",
-    "*.icoe.pp.ua",
-    "*.icoa.pp.ua",
-    "*.uoou.cc.cd",
-    "*.icoa.ccwu.cc",
-    "*.icoa.us.ci",
-    "icoa.vex.mom",
-    "icoa.zle.ee",
-    "icoamail.sylu.net",
-    "chat-ui.webn.cc",
-    "codex.vision.moe",
-    "*.ice.qq11.top",
-    "*.myanglealtman.tech",
-    "*.ice.lyzswx.eu.org",
-    "a.i00.de5.net",
-    "*.ice.aoko.cc.cd",
-    "*.ice.aoko.eu.cc",
-    "*.ice.chaldea.eu.cc",
-    "*.ice.mssk.eu.cc",
-    "*.ice.mssk.qzz.io",
-    "*.linux.archerguo.de5.net",
-    "*.linux.airforceone.online",
-    "*.ice.kitakamis.online",
-    "*.ice.0987134.xyz",
-    "*.ice.icecodex.us.ci",
-    "*.ice.icecodex.ccwu.cc",
-    "*.ice.oo.oogoo.top",
-    "*.ice.jiayou0328.ccwu.cc",
-    "*.ice.jiayou0328.us.ci",
-    "icoa.raw.mom",
-    "icoa.raw.best",
-    "*.icecream.707979.xyz",
-    "*.ice.help.itbasee.top",
-    "*.ice.863973.dpdns.org",
-    "*.ice.tinytiger.top",
-    "*.ice.yucici.qzz.io",
-    "*.love.biaozi.de5.net",
-    "*.love.dogge.de5.net",
-    "*.love.mobil.dpdns.org",
-    "*.love.vercel.dpdns.org",
-    "*.love.google.nyc.mn"
-  ],
-  "default_proxy": "http://127.0.0.1:7897",
-  "use_registration_proxy": false,
-  "cpa_base_url": "CPA_URL_PLACEHOLDER",
-  "cpa_token": "CPA_TOKEN_PLACEHOLDER",
-  "mail_api_url": "https://mailapizv.uton.me",
-  "mail_api_key": "linuxdo",
-  "port": PORT_PLACEHOLDER
+  "ports": {},
+  "notify": {"enabled": false, "resend_api_key": "", "email_from": "", "email_from_name": "", "admin_email": ""}
 }
-CONFIGEOF
-
-    # 替换占位符
-    sed -i "s|WEB_TOKEN_PLACEHOLDER|${web_token}|g" "$OAI2_INSTALL_DIR/config/web_config.json"
-    sed -i "s|CPA_URL_PLACEHOLDER|${cpa_url}|g" "$OAI2_INSTALL_DIR/config/web_config.json"
-    sed -i "s|CPA_TOKEN_PLACEHOLDER|${cpa_token}|g" "$OAI2_INSTALL_DIR/config/web_config.json"
-    sed -i "s|PORT_PLACEHOLDER|${port}|g" "$OAI2_INSTALL_DIR/config/web_config.json"
+PTMEOF
+        chmod 600 "$PTM_CONFIG_FILE"
+    fi
+    ptm_init_nftables
 }
 
-# 创建 systemd 服务
-oai2_create_service() {
-    cat > "/etc/systemd/system/${OAI2_SERVICE_NAME}.service" << EOF
+ptm_init_nftables() {
+    nft add table $PTM_TABLE_FAMILY $PTM_TABLE_NAME 2>/dev/null || true
+    nft add chain $PTM_TABLE_FAMILY $PTM_TABLE_NAME input { type filter hook input priority 0\; } 2>/dev/null || true
+    nft add chain $PTM_TABLE_FAMILY $PTM_TABLE_NAME output { type filter hook output priority 0\; } 2>/dev/null || true
+    nft add chain $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward { type filter hook forward priority 0\; } 2>/dev/null || true
+    # prerouting 优先级 -150：在 conntrack(-200) 之后、DNAT(-100) 之前拦截，兼容 Docker 端口映射场景
+    nft add chain $PTM_TABLE_FAMILY $PTM_TABLE_NAME prerouting { type filter hook prerouting priority -150\; } 2>/dev/null || true
+}
+
+ptm_get_default_interface() {
+    local iface
+    iface=$(ip route | grep default | awk '{print $5}' | head -n1)
+    if [ -n "$iface" ]; then
+        echo "$iface"
+        return
+    fi
+    ip link show | grep "state UP" | awk -F': ' '{print $2}' | cut -d'@' -f1 | grep -v '^lo$' | head -n1
+}
+
+ptm_format_bytes() {
+    local bytes=$1
+    [[ "$bytes" =~ ^[0-9]+$ ]] || bytes=0
+    if [ "$bytes" -ge 1073741824 ]; then
+        awk -v b="$bytes" 'BEGIN{printf "%.2fGB", b/1073741824}'
+    elif [ "$bytes" -ge 1048576 ]; then
+        awk -v b="$bytes" 'BEGIN{printf "%.2fMB", b/1048576}'
+    elif [ "$bytes" -ge 1024 ]; then
+        awk -v b="$bytes" 'BEGIN{printf "%.2fKB", b/1024}'
+    else
+        echo "${bytes}B"
+    fi
+}
+
+ptm_parse_size_to_bytes() {
+    local size_str=$1
+    local number unit
+    number=$(echo "$size_str" | grep -o '^[0-9]\+')
+    unit=$(echo "$size_str" | grep -o '[A-Za-z]\+$' | tr '[:lower:]' '[:upper:]')
+    [ -z "$number" ] && echo "0" && return 1
+    case $unit in
+        "MB"|"M") echo $((number * 1048576)) ;;
+        "GB"|"G") echo $((number * 1073741824)) ;;
+        "TB"|"T") echo $((number * 1099511627776)) ;;
+        *) echo "0" ;;
+    esac
+}
+
+# 校验配额格式，只接受 unlimited 或 数字+MB/GB/TB（大小写不敏感）
+# 格式不合法时 ptm_parse_size_to_bytes 会静默返回0，等价于"over 0 bytes"立即封锁，
+# 必须在入口拦截，否则用户手误输入会导致端口被意外瞬间封锁且无明显报错
+# 校验配额格式：0(无限制) 或 数字+MB/GB/TB(也接受单字母M/G/T)，大小写不敏感，与 dog 原版 validate_quota 一致
+ptm_validate_quota() {
+    local input="$1"
+    [ "$input" = "0" ] && return 0
+    local lower_input
+    lower_input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+    [[ "$lower_input" =~ ^[0-9]+(mb|gb|tb|m|g|t)$ ]]
+}
+
+# 校验带宽格式：0(无限制) 或 数字+Kbps/Mbps/Gbps，大小写不敏感，与 dog 原版 validate_bandwidth 一致
+# 用户输入/存储都是 Kbps/Mbps/Gbps，实际下发 tc 时才转换成 tc 原生的 kbit/mbit/gbit（见 ptm_rate_to_tc）
+ptm_validate_rate() {
+    local input="$1"
+    [ "$input" = "0" ] && return 0
+    local lower_input
+    lower_input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+    [[ "$lower_input" =~ ^[0-9]+(kbps|mbps|gbps)$ ]]
+}
+
+# 把用户输入/存储的 Kbps/Mbps/Gbps 转换成 tc 原生单位 kbit/mbit/gbit
+ptm_rate_to_tc() {
+    local input="$1"
+    local lower_input
+    lower_input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+    if [[ "$lower_input" =~ kbps$ ]]; then
+        echo "${lower_input%kbps}kbit"
+    elif [[ "$lower_input" =~ mbps$ ]]; then
+        echo "${lower_input%mbps}mbit"
+    elif [[ "$lower_input" =~ gbps$ ]]; then
+        echo "${lower_input%gbps}gbit"
+    fi
+}
+
+# ---- 端口粒度（单端口 / 端口段 100-200 / 端口组 101,102,105） ----
+
+ptm_is_port_range() {
+    [[ "$1" =~ ^[0-9]+-[0-9]+$ ]]
+}
+
+ptm_is_port_group() {
+    [[ "$1" =~ , ]] && ! ptm_is_port_range "$1"
+}
+
+ptm_get_group_ports() {
+    local port_key=$1
+    if ptm_is_port_group "$port_key"; then
+        echo "$port_key" | tr ',' ' '
+    elif ptm_is_port_range "$port_key"; then
+        seq "${port_key%-*}" "${port_key#*-}" | tr '\n' ' '
+    else
+        echo "$port_key"
+    fi
+}
+
+# 统一的安全命名：逗号和连字符都替换为下划线（单端口不含这两种字符，原样返回）
+ptm_safe_name() {
+    echo "$1" | tr ',-' '__'
+}
+
+ptm_get_active_ports() {
+    [ -f "$PTM_CONFIG_FILE" ] || return 1
+    jq -r '.ports | keys[]' "$PTM_CONFIG_FILE" 2>/dev/null | sort -n
+}
+
+# ---- 计费核心 ----
+
+ptm_calculate_total_traffic() {
+    local input_bytes=$1 output_bytes=$2 billing_mode=${3:-"double"}
+    case $billing_mode in
+        "double")
+            # 双向统计：(入站 + 出站) × 2，适用于全程走公网的转发场景
+            echo $(( (input_bytes + output_bytes) * 2 ))
+            ;;
+        "premium")
+            # 内网中转：(入站 + 出站) × 1，中转段走内网不计费
+            echo $(( input_bytes + output_bytes ))
+            ;;
+        "single"|*)
+            # 仅出站统计：出站 × 2
+            echo $(( output_bytes * 2 ))
+            ;;
+    esac
+}
+
+ptm_get_port_traffic() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    local input_bytes output_bytes
+    input_bytes=$(nft list counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print $2}')
+    output_bytes=$(nft list counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print $2}')
+    echo "${input_bytes:-0} ${output_bytes:-0}"
+}
+
+# 用指定的历史流量值重建计数器（合并端口为组时用于继承已有流量总量）
+ptm_restore_counter_value() {
+    local port=$1 target_input=$2 target_output=$3
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    nft delete counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" 2>/dev/null || true
+    nft delete counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" 2>/dev/null || true
+    nft add counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" "{ packets 0 bytes $target_input }" 2>/dev/null || true
+    nft add counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" "{ packets 0 bytes $target_output }" 2>/dev/null || true
+}
+
+# 显示带序号的端口列表，让用户按序号多选（逗号分隔），结果写入全局数组 PTM_PICKED_PORTS
+# 对应 dog 原版 show_port_list + parse_multi_choice_input 的组合用法
+# $1: 提示语  $2(可选): "single_only" 则只列出单端口(排除已有的端口组/端口段，供"合并为组"使用)
+ptm_pick_ports() {
+    local prompt="$1" filter="${2:-}"
+    PTM_PICKED_PORTS=()
+    local all_active=($(ptm_get_active_ports))
+    local candidates=()
+    local port
+    for port in "${all_active[@]}"; do
+        if [ "$filter" = "single_only" ] && { ptm_is_port_group "$port" || ptm_is_port_range "$port"; }; then
+            continue
+        fi
+        candidates+=("$port")
+    done
+    if [ ${#candidates[@]} -eq 0 ]; then
+        echo -e "${gl_huang}暂无可选端口${gl_bai}"
+        return 1
+    fi
+    echo "端口列表:"
+    local i
+    for i in "${!candidates[@]}"; do
+        port=${candidates[$i]}
+        local remark status
+        remark=$(jq -r ".ports.\"$port\".remark // \"\"" "$PTM_CONFIG_FILE")
+        status=$(ptm_format_running_status "$(ptm_get_port_running_status "$port")")
+        if [ -n "$remark" ] && [ "$remark" != "null" ]; then
+            echo "$((i+1)). 端口 $port [$remark] $status"
+        else
+            echo "$((i+1)). 端口 $port $status"
+        fi
+    done
+    echo ""
+    local choice_input
+    read -e -p "$prompt" choice_input
+    [ -z "$choice_input" ] && return 1
+    local old_ifs="$IFS"
+    IFS=','
+    local parts=($choice_input)
+    IFS="$old_ifs"
+    local c
+    for c in "${parts[@]}"; do
+        c=$(echo "$c" | tr -d ' ')
+        if [[ "$c" =~ ^[0-9]+$ ]] && [ "$c" -ge 1 ] && [ "$c" -le "${#candidates[@]}" ]; then
+            PTM_PICKED_PORTS+=("${candidates[$((c-1))]}")
+        fi
+    done
+    [ ${#PTM_PICKED_PORTS[@]} -eq 0 ] && return 1
+    return 0
+}
+
+ptm_get_port_monthly_usage() {
+    local port=$1
+    local traffic=($(ptm_get_port_traffic "$port"))
+    local billing_mode
+    billing_mode=$(jq -r ".ports.\"$port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+    ptm_calculate_total_traffic "${traffic[0]:-0}" "${traffic[1]:-0}" "$billing_mode"
+}
+
+# 返回: running / blocked_quota / blocked_expired / rate_limited:<rate> / quota_warning / expiring_soon:<days>
+ptm_get_port_running_status() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+
+    if nft list quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_block_quota" &>/dev/null; then
+        echo "blocked_expired"
+        return
+    fi
+
+    local quota_limit
+    quota_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+    if [ "$quota_limit" != "unlimited" ]; then
+        # 必须读 JSON 拿原始字节：nft 文本输出会把能被 1024 整除的值换单位打印(如 "over 102400 mbytes")，
+        # 到量时内核还会把 used 封顶成阈值(同样打印成 mbytes)，按 "over N bytes" 抠数字永远抠不到，到量也显示正常
+        local quota_state state_pattern='^[0-9]+ [0-9]+$'
+        quota_state=$(nft -j list quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_quota" 2>/dev/null | \
+            jq -r '[.nftables[]? | select(.quota) | .quota][0] // empty | "\(.bytes) \(.used // 0)"' 2>/dev/null || true)
+        if [[ "$quota_state" =~ $state_pattern ]]; then
+            local over_bytes=${quota_state% *}
+            local used_bytes=${quota_state#* }
+            if [ "$over_bytes" -gt 0 ]; then
+                if [ "$used_bytes" -ge "$over_bytes" ]; then
+                    echo "blocked_quota"
+                    return
+                fi
+                local warning_threshold=$((over_bytes * 80 / 100))
+                if [ "$used_bytes" -ge "$warning_threshold" ]; then
+                    echo "quota_warning"
+                    return
+                fi
+            fi
+        else
+            local current_usage limit_bytes
+            current_usage=$(ptm_get_port_monthly_usage "$port" 2>/dev/null || echo "0")
+            limit_bytes=$(ptm_parse_size_to_bytes "$quota_limit" 2>/dev/null || echo "0")
+            if [ "$limit_bytes" -gt 0 ] && [ "$current_usage" -ge "$limit_bytes" ]; then
+                echo "blocked_quota"
+                return
+            fi
+        fi
+    fi
+
+    local bandwidth_enabled
+    bandwidth_enabled=$(jq -r ".ports.\"$port\".bandwidth_limit.enabled // false" "$PTM_CONFIG_FILE")
+    if [ "$bandwidth_enabled" = "true" ]; then
+        local rate
+        rate=$(jq -r ".ports.\"$port\".bandwidth_limit.rate // \"unlimited\"" "$PTM_CONFIG_FILE")
+        [ "$rate" != "unlimited" ] && { echo "rate_limited:$rate"; return; }
+    fi
+
+    local expire_date
+    expire_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+    if [ -n "$expire_date" ] && [ "$expire_date" != "null" ]; then
+        local today expire_epoch today_epoch
+        today=$(ptm_beijing_time +%Y-%m-%d)
+        expire_epoch=$(date -d "$expire_date" +%s 2>/dev/null || echo "0")
+        today_epoch=$(date -d "$today" +%s 2>/dev/null || echo "0")
+        if [ "$expire_epoch" -gt 0 ] && [ "$today_epoch" -gt 0 ]; then
+            local diff_days=$(( (expire_epoch - today_epoch) / 86400 ))
+            if [ "$diff_days" -le 3 ] && [ "$diff_days" -ge 0 ]; then
+                echo "expiring_soon:$diff_days"
+                return
+            fi
+        fi
+    fi
+
+    echo "running"
+}
+
+ptm_format_running_status() {
+    case "$1" in
+        "running") echo "🟢正常" ;;
+        "blocked_expired") echo "🔴过期封锁" ;;
+        "blocked_quota") echo "🔴配额用尽" ;;
+        "quota_warning") echo "🟡即将用尽" ;;
+        rate_limited:*) echo "🟡限速${1#rate_limited:}" ;;
+        expiring_soon:*)
+            local days="${1#expiring_soon:}"
+            [ "$days" -eq 0 ] && echo "🟡今天到期" || echo "🟡${days}天到期"
+            ;;
+        *) echo "⚪未知" ;;
+    esac
+}
+
+# ---- nftables 流量计数规则 ----
+
+ptm_add_nftables_rules() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+
+    nft list counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" >/dev/null 2>&1 || \
+        nft add counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" 2>/dev/null || true
+    nft list counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" >/dev/null 2>&1 || \
+        nft add counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" 2>/dev/null || true
+
+    if ptm_is_port_group "$port"; then
+        local single_port
+        for single_port in $(ptm_get_group_ports "$port"); do
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input tcp dport $single_port counter name "port_${port_safe}_in" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input udp dport $single_port counter name "port_${port_safe}_in" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp dport $single_port counter name "port_${port_safe}_in" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp dport $single_port counter name "port_${port_safe}_in" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output tcp sport $single_port counter name "port_${port_safe}_out" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output udp sport $single_port counter name "port_${port_safe}_out" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp sport $single_port counter name "port_${port_safe}_out" 2>/dev/null || true
+            nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp sport $single_port counter name "port_${port_safe}_out" 2>/dev/null || true
+        done
+    else
+        # 端口段用 nftables 原生 range 语法（如 8000-8100），单端口同理直接可用
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input tcp dport $port counter name "port_${port_safe}_in" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input udp dport $port counter name "port_${port_safe}_in" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp dport $port counter name "port_${port_safe}_in" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp dport $port counter name "port_${port_safe}_in" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output tcp sport $port counter name "port_${port_safe}_out" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output udp sport $port counter name "port_${port_safe}_out" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp sport $port counter name "port_${port_safe}_out" 2>/dev/null || true
+        nft add rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp sport $port counter name "port_${port_safe}_out" 2>/dev/null || true
+    fi
+}
+
+ptm_remove_nftables_rules() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    local search_pattern="port_${port_safe}_"
+    local deleted_count=0
+
+    while true; do
+        local handle
+        handle=$(nft -a list table $PTM_TABLE_FAMILY $PTM_TABLE_NAME 2>/dev/null | \
+            grep -E "(tcp|udp).*(dport|sport).*$search_pattern" | head -n1 | sed -n 's/.*# handle \([0-9]\+\)$/\1/p')
+        [ -z "$handle" ] && break
+        local deleted=false
+        local chain
+        for chain in input output forward prerouting; do
+            if nft delete rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain handle $handle 2>/dev/null; then
+                deleted=true
+                deleted_count=$((deleted_count + 1))
+                break
+            fi
+        done
+        [ "$deleted" = false ] && break
+        [ "$deleted_count" -ge 200 ] && break
+    done
+
+    nft delete counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" 2>/dev/null || true
+    nft delete counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" 2>/dev/null || true
+}
+
+ptm_is_port_rules_exist() {
+    local port_safe
+    port_safe=$(ptm_safe_name "$1")
+    nft list counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" >/dev/null 2>&1
+}
+
+# ---- 配额（nftables quota 对象） ----
+
+ptm__apply_quota_rules_for_single_port() {
+    local single_port=$1 quota_name=$2 billing_mode=$3
+    if [ "$billing_mode" = "single" ]; then
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+    elif [ "$billing_mode" = "premium" ]; then
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input tcp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input udp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+    else
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input tcp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME input udp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME output udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME forward udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+    fi
+}
+
+ptm_apply_quota() {
+    local port=$1 quota_limit=$2
+    local billing_mode
+    billing_mode=$(jq -r ".ports.\"$port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+    local quota_bytes
+    quota_bytes=$(ptm_parse_size_to_bytes "$quota_limit")
+
+    # 用当前已有流量作为配额初始 used 值，避免续费/重设配额后立即误触发
+    local traffic=($(ptm_get_port_traffic "$port"))
+    local current_total
+    current_total=$(ptm_calculate_total_traffic "${traffic[0]:-0}" "${traffic[1]:-0}" "$billing_mode")
+
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    local quota_name="port_${port_safe}_quota"
+
+    nft delete quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME $quota_name 2>/dev/null || true
+    nft add quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME $quota_name { over $quota_bytes bytes used $current_total bytes } 2>/dev/null || true
+
+    if ptm_is_port_group "$port"; then
+        local single_port
+        for single_port in $(ptm_get_group_ports "$port"); do
+            ptm__apply_quota_rules_for_single_port "$single_port" "$quota_name" "$billing_mode"
+        done
+    else
+        ptm__apply_quota_rules_for_single_port "$port" "$quota_name" "$billing_mode"
+    fi
+
+    if ! nft list quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "$quota_name" >/dev/null 2>&1; then
+        echo -e "${gl_hong}⚠ 配额对象未生效: $quota_name${gl_bai}" >&2
+    fi
+}
+
+ptm_remove_quota() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    local quota_name="port_${port_safe}_quota"
+    local deleted_count=0
+    while true; do
+        local handle
+        handle=$(nft -a list table $PTM_TABLE_FAMILY $PTM_TABLE_NAME 2>/dev/null | grep "quota name \"$quota_name\"" | head -n1 | sed -n 's/.*# handle \([0-9]\+\)$/\1/p')
+        [ -z "$handle" ] && break
+        local deleted=false
+        local chain
+        for chain in input output forward; do
+            if nft delete rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain handle $handle 2>/dev/null; then
+                deleted=true
+                deleted_count=$((deleted_count + 1))
+                break
+            fi
+        done
+        [ "$deleted" = false ] && break
+        [ "$deleted_count" -ge 100 ] && break
+    done
+    nft delete quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "$quota_name" 2>/dev/null || true
+}
+
+# ---- 到期封锁（复用 quota over 0 bytes 机制，第一个包即触发 drop） ----
+
+ptm_block_port() {
+    local port=$1
+    ptm_init_nftables
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    ptm_remove_nftables_rules "$port"
+
+    local quota_name="port_${port_safe}_block_quota"
+    nft delete quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME $quota_name 2>/dev/null || true
+    nft add quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME $quota_name { over 0 bytes\; } 2>/dev/null || \
+        nft add quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME $quota_name { over 0 bytes } 2>/dev/null || true
+
+    local ports_to_block
+    if ptm_is_port_group "$port"; then
+        ports_to_block=$(ptm_get_group_ports "$port")
+    else
+        ports_to_block="$port"
+    fi
+    local single_port chain
+    for single_port in $ports_to_block; do
+        for chain in input forward prerouting; do
+            nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain tcp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+            nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain udp dport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        done
+        for chain in output forward; do
+            nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain tcp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+            nft insert rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain udp sport $single_port quota name "$quota_name" drop 2>/dev/null || true
+        done
+    done
+}
+
+ptm_unblock_port() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    local quota_name="port_${port_safe}_block_quota"
+    local deleted_count=0
+    while true; do
+        local handle
+        handle=$(nft -a list table $PTM_TABLE_FAMILY $PTM_TABLE_NAME 2>/dev/null | grep "quota name \"$quota_name\"" | head -n1 | sed -n 's/.*# handle \([0-9]\+\)$/\1/p')
+        [ -z "$handle" ] && break
+        local deleted=false
+        local chain
+        for chain in input output forward prerouting; do
+            if nft delete rule $PTM_TABLE_FAMILY $PTM_TABLE_NAME $chain handle $handle 2>/dev/null; then
+                deleted=true
+                deleted_count=$((deleted_count + 1))
+                break
+            fi
+        done
+        [ "$deleted" = false ] && break
+        [ "$deleted_count" -ge 100 ] && break
+    done
+    nft delete quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "$quota_name" 2>/dev/null || true
+    ptm_add_nftables_rules "$port"
+    local monthly_limit
+    monthly_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+    [ "$monthly_limit" != "unlimited" ] && ptm_apply_quota "$port" "$monthly_limit"
+}
+
+# ---- tc 带宽限速 ----
+
+ptm_generate_mark() {
+    local hash
+    hash=$(echo -n "$(ptm_safe_name "$1")" | cksum | cut -d' ' -f1)
+    echo $(( hash % 65000 + 1000 ))
+}
+
+ptm_generate_tc_class_id() {
+    local port=$1
+    if ptm_is_port_group "$port" || ptm_is_port_range "$port"; then
+        local mark_id
+        mark_id=$(ptm_generate_mark "$port")
+        echo "1:$(printf '%x' $((0x2000 + (mark_id % 4096))))"
+    else
+        echo "1:$(printf '%x' $((0x1000 + port)))"
+    fi
+}
+
+ptm_calculate_tc_burst() {
+    local base_rate=$1
+    local rate_bytes_per_sec=$((base_rate * 1000 / 8))
+    local burst_by_formula=$((rate_bytes_per_sec / 20))
+    local min_burst=$((2 * 1500))
+    [ "$burst_by_formula" -gt "$min_burst" ] && echo "$burst_by_formula" || echo "$min_burst"
+}
+
+ptm_format_tc_burst() {
+    local burst_bytes=$1
+    if [ "$burst_bytes" -lt 1024 ]; then
+        echo "${burst_bytes}"
+    elif [ "$burst_bytes" -lt 1048576 ]; then
+        echo "$((burst_bytes / 1024))k"
+    else
+        echo "$((burst_bytes / 1048576))m"
+    fi
+}
+
+ptm_parse_tc_rate_to_kbps() {
+    local total_limit=$1
+    if [[ "$total_limit" =~ gbit$ ]]; then
+        echo $(( ${total_limit%gbit} * 1000000 ))
+    elif [[ "$total_limit" =~ mbit$ ]]; then
+        echo $(( ${total_limit%mbit} * 1000 ))
+    else
+        echo "${total_limit%kbit}"
+    fi
+}
+
+ptm_apply_tc_limit() {
+    local port=$1 total_limit=$2
+    local interface
+    interface=$(ptm_get_default_interface)
+
+    tc qdisc add dev "$interface" root handle 1: htb default 30 2>/dev/null || true
+    tc class add dev "$interface" parent 1: classid 1:1 htb rate 1000mbit 2>/dev/null || true
+
+    local class_id
+    class_id=$(ptm_generate_tc_class_id "$port")
+    tc class del dev "$interface" classid "$class_id" 2>/dev/null || true
+
+    local base_rate burst_bytes burst_size
+    base_rate=$(ptm_parse_tc_rate_to_kbps "$total_limit")
+    burst_bytes=$(ptm_calculate_tc_burst "$base_rate")
+    burst_size=$(ptm_format_tc_burst "$burst_bytes")
+
+    if ! tc class add dev "$interface" parent 1:1 classid "$class_id" htb rate "$total_limit" ceil "$total_limit" burst "$burst_size" 2>/dev/null; then
+        echo -e "${gl_hong}设置带宽限制失败，请检查网络设备${gl_bai}" >&2
+        return 1
+    fi
+
+    if ptm_is_port_group "$port" || ptm_is_port_range "$port"; then
+        local mark_id
+        mark_id=$(ptm_generate_mark "$port")
+        tc filter add dev "$interface" protocol ip parent 1:0 prio 1 handle "$mark_id" fw flowid "$class_id" 2>/dev/null || true
+    else
+        local filter_prio=$((port % 1000 + 1))
+        tc filter add dev "$interface" protocol ip parent 1:0 prio "$filter_prio" u32 \
+            match ip protocol 6 0xff match ip sport "$port" 0xffff flowid "$class_id" 2>/dev/null || true
+        tc filter add dev "$interface" protocol ip parent 1:0 prio "$filter_prio" u32 \
+            match ip protocol 6 0xff match ip dport "$port" 0xffff flowid "$class_id" 2>/dev/null || true
+        tc filter add dev "$interface" protocol ip parent 1:0 prio $((filter_prio + 1000)) u32 \
+            match ip protocol 17 0xff match ip sport "$port" 0xffff flowid "$class_id" 2>/dev/null || true
+        tc filter add dev "$interface" protocol ip parent 1:0 prio $((filter_prio + 1000)) u32 \
+            match ip protocol 17 0xff match ip dport "$port" 0xffff flowid "$class_id" 2>/dev/null || true
+    fi
+}
+
+ptm_remove_tc_limit() {
+    local port=$1
+    local interface class_id
+    interface=$(ptm_get_default_interface)
+    class_id=$(ptm_generate_tc_class_id "$port")
+
+    # 按端口精确删除对应 filter，绝不能用不带任何匹配条件的 "tc filter del dev $interface"，
+    # 那样会把该网卡上所有端口的限速 filter 一并清空（含其他仍在生效的端口）
+    if ptm_is_port_group "$port" || ptm_is_port_range "$port"; then
+        local mark_id
+        mark_id=$(ptm_generate_mark "$port")
+        tc filter del dev "$interface" protocol ip parent 1:0 prio 1 handle "$mark_id" fw 2>/dev/null || true
+    else
+        local filter_prio=$((port % 1000 + 1))
+        tc filter del dev "$interface" protocol ip parent 1:0 prio "$filter_prio" u32 \
+            match ip protocol 6 0xff match ip sport "$port" 0xffff 2>/dev/null || true
+        tc filter del dev "$interface" protocol ip parent 1:0 prio "$filter_prio" u32 \
+            match ip protocol 6 0xff match ip dport "$port" 0xffff 2>/dev/null || true
+        tc filter del dev "$interface" protocol ip parent 1:0 prio $((filter_prio + 1000)) u32 \
+            match ip protocol 17 0xff match ip sport "$port" 0xffff 2>/dev/null || true
+        tc filter del dev "$interface" protocol ip parent 1:0 prio $((filter_prio + 1000)) u32 \
+            match ip protocol 17 0xff match ip dport "$port" 0xffff 2>/dev/null || true
+    fi
+    tc class del dev "$interface" classid "$class_id" 2>/dev/null || true
+}
+
+# ---- 到期日 / 计费周期计算 ----
+
+ptm_calculate_next_expiration() {
+    local base_date="$1" months="$2" target_day="$3"
+    local base_year base_month
+    base_year=$(date -d "$base_date" +%Y 2>/dev/null)
+    base_month=$(date -d "$base_date" +%m 2>/dev/null)
+    base_month=$((10#$base_month))
+    local total_months=$((base_month + months))
+    local year_add=$(( (total_months - 1) / 12 ))
+    local next_month=$(( (total_months - 1) % 12 + 1 ))
+    local next_year=$((base_year + year_add))
+    printf -v next_month "%02d" "$next_month"
+    printf -v target_day "%02d" "$target_day"
+    local candidate_date="${next_year}-${next_month}-${target_day}"
+    if date -d "$candidate_date" >/dev/null 2>&1; then
+        echo "$candidate_date"
+    else
+        date -d "${next_year}-${next_month}-01 + 1 month - 1 day" +%Y-%m-%d 2>/dev/null
+    fi
+}
+
+# 计算当前计费周期的起始日期（YYYY-MM-DD），reset_day 超过当月天数时收敛到月末，
+# 避免生成 2月31日 这类非法日期；据此判断是否需要重置可自动补偿关机/cron漏跑错过的重置。
+ptm_get_billing_cycle_start() {
+    local reset_day=${1:-1}
+    local today_day year month
+    today_day=$(ptm_beijing_time +%d | sed 's/^0//')
+    year=$(ptm_beijing_time +%Y)
+    month=$(ptm_beijing_time +%m)
+
+    local cur_last
+    cur_last=$(date -d "$year-$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+    [[ "$cur_last" =~ ^[0-9]+$ ]] || cur_last=28
+    local cur_effective=$reset_day
+    [ "$reset_day" -gt "$cur_last" ] && cur_effective=$cur_last
+
+    if [ "$today_day" -ge "$cur_effective" ]; then
+        printf "%s-%s-%02d" "$year" "$month" "$cur_effective"
+    else
+        if [ "$month" = "01" ]; then
+            month="12"; year=$((year - 1))
+        else
+            month=$(printf "%02d" $((10#$month - 1)))
+        fi
+        local prev_last
+        prev_last=$(date -d "$year-$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+        [[ "$prev_last" =~ ^[0-9]+$ ]] || prev_last=28
+        local prev_effective=$reset_day
+        [ "$reset_day" -gt "$prev_last" ] && prev_effective=$prev_last
+        printf "%s-%s-%02d" "$year" "$month" "$prev_effective"
+    fi
+}
+
+ptm_record_reset_history() {
+    local port=$1 traffic_bytes=$2
+    local timestamp
+    timestamp=$(ptm_beijing_time +%s)
+    echo "${timestamp}|${port}|${traffic_bytes}" >> "$PTM_RESET_HISTORY_LOG"
+    if [ -f "$PTM_RESET_HISTORY_LOG" ] && [ "$(wc -l < "$PTM_RESET_HISTORY_LOG")" -gt 100 ]; then
+        tail -n 100 "$PTM_RESET_HISTORY_LOG" > "${PTM_RESET_HISTORY_LOG}.tmp"
+        mv "${PTM_RESET_HISTORY_LOG}.tmp" "$PTM_RESET_HISTORY_LOG"
+    fi
+}
+
+ptm_reset_port_counters() {
+    local port=$1
+    local port_safe
+    port_safe=$(ptm_safe_name "$port")
+    nft reset counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_in" >/dev/null 2>&1 || true
+    nft reset counter $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_out" >/dev/null 2>&1 || true
+    nft reset quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_quota" >/dev/null 2>&1 || true
+}
+
+ptm_auto_reset_port() {
+    local port="$1"
+    local traffic=($(ptm_get_port_traffic "$port"))
+    local billing_mode total_bytes
+    billing_mode=$(jq -r ".ports.\"$port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+    total_bytes=$(ptm_calculate_total_traffic "${traffic[0]:-0}" "${traffic[1]:-0}" "$billing_mode")
+    ptm_reset_port_counters "$port"
+    ptm_record_reset_history "$port" "$total_bytes"
+    ptm_log_notification "端口 $port 自动重置完成，重置前流量: $(ptm_format_bytes "$total_bytes")"
+}
+
+# 按计费周期批量重置到期端口，可补偿关机/cron漏跑导致的错过重置
+ptm_reset_all_due_ports() {
+    local port reset_count=0
+    for port in $(ptm_get_active_ports); do
+        local reset_day_raw
+        reset_day_raw=$(jq -r ".ports.\"$port\".quota.reset_day" "$PTM_CONFIG_FILE" 2>/dev/null)
+        [ "$reset_day_raw" = "null" ] || [ -z "$reset_day_raw" ] && continue
+
+        local current_cycle last_cycle
+        current_cycle=$(ptm_get_billing_cycle_start "$reset_day_raw")
+        last_cycle=$(jq -r ".ports.\"$port\".quota.last_reset_cycle // \"\"" "$PTM_CONFIG_FILE" 2>/dev/null)
+
+        if [ -z "$last_cycle" ] || [ "$last_cycle" = "null" ]; then
+            ptm_update_config ".ports.\"$port\".quota.last_reset_cycle = \"$current_cycle\"" || true
+            continue
+        fi
+
+        if [ "$last_cycle" != "$current_cycle" ]; then
+            if ptm_auto_reset_port "$port"; then
+                ptm_update_config ".ports.\"$port\".quota.last_reset_cycle = \"$current_cycle\"" || true
+                reset_count=$((reset_count + 1))
+            fi
+        fi
+    done
+    [ "$reset_count" -gt 0 ] && ptm_log_notification "[批量重置] 本次成功重置 $reset_count 个端口"
+}
+
+# ---- 邮件通知 (Resend API) ----
+
+ptm_send_email() {
+    local title="$1" html_content="$2" target_email="$3"
+    local api_key email_from email_from_name
+    api_key=$(jq -r '.notify.resend_api_key // ""' "$PTM_CONFIG_FILE" 2>/dev/null)
+    email_from=$(jq -r '.notify.email_from // ""' "$PTM_CONFIG_FILE" 2>/dev/null)
+    email_from_name=$(jq -r '.notify.email_from_name // ""' "$PTM_CONFIG_FILE" 2>/dev/null)
+
+    if [ -z "$api_key" ] || [ -z "$email_from" ] || [ -z "$target_email" ]; then
+        return 1
+    fi
+
+    local from_address="$email_from"
+    [ -n "$email_from_name" ] && [ "$email_from_name" != "null" ] && from_address="${email_from_name} <${email_from}>"
+
+    local json_body
+    json_body=$(jq -n --arg from "$from_address" --arg to "$target_email" --arg subject "$title" \
+        --arg html "$html_content" --arg text "请使用支持HTML的邮箱客户端查看此邮件。" \
+        '{from: $from, to: $to, subject: $subject, html: $html, text: $text}')
+
+    local retry=0
+    while [ "$retry" -le "$PTM_EMAIL_MAX_RETRIES" ]; do
+        local response
+        response=$(curl -s --connect-timeout "$PTM_EMAIL_CONNECT_TIMEOUT" --max-time "$PTM_EMAIL_MAX_TIMEOUT" \
+            -X POST "https://api.resend.com/emails" \
+            -H "Authorization: Bearer ${api_key}" -H "Content-Type: application/json" \
+            -d "$json_body" 2>/dev/null)
+        if echo "$response" | grep -q '"id"'; then
+            ptm_log_notification "[邮件通知] 发送成功: $title"
+            return 0
+        fi
+        retry=$((retry + 1))
+        [ "$retry" -le "$PTM_EMAIL_MAX_RETRIES" ] && sleep 2
+    done
+    ptm_log_notification "[邮件通知] 发送失败: $title"
+    return 1
+}
+
+# ---- 每日检查：到期预警/停机/超期清理 + 配额80%/100%预警 ----
+
+ptm_check_all_expiration() {
+    local today today_epoch admin_email
+    today=$(ptm_beijing_time +%Y-%m-%d)
+    today_epoch=$(date -d "$today" +%s 2>/dev/null || echo "0")
+    admin_email=$(jq -r '.notify.admin_email // ""' "$PTM_CONFIG_FILE" 2>/dev/null)
+    local ports_to_cleanup=()
+
+    local port
+    for port in $(ptm_get_active_ports); do
+        local expire_date
+        expire_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+        [ -z "$expire_date" ] || [ "$expire_date" = "null" ] && continue
+
+        local user_email expire_epoch
+        user_email=$(jq -r ".ports.\"$port\".email // \"\"" "$PTM_CONFIG_FILE")
+        expire_epoch=$(date -d "$expire_date" +%s 2>/dev/null || echo "0")
+        [ "$expire_epoch" -eq 0 ] && continue
+
+        # 到期前3天预警窗口，每个到期周期只发一次
+        local warning_epoch=$((expire_epoch - 3 * 86400))
+        if [ "$today_epoch" -ge "$warning_epoch" ] && [ "$today_epoch" -lt "$expire_epoch" ]; then
+            local last_warning_target
+            last_warning_target=$(jq -r ".ports.\"$port\".last_warning_target_date // \"\"" "$PTM_CONFIG_FILE")
+            if [ "$last_warning_target" != "$expire_date" ]; then
+                if [ -n "$user_email" ] && [ "$user_email" != "null" ]; then
+                    if ptm_send_email "【租期提醒】端口 $port 即将到期" \
+                        "<h1>⚠️ 续费提醒</h1><p>您租用的端口 <strong>$port</strong> 即将到期 (<strong>$expire_date</strong>)，请及时续费。</p>" \
+                        "$user_email"; then
+                        ptm_update_config ".ports.\"$port\".last_warning_target_date = \"$expire_date\""
+                    fi
+                fi
+                [ -n "$admin_email" ] && [ "$admin_email" != "null" ] && ptm_send_email "[租期预警] 端口 $port 即将到期" \
+                    "<p>端口 $port 到期日: $expire_date</p>" "$admin_email"
+            fi
+        fi
+
+        if [ "$today_epoch" -gt "$expire_epoch" ]; then
+            local days_expired=$(( (today_epoch - expire_epoch) / 86400 ))
+            if [ "$days_expired" -ge 3 ]; then
+                ports_to_cleanup+=("$port")
+                continue
+            fi
+            if ptm_is_port_rules_exist "$port"; then
+                ptm_log_notification "[租期管理] 端口 $port 已到期 ($expire_date)，执行停机"
+                [ -n "$user_email" ] && [ "$user_email" != "null" ] && ptm_send_email "【服务暂停】端口 $port 已到期停机" \
+                    "<p>您租用的端口 $port 已到期 ($expire_date)，服务已暂停，请联系管理员续费。</p>" "$user_email"
+                [ -n "$admin_email" ] && [ "$admin_email" != "null" ] && ptm_send_email "[到期封锁] 端口 $port 已停机" \
+                    "<p>端口 $port 到期日 $expire_date 已停机</p>" "$admin_email"
+            fi
+            ptm_block_port "$port"
+            ptm_remove_tc_limit "$port"
+        fi
+    done
+
+    for port in "${ports_to_cleanup[@]}"; do
+        ptm_cleanup_expired_port "$port"
+    done
+}
+
+ptm_check_all_quota() {
+    local admin_email
+    admin_email=$(jq -r '.notify.admin_email // ""' "$PTM_CONFIG_FILE" 2>/dev/null)
+    local port
+    for port in $(ptm_get_active_ports); do
+        local quota_enabled monthly_limit
+        quota_enabled=$(jq -r ".ports.\"$port\".quota.enabled // true" "$PTM_CONFIG_FILE")
+        monthly_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+        [ "$quota_enabled" != "true" ] || [ "$monthly_limit" = "unlimited" ] && continue
+
+        local user_email
+        user_email=$(jq -r ".ports.\"$port\".email // \"\"" "$PTM_CONFIG_FILE")
+        [ -z "$user_email" ] || [ "$user_email" = "null" ] && continue
+
+        local current_usage limit_bytes
+        current_usage=$(ptm_get_port_monthly_usage "$port" 2>/dev/null || echo "0")
+        limit_bytes=$(ptm_parse_size_to_bytes "$monthly_limit" 2>/dev/null || echo "0")
+        [ "$limit_bytes" -le 0 ] && continue
+
+        local usage_percent=$((current_usage * 100 / limit_bytes))
+        local reset_day cycle_start
+        reset_day=$(jq -r ".ports.\"$port\".quota.reset_day // 1" "$PTM_CONFIG_FILE")
+        cycle_start=$(ptm_get_billing_cycle_start "$reset_day")
+
+        # 用百分比（95%）而非固定字节数做"已用尽"阈值，避免小额配额端口被误判
+        local block_threshold=$((limit_bytes * 95 / 100))
+        if [ "$current_usage" -ge "$block_threshold" ]; then
+            local last_block_cycle
+            last_block_cycle=$(jq -r ".ports.\"$port\".last_quota_block_notify_cycle // \"\"" "$PTM_CONFIG_FILE")
+            if [ "$last_block_cycle" != "$cycle_start" ]; then
+                if ptm_send_email "【流量超限】端口 $port 已被暂停" \
+                    "<p>端口 $port 本月流量配额已用完 (${usage_percent}%)，已被暂停服务。</p>" "$user_email"; then
+                    ptm_update_config ".ports.\"$port\".last_quota_block_notify_cycle = \"$cycle_start\""
+                fi
+            fi
+        elif [ "$usage_percent" -ge 80 ]; then
+            local last_warn_cycle
+            last_warn_cycle=$(jq -r ".ports.\"$port\".last_quota_warning_cycle // \"\"" "$PTM_CONFIG_FILE")
+            if [ "$last_warn_cycle" != "$cycle_start" ]; then
+                if ptm_send_email "【流量预警】端口 $port 配额即将用完" \
+                    "<p>端口 $port 本月流量配额已使用 ${usage_percent}%。</p>" "$user_email"; then
+                    ptm_update_config ".ports.\"$port\".last_quota_warning_cycle = \"$cycle_start\""
+                fi
+            fi
+        fi
+    done
+}
+
+ptm_cleanup_expired_port() {
+    local port=$1
+    local user_email admin_email remark expire_date
+    user_email=$(jq -r ".ports.\"$port\".email // \"\"" "$PTM_CONFIG_FILE")
+    admin_email=$(jq -r '.notify.admin_email // ""' "$PTM_CONFIG_FILE")
+    remark=$(jq -r ".ports.\"$port\".remark // \"$port\"" "$PTM_CONFIG_FILE")
+    expire_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+
+    local port_backup
+    port_backup=$(jq ".ports.\"$port\"" "$PTM_CONFIG_FILE" 2>/dev/null)
+    ptm_log_notification "[自动清理-备份] 端口 $port 清理前配置快照: $port_backup"
+    ptm_log_notification "[自动清理] 端口 $port ($remark) 过期超3天，开始自动清理"
+
+    ptm_remove_nftables_rules "$port"
+    ptm_remove_quota "$port"
+    ptm_remove_tc_limit "$port"
+
+    if command -v conntrack >/dev/null 2>&1; then
+        local p
+        for p in $(ptm_get_group_ports "$port"); do
+            conntrack -D -p tcp --dport "$p" 2>/dev/null || true
+            conntrack -D -p udp --dport "$p" 2>/dev/null || true
+        done
+    fi
+
+    ptm_update_config "del(.ports.\"$port\")"
+
+    if [ -f "$PTM_RESET_HISTORY_LOG" ]; then
+        grep -v "|${port}|" "$PTM_RESET_HISTORY_LOG" > "${PTM_RESET_HISTORY_LOG}.tmp" 2>/dev/null || true
+        mv "${PTM_RESET_HISTORY_LOG}.tmp" "$PTM_RESET_HISTORY_LOG" 2>/dev/null || true
+    fi
+
+    [ -n "$admin_email" ] && [ "$admin_email" != "null" ] && ptm_send_email "[自动清理] 端口 $port ($remark) 已回收" \
+        "<p>端口 $port ($remark) 到期日 $expire_date，已自动清理监控。</p>" "$admin_email"
+
+    ptm_log_notification "[自动清理] 端口 $port ($remark) 清理完成"
+}
+
+# 重启/进程恢复后重建规则：已过期的端口重新封锁而非放行，避免出现免费可用窗口
+ptm_restore_monitoring_if_needed() {
+    local port
+    for port in $(ptm_get_active_ports); do
+        local expire_date today_epoch expire_epoch
+        expire_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+        if [ -n "$expire_date" ] && [ "$expire_date" != "null" ]; then
+            today_epoch=$(date -d "$(ptm_beijing_time +%Y-%m-%d)" +%s 2>/dev/null || echo "0")
+            expire_epoch=$(date -d "$expire_date" +%s 2>/dev/null || echo "0")
+            if [ "$expire_epoch" -gt 0 ] && [ "$today_epoch" -gt "$expire_epoch" ]; then
+                ptm_block_port "$port"
+                continue
+            fi
+        fi
+        if ! ptm_is_port_rules_exist "$port"; then
+            ptm_add_nftables_rules "$port"
+            local monthly_limit
+            monthly_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+            [ "$monthly_limit" != "unlimited" ] && ptm_apply_quota "$port" "$monthly_limit"
+            local rate_enabled
+            rate_enabled=$(jq -r ".ports.\"$port\".bandwidth_limit.enabled // false" "$PTM_CONFIG_FILE")
+            if [ "$rate_enabled" = "true" ]; then
+                local rate
+                rate=$(jq -r ".ports.\"$port\".bandwidth_limit.rate // \"\"" "$PTM_CONFIG_FILE")
+                [ -n "$rate" ] && [ "$rate" != "unlimited" ] && ptm_apply_tc_limit "$port" "$(ptm_rate_to_tc "$rate")"
+            fi
+        fi
+    done
+}
+
+# ---- cron 自动化：生成独立脚本(不反向依赖 net-tcp-tune.sh)，模式与 snell_install_daily_restart_cron 一致 ----
+
+ptm_install_cron() {
+    if ! command -v crontab >/dev/null 2>&1; then
+        echo -e "${gl_huang}⚠ 未安装 crontab，跳过每日自动检查/重置的定时任务${gl_bai}"
+        return 0
+    fi
+
+    cat > "$PTM_DAILY_SCRIPT" <<PTMDAILYEOF
+#!/bin/bash
+# ptm 每日到期/配额检查 wrapper（由 net-tcp-tune 自动生成，请勿手动修改）
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CONFIG_FILE="${PTM_CONFIG_FILE}"
+CONFIG_DIR="${PTM_CONFIG_DIR}"
+RESET_HISTORY_LOG="${PTM_RESET_HISTORY_LOG}"
+TABLE_NAME="${PTM_TABLE_NAME}"
+FAMILY="${PTM_TABLE_FAMILY}"
+LOG_FILE="${PTM_NOTIFICATION_LOG}"
+SNAPSHOT_FILE="${PTM_TRAFFIC_SNAPSHOT}"
+LOCK_FILE="/tmp/net-tcp-tune-ptm-daily.lock"
+
+log() { mkdir -p "\$(dirname "\$LOG_FILE")"; echo "[\$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')] \$1" >> "\$LOG_FILE"; }
+
+send_email() {
+    local title="\$1" html="\$2" to="\$3"
+    local key from
+    key=\$(jq -r '.notify.resend_api_key // ""' "\$CONFIG_FILE" 2>/dev/null)
+    from=\$(jq -r '.notify.email_from // ""' "\$CONFIG_FILE" 2>/dev/null)
+    [ -z "\$key" ] || [ -z "\$from" ] || [ -z "\$to" ] && return 1
+    local body
+    body=\$(jq -n --arg f "\$from" --arg t "\$to" --arg s "\$title" --arg h "\$html" '{from:\$f,to:\$t,subject:\$s,html:\$h}')
+    curl -s --max-time 20 -X POST "https://api.resend.com/emails" -H "Authorization: Bearer \$key" -H "Content-Type: application/json" -d "\$body" | grep -q '"id"'
+}
+
+update_json() {
+    local expr="\$1"
+    local tmp="\${CONFIG_FILE}.tmp"
+    jq "\$expr" "\$CONFIG_FILE" > "\$tmp" 2>/dev/null && [ -s "\$tmp" ] && mv "\$tmp" "\$CONFIG_FILE" || rm -f "\$tmp"
+}
+
+group_ports() {
+    local key="\$1"
+    if [[ "\$key" =~ , ]] && ! [[ "\$key" =~ ^[0-9]+-[0-9]+\$ ]]; then
+        echo "\$key" | tr ',' ' '
+    elif [[ "\$key" =~ ^[0-9]+-[0-9]+\$ ]]; then
+        seq "\${key%-*}" "\${key#*-}"
+    else
+        echo "\$key"
+    fi
+}
+
+# 完整清理超期端口（对应主脚本 ptm_cleanup_expired_port，cron里必须真正执行而不是只记日志跳过）
+cleanup_expired() {
+    local port="\$1" psafe admin remark backup
+    psafe=\$(echo "\$port" | tr ',-' '__')
+    admin=\$(jq -r '.notify.admin_email // ""' "\$CONFIG_FILE" 2>/dev/null)
+    remark=\$(jq -r ".ports.\\"\$port\\".remark // \\"\$port\\"" "\$CONFIG_FILE")
+    backup=\$(jq -c ".ports.\\"\$port\\"" "\$CONFIG_FILE" 2>/dev/null)
+    log "[自动清理-备份] 端口 \$port 清理前配置快照: \$backup"
+    log "[自动清理] 端口 \$port (\$remark) 过期超3天，开始自动清理"
+
+    local deleted=0
+    while true; do
+        local handle
+        handle=\$(nft -a list table \$FAMILY \$TABLE_NAME 2>/dev/null | grep -E "(tcp|udp).*(dport|sport).*port_\${psafe}_" | head -n1 | sed -n 's/.*# handle \\([0-9]\\+\\)\$/\\1/p')
+        [ -z "\$handle" ] && break
+        local ok=false chain
+        for chain in input output forward prerouting; do
+            if nft delete rule \$FAMILY \$TABLE_NAME \$chain handle \$handle 2>/dev/null; then ok=true; break; fi
+        done
+        [ "\$ok" = false ] && break
+        deleted=\$((deleted + 1))
+        [ "\$deleted" -ge 200 ] && break
+    done
+    nft delete counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" 2>/dev/null || true
+    nft delete counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" 2>/dev/null || true
+    nft delete quota \$FAMILY \$TABLE_NAME "port_\${psafe}_quota" 2>/dev/null || true
+    nft delete quota \$FAMILY \$TABLE_NAME "port_\${psafe}_block_quota" 2>/dev/null || true
+
+    local iface
+    iface=\$(ip route | grep default | awk '{print \$5}' | head -n1)
+    if [ -n "\$iface" ]; then
+        if [[ "\$port" =~ , ]] || [[ "\$port" =~ ^[0-9]+-[0-9]+\$ ]]; then
+            local mark_id
+            mark_id=\$(( \$(echo -n "\$psafe" | cksum | cut -d' ' -f1) % 65000 + 1000 ))
+            tc filter del dev "\$iface" protocol ip parent 1:0 prio 1 handle "\$mark_id" fw 2>/dev/null || true
+            tc class del dev "\$iface" classid "1:\$(printf '%x' \$((0x2000 + (mark_id % 4096))))" 2>/dev/null || true
+        else
+            local fprio=\$((port % 1000 + 1))
+            tc filter del dev "\$iface" protocol ip parent 1:0 prio "\$fprio" u32 match ip protocol 6 0xff match ip sport "\$port" 0xffff 2>/dev/null || true
+            tc filter del dev "\$iface" protocol ip parent 1:0 prio "\$fprio" u32 match ip protocol 6 0xff match ip dport "\$port" 0xffff 2>/dev/null || true
+            tc filter del dev "\$iface" protocol ip parent 1:0 prio \$((fprio + 1000)) u32 match ip protocol 17 0xff match ip sport "\$port" 0xffff 2>/dev/null || true
+            tc filter del dev "\$iface" protocol ip parent 1:0 prio \$((fprio + 1000)) u32 match ip protocol 17 0xff match ip dport "\$port" 0xffff 2>/dev/null || true
+            tc class del dev "\$iface" classid "1:\$(printf '%x' \$((0x1000 + port)))" 2>/dev/null || true
+        fi
+    fi
+
+    if command -v conntrack >/dev/null 2>&1; then
+        local p
+        for p in \$(group_ports "\$port"); do
+            conntrack -D -p tcp --dport "\$p" 2>/dev/null || true
+            conntrack -D -p udp --dport "\$p" 2>/dev/null || true
+        done
+    fi
+
+    update_json "del(.ports.\\"\$port\\")"
+    if [ -f "\$RESET_HISTORY_LOG" ]; then
+        grep -v "|\${port}|" "\$RESET_HISTORY_LOG" > "\${RESET_HISTORY_LOG}.tmp" 2>/dev/null || true
+        mv "\${RESET_HISTORY_LOG}.tmp" "\$RESET_HISTORY_LOG" 2>/dev/null || true
+    fi
+    [ -n "\$admin" ] && [ "\$admin" != "null" ] && send_email "[自动清理] 端口 \$port (\$remark) 已回收" "<p>端口 \$port (\$remark) 到期超3天，已自动清理监控。</p>" "\$admin"
+    log "[自动清理] 端口 \$port (\$remark) 清理完成"
+}
+
+check_all() {
+    [ -f "\$CONFIG_FILE" ] || return 0
+    local today today_epoch admin
+    today=\$(TZ='Asia/Shanghai' date +%Y-%m-%d)
+    today_epoch=\$(date -d "\$today" +%s 2>/dev/null || echo 0)
+    admin=\$(jq -r '.notify.admin_email // ""' "\$CONFIG_FILE" 2>/dev/null)
+    for port in \$(jq -r '.ports | keys[]' "\$CONFIG_FILE" 2>/dev/null); do
+        local expire user_email expire_epoch
+        expire=\$(jq -r ".ports.\\"\$port\\".expiration_date // \\"\\"" "\$CONFIG_FILE")
+        [ -z "\$expire" ] || [ "\$expire" = "null" ] && continue
+        user_email=\$(jq -r ".ports.\\"\$port\\".email // \\"\\"" "\$CONFIG_FILE")
+        expire_epoch=\$(date -d "\$expire" +%s 2>/dev/null || echo 0)
+        [ "\$expire_epoch" -eq 0 ] && continue
+
+        # 到期前3天预警窗口，每个到期周期只发一次
+        local warning_epoch=\$((expire_epoch - 3 * 86400))
+        if [ "\$today_epoch" -ge "\$warning_epoch" ] && [ "\$today_epoch" -lt "\$expire_epoch" ]; then
+            local last_warn
+            last_warn=\$(jq -r ".ports.\\"\$port\\".last_warning_target_date // \\"\\"" "\$CONFIG_FILE")
+            if [ "\$last_warn" != "\$expire" ]; then
+                log "[租期预警] 端口 \$port 即将到期 (\$expire)"
+                if [ -n "\$user_email" ] && [ "\$user_email" != "null" ]; then
+                    if send_email "【租期提醒】端口 \$port 即将到期" "<p>您租用的端口 \$port 即将到期 (\$expire)，请及时续费。</p>" "\$user_email"; then
+                        update_json ".ports.\\"\$port\\".last_warning_target_date = \\"\$expire\\""
+                    fi
+                fi
+                [ -n "\$admin" ] && [ "\$admin" != "null" ] && send_email "[租期预警] 端口 \$port 即将到期" "<p>端口 \$port 到期日: \$expire</p>" "\$admin"
+            fi
+        fi
+
+        if [ "\$today_epoch" -gt "\$expire_epoch" ]; then
+            local days=\$(( (today_epoch - expire_epoch) / 86400 ))
+            if [ "\$days" -ge 3 ]; then
+                cleanup_expired "\$port"
+                continue
+            fi
+            log "[租期管理] 端口 \$port 已到期 (\$expire)，执行停机"
+            [ -n "\$user_email" ] && [ "\$user_email" != "null" ] && send_email "【服务暂停】端口 \$port 已到期停机" "<p>端口 \$port 已到期停机</p>" "\$user_email"
+            [ -n "\$admin" ] && [ "\$admin" != "null" ] && send_email "[到期封锁] 端口 \$port" "<p>端口 \$port 到期日 \$expire 已停机</p>" "\$admin"
+            local psafe=\$(echo "\$port" | tr ',-' '__')
+            nft delete quota \$FAMILY \$TABLE_NAME "port_\${psafe}_block_quota" 2>/dev/null || true
+            nft add quota \$FAMILY \$TABLE_NAME "port_\${psafe}_block_quota" { over 0 bytes\; } 2>/dev/null || true
+            nft insert rule \$FAMILY \$TABLE_NAME input tcp dport \$port quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+            nft insert rule \$FAMILY \$TABLE_NAME input udp dport \$port quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+            nft insert rule \$FAMILY \$TABLE_NAME output tcp sport \$port quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+            nft insert rule \$FAMILY \$TABLE_NAME output udp sport \$port quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+        fi
+    done
+}
+
+# 配额80%预警 / 95%(视为用尽)封锁通知，按计费周期去重
+check_quota() {
+    [ -f "\$CONFIG_FILE" ] || return 0
+    for port in \$(jq -r '.ports | keys[]' "\$CONFIG_FILE" 2>/dev/null); do
+        local enabled limit
+        enabled=\$(jq -r ".ports.\\"\$port\\".quota.enabled // true" "\$CONFIG_FILE")
+        limit=\$(jq -r ".ports.\\"\$port\\".quota.monthly_limit // \\"unlimited\\"" "\$CONFIG_FILE")
+        [ "\$enabled" != "true" ] || [ "\$limit" = "unlimited" ] && continue
+        local user_email
+        user_email=\$(jq -r ".ports.\\"\$port\\".email // \\"\\"" "\$CONFIG_FILE")
+        [ -z "\$user_email" ] || [ "\$user_email" = "null" ] && continue
+
+        local psafe number unit limit_bytes
+        psafe=\$(echo "\$port" | tr ',-' '__')
+        number=\$(echo "\$limit" | grep -o '^[0-9]\\+')
+        unit=\$(echo "\$limit" | grep -o '[A-Za-z]\\+\$' | tr '[:lower:]' '[:upper:]')
+        case "\$unit" in
+            MB|M) limit_bytes=\$((number * 1048576)) ;;
+            GB|G) limit_bytes=\$((number * 1073741824)) ;;
+            TB|T) limit_bytes=\$((number * 1099511627776)) ;;
+            *) limit_bytes=0 ;;
+        esac
+        [ "\$limit_bytes" -le 0 ] && continue
+
+        local in_b out_b mode usage
+        in_b=\$(nft list counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print \$2}')
+        out_b=\$(nft list counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print \$2}')
+        in_b=\${in_b:-0}; out_b=\${out_b:-0}
+        mode=\$(jq -r ".ports.\\"\$port\\".billing_mode // \\"double\\"" "\$CONFIG_FILE")
+        case "\$mode" in
+            premium) usage=\$((in_b + out_b)) ;;
+            single) usage=\$((out_b * 2)) ;;
+            *) usage=\$(( (in_b + out_b) * 2 )) ;;
+        esac
+        local pct=\$((usage * 100 / limit_bytes))
+
+        local reset_day cycle
+        reset_day=\$(jq -r ".ports.\\"\$port\\".quota.reset_day // 1" "\$CONFIG_FILE")
+        cycle=\$(cycle_start "\$reset_day")
+
+        local block_threshold=\$((limit_bytes * 95 / 100))
+        if [ "\$usage" -ge "\$block_threshold" ]; then
+            local last
+            last=\$(jq -r ".ports.\\"\$port\\".last_quota_block_notify_cycle // \\"\\"" "\$CONFIG_FILE")
+            if [ "\$last" != "\$cycle" ]; then
+                log "[配额封锁] 端口 \$port 本周期流量已用 \${pct}%，已通知封锁"
+                if send_email "【流量超限】端口 \$port 已被暂停" "<p>端口 \$port 本月流量配额已用完 (\${pct}%)，已被暂停服务。</p>" "\$user_email"; then
+                    update_json ".ports.\\"\$port\\".last_quota_block_notify_cycle = \\"\$cycle\\""
+                fi
+            fi
+        elif [ "\$pct" -ge 80 ]; then
+            local last
+            last=\$(jq -r ".ports.\\"\$port\\".last_quota_warning_cycle // \\"\\"" "\$CONFIG_FILE")
+            if [ "\$last" != "\$cycle" ]; then
+                log "[配额预警] 端口 \$port 本周期流量已用 \${pct}%"
+                if send_email "【流量预警】端口 \$port 配额即将用完" "<p>端口 \$port 本月流量配额已使用 \${pct}%。</p>" "\$user_email"; then
+                    update_json ".ports.\\"\$port\\".last_quota_warning_cycle = \\"\$cycle\\""
+                fi
+            fi
+        fi
+    done
+}
+
+cycle_start() {
+    local reset_day=\$1
+    local today_day year month cur_last cur_eff
+    today_day=\$(TZ='Asia/Shanghai' date +%d | sed 's/^0//')
+    year=\$(TZ='Asia/Shanghai' date +%Y)
+    month=\$(TZ='Asia/Shanghai' date +%m)
+    cur_last=\$(date -d "\$year-\$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+    cur_eff=\$reset_day
+    [ "\$reset_day" -gt "\$cur_last" ] && cur_eff=\$cur_last
+    if [ "\$today_day" -ge "\$cur_eff" ]; then
+        printf "%s-%s-%02d" "\$year" "\$month" "\$cur_eff"
+    else
+        if [ "\$month" = "01" ]; then month="12"; year=\$((year - 1)); else month=\$(printf "%02d" \$((10#\$month - 1))); fi
+        local prev_last=\$(date -d "\$year-\$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+        local prev_eff=\$reset_day
+        [ "\$reset_day" -gt "\$prev_last" ] && prev_eff=\$prev_last
+        printf "%s-%s-%02d" "\$year" "\$month" "\$prev_eff"
+    fi
+}
+
+# 落盘当前所有端口的流量计数快照，供开机恢复脚本在 nftables 表被清空后回填历史值使用
+# （没有这一步的话，reboot 后计数器只能从0开始，本次修复的开机恢复脚本会读取此文件补种历史值）
+save_snapshot() {
+    [ -f "\$CONFIG_FILE" ] || return 0
+    local tmp="\${SNAPSHOT_FILE}.tmp"
+    echo '{}' > "\$tmp"
+    for port in \$(jq -r '.ports | keys[]' "\$CONFIG_FILE" 2>/dev/null); do
+        local psafe in_b out_b
+        psafe=\$(echo "\$port" | tr ',-' '__')
+        in_b=\$(nft list counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print \$2}')
+        out_b=\$(nft list counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" 2>/dev/null | grep -o 'bytes [0-9]*' | awk '{print \$2}')
+        in_b=\${in_b:-0}; out_b=\${out_b:-0}
+        jq --arg p "\$port" --argjson i "\$in_b" --argjson o "\$out_b" '.[\$p] = {input:\$i, output:\$o}' "\$tmp" > "\${tmp}.2" 2>/dev/null && mv "\${tmp}.2" "\$tmp"
+    done
+    mv "\$tmp" "\$SNAPSHOT_FILE"
+}
+
+if command -v flock >/dev/null 2>&1; then
+    ( flock -n 9 || exit 0; check_all; check_quota; save_snapshot ) 9>"\$LOCK_FILE"
+else
+    check_all; check_quota; save_snapshot
+fi
+PTMDAILYEOF
+    chmod +x "$PTM_DAILY_SCRIPT"
+
+    cat > "$PTM_RESET_SCRIPT" <<PTMRESETEOF
+#!/bin/bash
+# ptm 每日计费周期重置 wrapper（由 net-tcp-tune 自动生成，请勿手动修改）
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CONFIG_FILE="${PTM_CONFIG_FILE}"
+TABLE_NAME="${PTM_TABLE_NAME}"
+FAMILY="${PTM_TABLE_FAMILY}"
+LOG_FILE="${PTM_NOTIFICATION_LOG}"
+LOCK_FILE="/tmp/net-tcp-tune-ptm-reset.lock"
+
+log() { mkdir -p "\$(dirname "\$LOG_FILE")"; echo "[\$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')] \$1" >> "\$LOG_FILE"; }
+
+cycle_start() {
+    local reset_day=\$1
+    local today_day year month cur_last cur_eff
+    today_day=\$(TZ='Asia/Shanghai' date +%d | sed 's/^0//')
+    year=\$(TZ='Asia/Shanghai' date +%Y)
+    month=\$(TZ='Asia/Shanghai' date +%m)
+    cur_last=\$(date -d "\$year-\$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+    cur_eff=\$reset_day
+    [ "\$reset_day" -gt "\$cur_last" ] && cur_eff=\$cur_last
+    if [ "\$today_day" -ge "\$cur_eff" ]; then
+        printf "%s-%s-%02d" "\$year" "\$month" "\$cur_eff"
+    else
+        if [ "\$month" = "01" ]; then month="12"; year=\$((year - 1)); else month=\$(printf "%02d" \$((10#\$month - 1))); fi
+        local prev_last=\$(date -d "\$year-\$month-01 +1 month -1 day" +%-d 2>/dev/null || echo 28)
+        local prev_eff=\$reset_day
+        [ "\$reset_day" -gt "\$prev_last" ] && prev_eff=\$prev_last
+        printf "%s-%s-%02d" "\$year" "\$month" "\$prev_eff"
+    fi
+}
+
+reset_all() {
+    [ -f "\$CONFIG_FILE" ] || return 0
+    local tmp="\${CONFIG_FILE}.tmp"
+    for port in \$(jq -r '.ports | keys[]' "\$CONFIG_FILE" 2>/dev/null); do
+        local reset_day
+        reset_day=\$(jq -r ".ports.\\"\$port\\".quota.reset_day" "\$CONFIG_FILE" 2>/dev/null)
+        [ "\$reset_day" = "null" ] || [ -z "\$reset_day" ] && continue
+        local cur last
+        cur=\$(cycle_start "\$reset_day")
+        last=\$(jq -r ".ports.\\"\$port\\".quota.last_reset_cycle // \\"\\"" "\$CONFIG_FILE" 2>/dev/null)
+        if [ -z "\$last" ] || [ "\$last" = "null" ]; then
+            jq ".ports.\\"\$port\\".quota.last_reset_cycle = \\"\$cur\\"" "\$CONFIG_FILE" > "\$tmp" && mv "\$tmp" "\$CONFIG_FILE"
+            continue
+        fi
+        if [ "\$last" != "\$cur" ]; then
+            local psafe=\$(echo "\$port" | tr ',-' '__')
+            nft reset counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" >/dev/null 2>&1 || true
+            nft reset counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" >/dev/null 2>&1 || true
+            nft reset quota \$FAMILY \$TABLE_NAME "port_\${psafe}_quota" >/dev/null 2>&1 || true
+            jq ".ports.\\"\$port\\".quota.last_reset_cycle = \\"\$cur\\"" "\$CONFIG_FILE" > "\$tmp" && mv "\$tmp" "\$CONFIG_FILE"
+            log "端口 \$port 计费周期重置完成 (周期起点: \$cur)"
+        fi
+    done
+}
+
+if command -v flock >/dev/null 2>&1; then
+    ( flock -n 9 || exit 0; reset_all ) 9>"\$LOCK_FILE"
+else
+    reset_all
+fi
+PTMRESETEOF
+    chmod +x "$PTM_RESET_SCRIPT"
+
+    # 开机恢复脚本：重启后 nftables 表是内存态会被清空，必须在开机时重建规则/配额/限速，
+    # 并按到期日重新判定应该放行还是封锁（避免"重启后过期端口变回可放行"的窗口期）
+    cat > "$PTM_BOOT_RESTORE_SCRIPT" <<PTMBOOTEOF
+#!/bin/bash
+# ptm 开机恢复 wrapper（由 net-tcp-tune 自动生成，请勿手动修改）
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CONFIG_FILE="${PTM_CONFIG_FILE}"
+TABLE_NAME="${PTM_TABLE_NAME}"
+FAMILY="${PTM_TABLE_FAMILY}"
+LOG_FILE="${PTM_NOTIFICATION_LOG}"
+SNAPSHOT_FILE="${PTM_TRAFFIC_SNAPSHOT}"
+
+log() { mkdir -p "\$(dirname "\$LOG_FILE")"; echo "[\$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')] \$1" >> "\$LOG_FILE"; }
+
+[ -f "\$CONFIG_FILE" ] || exit 0
+
+# 开机时网络/内核模块可能还没就绪，等到 nft/jq 都可用再继续（最多等30秒）
+for i in \$(seq 1 30); do
+    command -v nft >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && break
+    sleep 1
+done
+
+nft add table \$FAMILY \$TABLE_NAME 2>/dev/null || true
+nft add chain \$FAMILY \$TABLE_NAME input '{ type filter hook input priority 0; }' 2>/dev/null || true
+nft add chain \$FAMILY \$TABLE_NAME output '{ type filter hook output priority 0; }' 2>/dev/null || true
+nft add chain \$FAMILY \$TABLE_NAME forward '{ type filter hook forward priority 0; }' 2>/dev/null || true
+nft add chain \$FAMILY \$TABLE_NAME prerouting '{ type filter hook prerouting priority -150; }' 2>/dev/null || true
+
+iface=\$(ip route | grep default | awk '{print \$5}' | head -n1)
+
+group_ports() {
+    local key="\$1"
+    if [[ "\$key" =~ , ]] && ! [[ "\$key" =~ ^[0-9]+-[0-9]+\$ ]]; then
+        echo "\$key" | tr ',' ' '
+    elif [[ "\$key" =~ ^[0-9]+-[0-9]+\$ ]]; then
+        seq "\${key%-*}" "\${key#*-}"
+    else
+        echo "\$key"
+    fi
+}
+
+today_epoch=\$(date -d "\$(TZ='Asia/Shanghai' date +%Y-%m-%d)" +%s 2>/dev/null || echo 0)
+restored=0
+blocked=0
+
+for port in \$(jq -r '.ports | keys[]' "\$CONFIG_FILE" 2>/dev/null); do
+    psafe=\$(echo "\$port" | tr ',-' '__')
+    expire=\$(jq -r ".ports.\\"\$port\\".expiration_date // \\"\\"" "\$CONFIG_FILE")
+    is_expired=false
+    if [ -n "\$expire" ] && [ "\$expire" != "null" ]; then
+        expire_epoch=\$(date -d "\$expire" +%s 2>/dev/null || echo 0)
+        [ "\$expire_epoch" -gt 0 ] && [ "\$today_epoch" -gt "\$expire_epoch" ] && is_expired=true
+    fi
+
+    if [ "\$is_expired" = true ]; then
+        nft delete quota \$FAMILY \$TABLE_NAME "port_\${psafe}_block_quota" 2>/dev/null || true
+        nft add quota \$FAMILY \$TABLE_NAME "port_\${psafe}_block_quota" { over 0 bytes\; } 2>/dev/null || true
+        for p in \$(group_ports "\$port"); do
+            for chain in input forward prerouting; do
+                nft insert rule \$FAMILY \$TABLE_NAME \$chain tcp dport \$p quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+                nft insert rule \$FAMILY \$TABLE_NAME \$chain udp dport \$p quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+            done
+            for chain in output forward; do
+                nft insert rule \$FAMILY \$TABLE_NAME \$chain tcp sport \$p quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+                nft insert rule \$FAMILY \$TABLE_NAME \$chain udp sport \$p quota name "port_\${psafe}_block_quota" drop 2>/dev/null || true
+            done
+        done
+        blocked=\$((blocked + 1))
+        continue
+    fi
+
+    snap_in=0; snap_out=0
+    if [ -f "\$SNAPSHOT_FILE" ]; then
+        snap_in=\$(jq -r --arg p "\$port" '.[\$p].input // 0' "\$SNAPSHOT_FILE" 2>/dev/null)
+        snap_out=\$(jq -r --arg p "\$port" '.[\$p].output // 0' "\$SNAPSHOT_FILE" 2>/dev/null)
+        [[ "\$snap_in" =~ ^[0-9]+\$ ]] || snap_in=0
+        [[ "\$snap_out" =~ ^[0-9]+\$ ]] || snap_out=0
+    fi
+    nft delete counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" 2>/dev/null || true
+    nft delete counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" 2>/dev/null || true
+    nft add counter \$FAMILY \$TABLE_NAME "port_\${psafe}_in" "{ packets 0 bytes \$snap_in }" 2>/dev/null || true
+    nft add counter \$FAMILY \$TABLE_NAME "port_\${psafe}_out" "{ packets 0 bytes \$snap_out }" 2>/dev/null || true
+
+    for p in \$(group_ports "\$port"); do
+        nft add rule \$FAMILY \$TABLE_NAME input tcp dport \$p counter name "port_\${psafe}_in" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME input udp dport \$p counter name "port_\${psafe}_in" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME forward tcp dport \$p counter name "port_\${psafe}_in" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME forward udp dport \$p counter name "port_\${psafe}_in" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME output tcp sport \$p counter name "port_\${psafe}_out" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME output udp sport \$p counter name "port_\${psafe}_out" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME forward tcp sport \$p counter name "port_\${psafe}_out" 2>/dev/null || true
+        nft add rule \$FAMILY \$TABLE_NAME forward udp sport \$p counter name "port_\${psafe}_out" 2>/dev/null || true
+    done
+
+    limit=\$(jq -r ".ports.\\"\$port\\".quota.monthly_limit // \\"unlimited\\"" "\$CONFIG_FILE")
+    mode=\$(jq -r ".ports.\\"\$port\\".billing_mode // \\"double\\"" "\$CONFIG_FILE")
+    if [ "\$limit" != "unlimited" ]; then
+        number=\$(echo "\$limit" | grep -o '^[0-9]\\+')
+        unit=\$(echo "\$limit" | grep -o '[A-Za-z]\\+\$' | tr '[:lower:]' '[:upper:]')
+        case "\$unit" in
+            MB|M) quota_bytes=\$((number * 1048576)) ;;
+            GB|G) quota_bytes=\$((number * 1073741824)) ;;
+            TB|T) quota_bytes=\$((number * 1099511627776)) ;;
+            *) quota_bytes=0 ;;
+        esac
+        case "\$mode" in
+            premium) used=\$((snap_in + snap_out)) ;;
+            single) used=\$((snap_out * 2)) ;;
+            *) used=\$(( (snap_in + snap_out) * 2 )) ;;
+        esac
+        quota_name="port_\${psafe}_quota"
+        nft delete quota \$FAMILY \$TABLE_NAME "\$quota_name" 2>/dev/null || true
+        nft add quota \$FAMILY \$TABLE_NAME "\$quota_name" { over \$quota_bytes bytes used \$used bytes\; } 2>/dev/null || true
+        for p in \$(group_ports "\$port"); do
+            case "\$mode" in
+                single)
+                    nft insert rule \$FAMILY \$TABLE_NAME output tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME output udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    ;;
+                premium)
+                    nft insert rule \$FAMILY \$TABLE_NAME input tcp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME input udp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward tcp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward udp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME output tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME output udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    ;;
+                *)
+                    nft insert rule \$FAMILY \$TABLE_NAME input tcp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME input udp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward tcp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward udp dport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME output tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME output udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward tcp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    nft insert rule \$FAMILY \$TABLE_NAME forward udp sport \$p quota name "\$quota_name" drop 2>/dev/null || true
+                    ;;
+            esac
+        done
+    fi
+
+    if [ -n "\$iface" ]; then
+        rate_enabled=\$(jq -r ".ports.\\"\$port\\".bandwidth_limit.enabled // false" "\$CONFIG_FILE")
+        if [ "\$rate_enabled" = "true" ]; then
+            rate=\$(jq -r ".ports.\\"\$port\\".bandwidth_limit.rate // \\"\\"" "\$CONFIG_FILE")
+            if [ -n "\$rate" ] && [ "\$rate" != "unlimited" ]; then
+                lower=\$(echo "\$rate" | tr '[:upper:]' '[:lower:]')
+                tc_rate=""
+                [[ "\$lower" =~ kbps\$ ]] && tc_rate="\${lower%kbps}kbit"
+                [[ "\$lower" =~ mbps\$ ]] && tc_rate="\${lower%mbps}mbit"
+                [[ "\$lower" =~ gbps\$ ]] && tc_rate="\${lower%gbps}gbit"
+                if [ -n "\$tc_rate" ]; then
+                    tc qdisc add dev "\$iface" root handle 1: htb default 30 2>/dev/null || true
+                    tc class add dev "\$iface" parent 1: classid 1:1 htb rate 1000mbit 2>/dev/null || true
+                    if [[ "\$port" =~ , ]] || [[ "\$port" =~ ^[0-9]+-[0-9]+\$ ]]; then
+                        mark_id=\$(( \$(echo -n "\$psafe" | cksum | cut -d' ' -f1) % 65000 + 1000 ))
+                        class_id="1:\$(printf '%x' \$((0x2000 + (mark_id % 4096))))"
+                    else
+                        class_id="1:\$(printf '%x' \$((0x1000 + port)))"
+                    fi
+                    tc class del dev "\$iface" classid "\$class_id" 2>/dev/null || true
+                    tc class add dev "\$iface" parent 1:1 classid "\$class_id" htb rate "\$tc_rate" ceil "\$tc_rate" 2>/dev/null || true
+                    if [[ "\$port" =~ , ]] || [[ "\$port" =~ ^[0-9]+-[0-9]+\$ ]]; then
+                        tc filter add dev "\$iface" protocol ip parent 1:0 prio 1 handle "\$mark_id" fw flowid "\$class_id" 2>/dev/null || true
+                    else
+                        fprio=\$((port % 1000 + 1))
+                        tc filter add dev "\$iface" protocol ip parent 1:0 prio "\$fprio" u32 match ip protocol 6 0xff match ip sport "\$port" 0xffff flowid "\$class_id" 2>/dev/null || true
+                        tc filter add dev "\$iface" protocol ip parent 1:0 prio "\$fprio" u32 match ip protocol 6 0xff match ip dport "\$port" 0xffff flowid "\$class_id" 2>/dev/null || true
+                        tc filter add dev "\$iface" protocol ip parent 1:0 prio \$((fprio + 1000)) u32 match ip protocol 17 0xff match ip sport "\$port" 0xffff flowid "\$class_id" 2>/dev/null || true
+                        tc filter add dev "\$iface" protocol ip parent 1:0 prio \$((fprio + 1000)) u32 match ip protocol 17 0xff match ip dport "\$port" 0xffff flowid "\$class_id" 2>/dev/null || true
+                    fi
+                fi
+            fi
+        fi
+    fi
+    restored=\$((restored + 1))
+done
+
+log "[开机恢复] 已重建 \$restored 个正常端口规则，\$blocked 个到期端口已重新封锁"
+PTMBOOTEOF
+    chmod +x "$PTM_BOOT_RESTORE_SCRIPT"
+
+    cat > "$PTM_BOOT_RESTORE_SERVICE" <<PTMSVCEOF
 [Unit]
-Description=OAI2 Token Registration Panel (dan-web)
-After=network.target
+Description=ptm 端口流量监控 - 开机恢复 nftables 规则/配额/限速
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=simple
-WorkingDirectory=${OAI2_INSTALL_DIR}
-ExecStart=${OAI2_INSTALL_DIR}/${OAI2_BINARY_NAME}
-Restart=always
-RestartSec=5
+Type=oneshot
+ExecStart=${PTM_BOOT_RESTORE_SCRIPT}
 
 [Install]
 WantedBy=multi-user.target
-EOF
-    systemctl daemon-reload
+PTMSVCEOF
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable ptm-boot-restore.service >/dev/null 2>&1 || true
+    fi
+
+    local daily_h daily_m reset_h reset_m tmp_cron
+    read -r daily_h daily_m < <(snell_bj_to_local_time 00 10)
+    read -r reset_h reset_m < <(snell_bj_to_local_time 00 20)
+    tmp_cron=$(mktemp) || return 1
+    crontab -l 2>/dev/null | grep -v "# ptm每日检查" | grep -v "# ptm每日重置" > "$tmp_cron" || true
+    echo "${daily_m} ${daily_h} * * * ${PTM_DAILY_SCRIPT} >/dev/null 2>&1  # ptm每日检查" >> "$tmp_cron"
+    echo "${reset_m} ${reset_h} * * * ${PTM_RESET_SCRIPT} >/dev/null 2>&1  # ptm每日重置" >> "$tmp_cron"
+    crontab "$tmp_cron" 2>/dev/null && rm -f "$tmp_cron"
+    echo -e "${gl_lv}✓ 已注册每日北京时间 00:10(到期/配额检查) 与 00:20(计费周期重置) 定时任务，及开机自动恢复规则的 systemd 服务${gl_bai}"
 }
 
-# 一键部署
-oai2_deploy() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  一键部署 OAI2 令牌注册面板 (dan-web)${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+ptm_remove_cron() {
+    if command -v crontab >/dev/null 2>&1; then
+        local tmp_cron
+        tmp_cron=$(mktemp) || return 1
+        crontab -l 2>/dev/null | grep -v "# ptm每日检查" | grep -v "# ptm每日重置" > "$tmp_cron" || true
+        crontab "$tmp_cron" 2>/dev/null && rm -f "$tmp_cron"
+    fi
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl disable ptm-boot-restore.service >/dev/null 2>&1 || true
+        systemctl daemon-reload 2>/dev/null || true
+    fi
+    rm -f "$PTM_DAILY_SCRIPT" "$PTM_RESET_SCRIPT" "$PTM_BOOT_RESTORE_SCRIPT" "$PTM_BOOT_RESTORE_SERVICE" "$PTM_TRAFFIC_SNAPSHOT"
+}
+
+# ---- 交互菜单 ----
+
+# 快速开通端口（对应dog原版 quick_setup_port 完整流程：添加端口 → 设置重置日期 → 设置租期 → 设置邮箱）
+# 注意：带宽限速不在此流程内，和dog原版一致——限速走独立的"端口限制设置管理"菜单
+ptm_menu_add_port() {
+    ptm_init_config
+    ptm_check_dependencies
+    echo -e "${gl_kjlan}=== 快速开通端口 ===${gl_bai}"
+    echo "此功能将依次引导您完成: 添加端口 → 设置重置日期 → 设置租期 → 设置邮箱"
     echo ""
 
-    local status=$(oai2_check_status)
-    if [ "$status" != "not_installed" ]; then
-        echo -e "${gl_huang}⚠️ OAI2 已安装${gl_bai}"
-        read -e -p "是否重新部署？(y/n) [n]: " reinstall
-        if [ "$reinstall" != "y" ] && [ "$reinstall" != "Y" ]; then
-            break_end
-            return 0
-        fi
-        # 停止现有服务
-        systemctl stop "$OAI2_SERVICE_NAME" 2>/dev/null
-        systemctl disable "$OAI2_SERVICE_NAME" 2>/dev/null
+    echo -e "${gl_kjlan}=== 添加端口监控 ===${gl_bai}"
+    echo "格式：单端口(如 40001) / 端口段(如 8000-8100) / 端口组(如 101,102,105，将共享流量统计)"
+    read -e -p "请输入要监控的端口号: " port
+    if [ -z "$port" ]; then echo -e "${gl_hong}端口不能为空${gl_bai}"; break_end; return; fi
+    if ! [[ "$port" =~ ^[0-9]+(-[0-9]+)?(,[0-9]+)*$ ]]; then
+        echo -e "${gl_hong}端口格式不合法，只能是数字/端口段(100-200)/端口组(101,102,105)${gl_bai}"; break_end; return
+    fi
+    if jq -e ".ports | has(\"$port\")" "$PTM_CONFIG_FILE" >/dev/null 2>&1; then
+        echo -e "${gl_hong}端口 $port 已在监控列表中${gl_bai}"; break_end; return
     fi
 
-    # [1/5] 获取二进制文件
     echo ""
-    echo -e "${gl_kjlan}[1/5] 获取 OAI2 程序...${gl_bai}"
+    echo "请选择统计模式:"
+    echo "1. 双向流量统计（推荐）：总流量 = (入站 + 出站) × 2"
+    echo "2. 仅出站统计：总流量 = 出站 × 2"
+    echo "3. CN Premium 内网中转：总流量 = (入站 + 出站) × 1"
+    read -e -p "请选择(回车默认1) [1-3]: " billing_choice
+    local billing_mode="double"
+    case "$billing_choice" in 2) billing_mode="single" ;; 3) billing_mode="premium" ;; esac
 
-    local OAI2_RAR_NAME="OAI2_Codex_zhuceji.rar"
-    local OAI2_RAR_PATH="/root/${OAI2_RAR_NAME}"
-
-    if [ -f "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME" ]; then
-        echo -e "${gl_lv}✅ 二进制文件已存在，跳过解压${gl_bai}"
-    else
-        mkdir -p "$OAI2_INSTALL_DIR"
-
-        # 检查安装包是否存在
-        if [ ! -f "$OAI2_RAR_PATH" ]; then
-            echo -e "${gl_hong}❌ 未找到安装包: ${OAI2_RAR_PATH}${gl_bai}"
-            echo ""
-            echo -e "${gl_huang}请先将 ${OAI2_RAR_NAME} 上传到 /root/ 目录下，再重新运行${gl_bai}"
-            echo -e "${gl_huang}例如: scp ${OAI2_RAR_NAME} root@服务器IP:/root/${gl_bai}"
-            break_end
-            return 1
-        fi
-
-        # 安装 unrar
-        if ! command -v unrar &>/dev/null; then
-            echo "正在安装解压工具..."
-            apt install -y unrar-free 2>/dev/null || apt install -y unrar 2>/dev/null
-        fi
-
-        echo "正在解压安装包..."
-        cd "$OAI2_INSTALL_DIR" && unrar x -o+ "$OAI2_RAR_PATH"
-
-        if [ ! -f "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME" ]; then
-            echo -e "${gl_hong}❌ 解压后未找到 ${OAI2_BINARY_NAME}，请检查安装包内容${gl_bai}"
-            break_end
-            return 1
-        fi
-
-        # 删除 Windows 版本，节省空间
-        rm -f "$OAI2_INSTALL_DIR/dan-web-windows-amd64.exe" 2>/dev/null
-    fi
-
-    chmod +x "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"
-    echo -e "${gl_lv}✅ 程序准备就绪${gl_bai}"
-
-    # [2/5] 配置端口
     echo ""
-    echo -e "${gl_kjlan}[2/5] 配置服务参数...${gl_bai}"
-    echo ""
-
-    local api_port="$OAI2_DEFAULT_PORT"
-    read -e -p "请输入面板端口 [$OAI2_DEFAULT_PORT]: " input_port
-    if [ -n "$input_port" ]; then
-        api_port="$input_port"
-    fi
-    while ! oai2_check_port "$api_port"; do
-        echo -e "${gl_hong}⚠️ 端口 $api_port 已被占用${gl_bai}"
-        read -e -p "请输入面板端口: " api_port
-        [ -z "$api_port" ] && api_port="$OAI2_DEFAULT_PORT"
+    local quota_input
+    while true; do
+        echo "请输入配额值（0为无限制）（要带单位MB/GB/T）:"
+        read -e -p "流量配额(回车默认0): " quota_input
+        [ -z "$quota_input" ] && quota_input="0"
+        ptm_validate_quota "$quota_input" && break
+        echo -e "${gl_hong}配额格式错误: $quota_input，请使用如：100MB, 1GB, 2T${gl_bai}"
     done
-    echo -e "${gl_lv}✅ 面板端口 $api_port 可用${gl_bai}"
-
-    # [3/5] 配置登录 Token
-    echo ""
-    echo -e "${gl_kjlan}[3/5] 配置登录凭证...${gl_bai}"
-    echo ""
-
-    local web_token=$(openssl rand -hex 8 2>/dev/null || head -c 16 /dev/urandom | xxd -p | head -c 16)
-    read -e -p "设置面板登录 Token [随机生成: $web_token]: " input_token
-    if [ -n "$input_token" ]; then
-        web_token="$input_token"
-    fi
-    echo -e "${gl_lv}✅ 登录 Token 已设置${gl_bai}"
-
-    # CPA 连接配置
-    echo ""
-    local cpa_url="https://json.icoa.pp.ua/"
-    local cpa_token_val="linuxdo"
-    read -e -p "CPA 基本 URL [${cpa_url}]: " input_cpa_url
-    if [ -n "$input_cpa_url" ]; then
-        cpa_url="$input_cpa_url"
-    fi
-    read -e -p "CPA Token [${cpa_token_val}]: " input_cpa_token
-    if [ -n "$input_cpa_token" ]; then
-        cpa_token_val="$input_cpa_token"
-    fi
-
-    # [4/5] 生成配置文件
-    echo ""
-    echo -e "${gl_kjlan}[4/5] 生成配置文件...${gl_bai}"
-
-    oai2_generate_config "$api_port" "$web_token" "$cpa_url" "$cpa_token_val"
-    echo -e "${gl_lv}✅ 配置文件生成完成${gl_bai}"
-
-    # [5/5] 创建并启动服务
-    echo ""
-    echo -e "${gl_kjlan}[5/5] 启动 OAI2 服务...${gl_bai}"
-
-    oai2_create_service
-    systemctl enable "$OAI2_SERVICE_NAME" 2>/dev/null
-    systemctl start "$OAI2_SERVICE_NAME"
-
-    if [ $? -ne 0 ]; then
-        echo -e "${gl_hong}❌ 服务启动失败${gl_bai}"
-        echo ""
-        echo "尝试查看日志: journalctl -u $OAI2_SERVICE_NAME -n 20"
-        break_end
-        return 1
-    fi
-
-    # 保存配置
-    echo "$api_port" > "$OAI2_PORT_FILE"
-    echo "$web_token" > "$OAI2_TOKEN_FILE"
-
-    # 等待启动
-    sleep 3
-
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
+    local monthly_limit="unlimited"
+    [ "$quota_input" != "0" ] && monthly_limit="$quota_input"
 
     echo ""
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_lv}  ✅ OAI2 部署完成！${gl_bai}"
-    echo -e "${gl_lv}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+    read -e -p "请输入当前规则备注(可选，直接回车跳过): " remark
+
+    local created_at
+    created_at=$(ptm_beijing_time -Iseconds)
+    # 用 jq -n --arg 安全构造 JSON（避免备注含引号/反斜杠等特殊字符破坏 JSON 结构）
+    local port_json
+    port_json=$(jq -n \
+        --arg remark "$remark" --arg mode "$billing_mode" \
+        --arg created "$created_at" --arg quota "$monthly_limit" \
+        '{remark: $remark, billing_mode: $mode, email: "", created_at: $created,
+          expiration_date: "",
+          bandwidth_limit: {enabled: false, rate: "unlimited"},
+          quota: {enabled: true, monthly_limit: $quota}}')
+    ptm_update_config ".ports.\"$port\" = $port_json"
+    ptm_add_nftables_rules "$port"
+    [ "$monthly_limit" != "unlimited" ] && ptm_apply_quota "$port" "$monthly_limit"
+    ptm_install_cron
+    echo -e "${gl_lv}端口 $port 监控添加成功${gl_bai}"
     echo ""
-    echo -e "面板地址:    ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    echo -e "登录 Token:  ${gl_huang}${web_token}${gl_bai}"
-    echo -e "CPA 地址:    ${gl_huang}${cpa_url}${gl_bai}"
-    echo -e "安装目录:    ${gl_huang}${OAI2_INSTALL_DIR}${gl_bai}"
-    echo -e "配置文件:    ${gl_huang}${OAI2_INSTALL_DIR}/config/web_config.json${gl_bai}"
+    echo -e "${gl_lv}成功添加 1 个端口监控${gl_bai}"
+
+    # ==================== 第二步：设置重置日期 ====================
     echo ""
-
-    break_end
-}
-
-# 查看状态
-oai2_status() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OAI2 状态${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(oai2_check_status)
-    local api_port=$(oai2_get_port)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    case "$status" in
-        "running")
-            echo -e "状态: ${gl_lv}✅ 运行中${gl_bai}"
-            echo -e "面板地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-            echo ""
-            echo "服务详情:"
-            systemctl status "$OAI2_SERVICE_NAME" --no-pager -l 2>/dev/null | head -15
-            ;;
-        "stopped")
-            echo -e "状态: ${gl_hong}❌ 已停止${gl_bai}"
-            echo ""
-            echo "请使用「启动服务」选项启动"
-            ;;
-        "installed_no_service")
-            echo -e "状态: ${gl_huang}⚠️ 已安装但服务未创建${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」重新部署"
-            ;;
-        "not_installed")
-            echo -e "状态: ${gl_hui}未安装${gl_bai}"
-            echo ""
-            echo "请使用「一键部署」选项安装"
-            ;;
-    esac
-
-    echo ""
-    break_end
-}
-
-# 查看日志
-oai2_logs() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OAI2 日志${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-    echo -e "${gl_zi}按 Ctrl+C 退出日志查看${gl_bai}"
-    echo ""
-
-    journalctl -u "$OAI2_SERVICE_NAME" -f --no-pager -n 100
-}
-
-# 启动服务
-oai2_start() {
-    echo ""
-    echo "正在启动 OAI2..."
-    systemctl start "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        local api_port=$(oai2_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 启动成功${gl_bai}"
-        echo -e "面板地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 启动失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 停止服务
-oai2_stop() {
-    echo ""
-    echo "正在停止 OAI2..."
-    systemctl stop "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${gl_lv}✅ 已停止${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 停止失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 重启服务
-oai2_restart() {
-    echo ""
-    echo "正在重启 OAI2..."
-    systemctl restart "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        local api_port=$(oai2_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo -e "${gl_lv}✅ 重启成功${gl_bai}"
-        echo -e "面板地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 重启失败${gl_bai}"
-    fi
-
-    sleep 2
-    break_end
-}
-
-# 查看配置信息
-oai2_show_config() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  OAI2 配置信息${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local api_port=$(oai2_get_port)
-    local web_token=$(oai2_get_token)
-    local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-
-    echo -e "安装目录:    ${gl_huang}$OAI2_INSTALL_DIR${gl_bai}"
-    echo -e "配置文件:    ${gl_huang}$OAI2_INSTALL_DIR/config/web_config.json${gl_bai}"
-    echo -e "面板端口:    ${gl_huang}$api_port${gl_bai}"
-    echo -e "登录 Token:  ${gl_huang}${web_token:-未设置}${gl_bai}"
-    echo -e "面板地址:    ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-
-    # 显示 CPA 连接信息
-    if [ -f "$OAI2_INSTALL_DIR/config/web_config.json" ]; then
-        local cpa_url=$(grep -o '"cpa_base_url": *"[^"]*"' "$OAI2_INSTALL_DIR/config/web_config.json" | sed 's/"cpa_base_url": *"//;s/"$//')
-        echo -e "CPA 地址:    ${gl_huang}${cpa_url:-未配置}${gl_bai}"
-    fi
-
-    echo ""
-    break_end
-}
-
-# 修改端口
-oai2_change_port() {
-    echo ""
-    local current_port=$(oai2_get_port)
-    echo -e "当前面板端口: ${gl_huang}$current_port${gl_bai}"
-    echo ""
-
-    read -e -p "请输入新的面板端口: " new_port
-
-    if [ -z "$new_port" ]; then
-        echo "取消修改"
-        break_end
-        return 0
-    fi
-
-    if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-        echo -e "${gl_hong}❌ 无效的端口号: $new_port${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    if [ "$new_port" = "$current_port" ]; then
-        echo -e "${gl_huang}⚠️ 端口未改变${gl_bai}"
-        break_end
-        return 0
-    fi
-
-    if ! oai2_check_port "$new_port"; then
-        echo -e "${gl_hong}❌ 端口 $new_port 已被占用${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo "正在修改端口..."
-
-    # 更新配置文件中的端口
-    if [ -f "$OAI2_INSTALL_DIR/config/web_config.json" ]; then
-        sed -i "s|\"port\": *[0-9]*|\"port\": ${new_port}|" "$OAI2_INSTALL_DIR/config/web_config.json"
-    fi
-
-    echo "$new_port" > "$OAI2_PORT_FILE"
-
-    # 重启服务
-    systemctl restart "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 端口修改成功${gl_bai}"
-        echo -e "面板地址: ${gl_huang}http://${server_ip}:${new_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 端口修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 修改登录 Token
-oai2_change_token() {
-    echo ""
-    local current_token=$(oai2_get_token)
-    echo -e "当前登录 Token: ${gl_huang}${current_token:-未设置}${gl_bai}"
-    echo ""
-
-    read -e -p "请输入新的登录 Token: " new_token
-
-    if [ -z "$new_token" ]; then
-        echo "取消修改"
-        break_end
-        return 0
-    fi
-
-    echo "正在修改登录 Token..."
-
-    if [ -f "$OAI2_INSTALL_DIR/config/web_config.json" ]; then
-        sed -i "s|\"web_token\": *\"[^\"]*\"|\"web_token\": \"${new_token}\"|" "$OAI2_INSTALL_DIR/config/web_config.json"
-    fi
-
-    echo "$new_token" > "$OAI2_TOKEN_FILE"
-
-    systemctl restart "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${gl_lv}✅ 登录 Token 修改成功${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 修改失败${gl_bai}"
-    fi
-
-    break_end
-}
-
-# 更新二进制
-oai2_update() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_kjlan}  更新 OAI2 (替换二进制文件)${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
-
-    local status=$(oai2_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ OAI2 未安装，请先执行一键部署${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    local OAI2_RAR_NAME="OAI2_Codex_zhuceji.rar"
-    local OAI2_RAR_PATH="/root/${OAI2_RAR_NAME}"
-
-    if [ ! -f "$OAI2_RAR_PATH" ]; then
-        echo -e "${gl_hong}❌ 未找到更新包: ${OAI2_RAR_PATH}${gl_bai}"
-        echo ""
-        echo -e "${gl_huang}请先将新版 ${OAI2_RAR_NAME} 上传到 /root/ 目录下${gl_bai}"
-        break_end
-        return 1
-    fi
-
-    echo -e "找到更新包: ${gl_huang}${OAI2_RAR_PATH}${gl_bai}"
-    echo -e "文件大小:   ${gl_huang}$(du -h "$OAI2_RAR_PATH" | awk '{print $1}')${gl_bai}"
-    echo ""
-    read -e -p "确认更新？配置文件不会被覆盖 (y/n) [n]: " confirm
-
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo "取消更新"
-        break_end
-        return 0
-    fi
-
-    # 安装 unrar
-    if ! command -v unrar &>/dev/null; then
-        echo "正在安装解压工具..."
-        apt install -y unrar-free 2>/dev/null || apt install -y unrar 2>/dev/null
-        if ! command -v unrar &>/dev/null; then
-            echo -e "${gl_hong}❌ 解压工具安装失败${gl_bai}"
-            break_end
-            return 1
-        fi
-    fi
-
-    # 解压到临时目录（mktemp 保证唯一性）
-    local tmp_dir
-    tmp_dir=$(mktemp -d /tmp/oai2_update_XXXXXX) || {
-        echo -e "${gl_hong}❌ 无法创建临时目录${gl_bai}"
-        break_end
-        return 1
-    }
-    echo "正在解压..."
-    (cd "$tmp_dir" && unrar x -o+ "$OAI2_RAR_PATH" >/dev/null 2>&1)
-
-    if [ ! -f "$tmp_dir/$OAI2_BINARY_NAME" ]; then
-        echo -e "${gl_hong}❌ 解压后未找到 ${OAI2_BINARY_NAME}${gl_bai}"
-        rm -rf "$tmp_dir"
-        break_end
-        return 1
-    fi
-
-    # 停止服务
-    echo "正在停止服务..."
-    systemctl stop "$OAI2_SERVICE_NAME" 2>/dev/null
-
-    # 备份旧二进制
-    if [ -f "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME" ]; then
-        mv "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME" "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak"
-    fi
-
-    # 替换二进制（检查返回值）
-    if ! mv "$tmp_dir/$OAI2_BINARY_NAME" "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"; then
-        echo -e "${gl_hong}❌ 替换二进制失败，正在回滚...${gl_bai}"
-        if [ -f "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak" ]; then
-            mv "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak" "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"
-        fi
-        rm -rf "$tmp_dir"
-        systemctl start "$OAI2_SERVICE_NAME" 2>/dev/null
-        break_end
-        return 1
-    fi
-    chmod +x "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"
-
-    # 清理临时目录
-    rm -rf "$tmp_dir"
-
-    # 启动服务
-    echo "正在启动服务..."
-    systemctl start "$OAI2_SERVICE_NAME"
-
-    if [ $? -eq 0 ]; then
-        # 更新成功，清理备份
-        rm -f "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak"
-        local api_port=$(oai2_get_port)
-        local server_ip=$(curl -s4 ip.sb 2>/dev/null || curl -s6 ip.sb 2>/dev/null || echo "服务器IP")
-        echo ""
-        echo -e "${gl_lv}✅ 更新完成${gl_bai}"
-        echo -e "面板地址: ${gl_huang}http://${server_ip}:${api_port}${gl_bai}"
-    else
-        echo -e "${gl_hong}❌ 启动失败，正在回滚...${gl_bai}"
-        if [ -f "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak" ]; then
-            mv "$OAI2_INSTALL_DIR/${OAI2_BINARY_NAME}.bak" "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"
-            systemctl start "$OAI2_SERVICE_NAME"
-            if [ $? -eq 0 ]; then
-                echo -e "${gl_lv}✅ 已回滚到旧版本${gl_bai}"
-            else
-                echo -e "${gl_hong}❌ 回滚后仍无法启动，请手动排查: journalctl -u $OAI2_SERVICE_NAME -n 20${gl_bai}"
-            fi
+    echo -e "${gl_kjlan}>>> 按回车进入【月重置日设置】...${gl_bai}"
+    read -r _
+    echo -e "${gl_kjlan}=== 设置月重置日 ===${gl_bai}"
+    echo "为端口 $port 设置月重置日期:"
+    echo "(0代表不重置，1-31 为每月重置日)"
+    read -e -p "月重置日 [0-31]: " reset_day_input
+    if [ -n "$reset_day_input" ] && [ "$reset_day_input" != "0" ]; then
+        if [[ "$reset_day_input" =~ ^[0-9]+$ ]] && [ "$reset_day_input" -ge 1 ] && [ "$reset_day_input" -le 31 ]; then
+            ptm_update_config ".ports.\"$port\".quota.reset_day = $reset_day_input"
+            echo -e "${gl_lv}端口 $port 月重置日设置成功: 每月${reset_day_input}日${gl_bai}"
         else
-            echo -e "${gl_hong}❌ 无备份可回滚，请重新部署: 选择菜单 1${gl_bai}"
+            echo -e "${gl_hong}重置日期无效: $reset_day_input，已跳过${gl_bai}"
+        fi
+    else
+        echo -e "${gl_huang}跳过重置日期设置${gl_bai}"
+    fi
+
+    # ==================== 第三步：设置租期 ====================
+    echo ""
+    echo -e "${gl_kjlan}>>> 按回车进入【租期设置】...${gl_bai}"
+    read -r _
+    echo -e "${gl_kjlan}=== 续费/设置租期: $port ===${gl_bai}"
+    ptm_lease_prompt_and_apply "$port"
+
+    # ==================== 第四步：设置用户邮箱 ====================
+    echo ""
+    echo -e "${gl_kjlan}>>> 按回车进入【邮箱设置】...${gl_bai}"
+    read -r _
+    read -e -p "是否设置用户邮箱？[y/n] (默认n，可后续补充): " email_choice
+    if [[ "$email_choice" == "y" || "$email_choice" == "Y" ]]; then
+        read -e -p "请输入接收邮箱 (输入 d 可留空跳过): " new_email
+        if [ "$new_email" != "d" ] && [ -n "$new_email" ]; then
+            if [[ "$new_email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+                ptm_update_config ".ports.\"$port\".email = \"$new_email\""
+                echo -e "${gl_lv}端口 $port 邮箱已设置为: $new_email${gl_bai}"
+            else
+                echo -e "${gl_hong}邮箱格式错误，未保存${gl_bai}"
+            fi
         fi
     fi
 
+    echo ""
+    echo -e "${gl_lv}========================================${gl_bai}"
+    echo -e "${gl_lv}       快速开通流程完成！${gl_bai}"
+    echo -e "${gl_lv}========================================${gl_bai}"
     break_end
 }
 
-# 卸载
-oai2_uninstall() {
-    clear
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo -e "${gl_hong}  卸载 OAI2${gl_bai}"
-    echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-    echo ""
+ptm_get_daily_total_traffic() {
+    local total=0 port
+    for port in $(ptm_get_active_ports 2>/dev/null); do
+        total=$((total + $(ptm_get_port_monthly_usage "$port" 2>/dev/null || echo 0)))
+    done
+    echo "$total"
+}
 
-    local status=$(oai2_check_status)
-    if [ "$status" = "not_installed" ]; then
-        echo -e "${gl_hong}❌ OAI2 未安装${gl_bai}"
-        break_end
-        return 1
+# 渲染端口状态表格（主菜单头部实时展示 + 独立"查看状态"菜单项共用）
+ptm_render_port_table() {
+    local ports
+    ports=$(ptm_get_active_ports)
+    if [ -z "$ports" ]; then
+        echo -e "${gl_huang}暂无监控端口${gl_bai}"
+        return
     fi
+    printf "%-20s %-10s %-10s %-16s %-18s %-14s %-12s %s\n" "端口" "计费模式" "状态" "已用流量" "配额" "重置日" "到期日" "备注"
+    local port
+    for port in $ports; do
+        local billing_mode quota_limit expire_date status usage reset_day remark
+        billing_mode=$(jq -r ".ports.\"$port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+        quota_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+        # jq 的 // 只覆盖 null/缺失，不覆盖空串；而开通/清除租期写入的是 ""，需 bash 侧判空才能显示"永久"
+        expire_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+        [ -z "$expire_date" ] && expire_date="永久"
+        reset_day=$(jq -r ".ports.\"$port\".quota.reset_day // \"\"" "$PTM_CONFIG_FILE")
+        [ -n "$reset_day" ] && reset_day="每月${reset_day}日" || reset_day="不重置"
+        remark=$(jq -r ".ports.\"$port\".remark // \"\"" "$PTM_CONFIG_FILE")
+        [ -z "$remark" ] && remark="-"
+        status=$(ptm_format_running_status "$(ptm_get_port_running_status "$port")")
+        usage=$(ptm_format_bytes "$(ptm_get_port_monthly_usage "$port")")
+        printf "%-20s %-10s %-10s %-16s %-18s %-14s %-12s %s\n" "$port" "$billing_mode" "$status" "$usage" "$quota_limit" "$reset_day" "$expire_date" "$remark"
+    done
+}
 
-    echo -e "${gl_hong}⚠️ 此操作将停止服务并删除程序文件${gl_bai}"
-    echo ""
-    read -e -p "是否同时删除配置和数据？(y/n) [n]: " delete_data
-    echo ""
-    read -e -p "确认卸载？(y/n) [n]: " confirm
-
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo "取消卸载"
-        break_end
-        return 0
-    fi
-
-    echo ""
-    echo "正在卸载..."
-
-    # 停止并删除服务
-    systemctl stop "$OAI2_SERVICE_NAME" 2>/dev/null
-    systemctl disable "$OAI2_SERVICE_NAME" 2>/dev/null
-    rm -f "/etc/systemd/system/${OAI2_SERVICE_NAME}.service"
-    systemctl daemon-reload
-
-    if [ "$delete_data" = "y" ] || [ "$delete_data" = "Y" ]; then
-        rm -rf "$OAI2_INSTALL_DIR"
-        echo -e "${gl_lv}✅ 服务、程序和数据已全部删除${gl_bai}"
+ptm_do_renew_months() {
+    local port=$1 months=$2
+    local current_expire today reset_day base_date
+    current_expire=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+    reset_day=$(jq -r ".ports.\"$port\".quota.reset_day // 1" "$PTM_CONFIG_FILE")
+    today=$(ptm_beijing_time +%Y-%m-%d)
+    local today_epoch expire_epoch
+    today_epoch=$(date -d "$today" +%s 2>/dev/null || echo 0)
+    expire_epoch=$(date -d "$current_expire" +%s 2>/dev/null || echo 0)
+    if [ -n "$current_expire" ] && [ "$current_expire" != "null" ] && [ "$expire_epoch" -gt "$today_epoch" ]; then
+        base_date="$current_expire"
     else
-        # 只删除二进制文件，保留配置
-        rm -f "$OAI2_INSTALL_DIR/$OAI2_BINARY_NAME"
-        rm -f "$OAI2_INSTALL_DIR/dan-web-windows-amd64.exe" 2>/dev/null
-        echo -e "${gl_lv}✅ 服务已删除，配置保留在 $OAI2_INSTALL_DIR/config/${gl_bai}"
+        base_date="$today"
     fi
+    local new_date
+    new_date=$(ptm_calculate_next_expiration "$base_date" "$months" "${reset_day:-1}")
+    ptm_do_set_expiration "$port" "$new_date"
+}
 
-    rm -f "$OAI2_PORT_FILE"
-    rm -f "$OAI2_TOKEN_FILE"
+ptm_do_set_expiration() {
+    local port=$1 new_date=$2
+    if [ -z "$new_date" ]; then
+        echo -e "${gl_hong}日期计算失败${gl_bai}"; return 1
+    fi
+    if ! ptm_update_config ".ports.\"$port\".expiration_date = \"$new_date\""; then
+        echo -e "${gl_hong}写入失败，请重试${gl_bai}"; return 1
+    fi
+    local saved_date
+    saved_date=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+    if [ "$saved_date" != "$new_date" ]; then
+        echo -e "${gl_hong}验证失败：期望 $new_date，实际 $saved_date${gl_bai}"; return 1
+    fi
+    # 到期日延后/清除，若端口此前处于到期封锁状态需要解封
+    if [ "$(ptm_get_port_running_status "$port")" = "blocked_expired" ]; then
+        ptm_unblock_port "$port"
+    fi
+    echo -e "${gl_lv}✓ 到期日已更新: $new_date${gl_bai}"
+}
 
+# 管理端口租期：续费预设月数 / 手动输入到期日 / 清除租期(设为永久)，对应 dog 原版"管理端口租期"子菜单
+# 租期管理核心动作(对应dog原版"续费/设置租期"1-6选项)，供独立菜单与"快速开通"向导共用
+ptm_lease_prompt_and_apply() {
+    local port="$1"
+    local current_expire
+    current_expire=$(jq -r ".ports.\"$port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+    [ -z "$current_expire" ] || [ "$current_expire" = "null" ] && current_expire="未设置 (永久)"
+    echo -e "当前到期日: ${gl_lv}$current_expire${gl_bai}"
+    echo "------------------------"
+    echo "1. 增加 1 个月"
+    echo "2. 增加 3 个月 (季付)"
+    echo "3. 增加 6 个月 (半年)"
+    echo "4. 增加 1 年"
+    echo "5. 手动输入到期日期"
+    echo "6. 清除租期 (设置为永久)"
+    echo "0. 跳过"
+    read -e -p "请选择续费时长 [0-6]: " duration_choice
+    case "$duration_choice" in
+        1) ptm_do_renew_months "$port" 1 ;;
+        2) ptm_do_renew_months "$port" 3 ;;
+        3) ptm_do_renew_months "$port" 6 ;;
+        4) ptm_do_renew_months "$port" 12 ;;
+        5)
+            read -e -p "请输入到期日期 (格式 YYYY-MM-DD): " manual_date
+            if ! date -d "$manual_date" >/dev/null 2>&1; then
+                echo -e "${gl_hong}日期格式错误${gl_bai}"
+            else
+                ptm_do_set_expiration "$port" "$manual_date"
+            fi
+            ;;
+        6)
+            if ptm_update_config ".ports.\"$port\".expiration_date = \"\""; then
+                [ "$(ptm_get_port_running_status "$port")" = "blocked_expired" ] && ptm_unblock_port "$port"
+                echo -e "${gl_lv}✓ 已清除租期，端口恢复永久有效${gl_bai}"
+            fi
+            ;;
+        0) echo -e "${gl_huang}跳过租期设置${gl_bai}" ;;
+        *) echo -e "${gl_hong}无效选择${gl_bai}" ;;
+    esac
+}
+
+# 3. 管理端口租期（对应dog原版 manage_port_expiration）
+ptm_menu_manage_lease() {
+    ptm_init_config
+    ptm_pick_ports "请选择要管理租期的端口 [序号]: " || { echo -e "${gl_huang}未选择有效端口${gl_bai}"; break_end; return; }
+    local port="${PTM_PICKED_PORTS[0]}"
+    echo -e "${gl_kjlan}=== 管理端口租期: $port ===${gl_bai}"
+    ptm_lease_prompt_and_apply "$port"
     break_end
 }
 
-# OAI2 管理主菜单
-manage_oai2() {
+# 2-1. 设置端口带宽限制（对应dog原版 set_port_bandwidth_limit：多选端口、0=无限制、单位Kbps/Mbps/Gbps）
+ptm_menu_set_bandwidth() {
+    ptm_init_config
+    ptm_pick_ports "请选择要限制的端口（多端口用逗号,分隔） [序号]: " || { echo -e "${gl_huang}未选择有效端口${gl_bai}"; break_end; return; }
+    echo ""
+    echo "为端口 $(IFS=,; echo "${PTM_PICKED_PORTS[*]}") 设置带宽限制（速率控制）:"
+    echo "请输入限制值（0为无限制）（要带单位Kbps/Mbps/Gbps）:"
+    read -e -p "带宽限制: " limit_input
+    if [ -z "$limit_input" ] || [ "$limit_input" = "0" ]; then
+        local port
+        for port in "${PTM_PICKED_PORTS[@]}"; do
+            ptm_remove_tc_limit "$port"
+            ptm_update_config ".ports.\"$port\".bandwidth_limit.enabled = false | .ports.\"$port\".bandwidth_limit.rate = \"unlimited\""
+            echo -e "${gl_lv}端口 $port 带宽限制已移除${gl_bai}"
+        done
+        break_end
+        return
+    fi
+    if ! ptm_validate_rate "$limit_input"; then
+        echo -e "${gl_hong}格式错误，请使用如：500Kbps, 100Mbps, 1Gbps${gl_bai}"
+        break_end
+        return
+    fi
+    local tc_limit
+    tc_limit=$(ptm_rate_to_tc "$limit_input")
+    local success_count=0 port
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        ptm_remove_tc_limit "$port"
+        if ! ptm_apply_tc_limit "$port" "$tc_limit"; then
+            echo -e "${gl_hong}端口 $port 带宽限制设置失败${gl_bai}"
+            continue
+        fi
+        ptm_update_config ".ports.\"$port\".bandwidth_limit.enabled = true | .ports.\"$port\".bandwidth_limit.rate = \"$limit_input\""
+        echo -e "${gl_lv}端口 $port 带宽限制设置成功: $limit_input${gl_bai}"
+        success_count=$((success_count + 1))
+    done
+    echo -e "${gl_lv}成功设置 $success_count 个端口的带宽限制${gl_bai}"
+    break_end
+}
+
+# 2-2. 设置端口流量配额（对应dog原版 set_port_quota_limit：多选端口、0=无限制、单位MB/GB/TB）
+ptm_menu_set_quota() {
+    ptm_init_config
+    ptm_pick_ports "请选择要设置配额的端口（多端口用逗号,分隔） [序号]: " || { echo -e "${gl_huang}未选择有效端口${gl_bai}"; break_end; return; }
+    echo ""
+    while true; do
+        echo "为端口 $(IFS=,; echo "${PTM_PICKED_PORTS[*]}") 设置流量配额（总量控制）:"
+        echo "请输入配额值（0为无限制）（要带单位MB/GB/T）:"
+        read -e -p "流量配额(回车默认0): " quota_input
+        [ -z "$quota_input" ] && quota_input="0"
+        ptm_validate_quota "$quota_input" && break
+        echo -e "${gl_hong}配额格式错误: $quota_input，请使用如：100MB, 1GB, 2T${gl_bai}"
+    done
+    local monthly_limit="unlimited"
+    [ "$quota_input" != "0" ] && monthly_limit="$quota_input"
+    local port
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        ptm_update_config ".ports.\"$port\".quota.monthly_limit = \"$monthly_limit\""
+        if [ "$monthly_limit" = "unlimited" ]; then
+            ptm_remove_quota "$port"
+        else
+            ptm_apply_quota "$port" "$monthly_limit"
+        fi
+        echo -e "${gl_lv}端口 $port 流量配额已更新: $monthly_limit${gl_bai}"
+    done
+    break_end
+}
+
+ptm_menu_set_reset_day() {
+    ptm_init_config
+    ptm_render_port_table
+    echo ""
+    read -e -p "请输入要设置重置日的端口: " port
+    if ! jq -e ".ports | has(\"$port\")" "$PTM_CONFIG_FILE" >/dev/null 2>&1; then
+        echo -e "${gl_hong}端口不存在${gl_bai}"; break_end; return
+    fi
+    read -e -p "每月流量重置日 (1-28，留空则清除自动重置设置): " reset_day_input
+    if [ -z "$reset_day_input" ]; then
+        ptm_update_config "del(.ports.\"$port\".quota.reset_day) | del(.ports.\"$port\".quota.last_reset_cycle)"
+        echo -e "${gl_lv}✓ 已清除自动重置设置${gl_bai}"
+    elif ! [[ "$reset_day_input" =~ ^[0-9]+$ ]] || [ "$reset_day_input" -lt 1 ] || [ "$reset_day_input" -gt 28 ]; then
+        echo -e "${gl_hong}请输入 1-28 之间的整数${gl_bai}"
+    else
+        ptm_update_config ".ports.\"$port\".quota.reset_day = $reset_day_input"
+        echo -e "${gl_lv}✓ 重置日已设置为每月 $reset_day_input 号${gl_bai}"
+    fi
+    break_end
+}
+
+ptm_menu_reset_now() {
+    ptm_init_config
+    read -e -p "请输入要立即重置流量的端口 (留空重置全部到期端口): " port
+    if [ -z "$port" ]; then
+        ptm_reset_all_due_ports
+        echo -e "${gl_lv}✓ 已按计费周期重置全部到期端口${gl_bai}"
+    else
+        if ! jq -e ".ports | has(\"$port\")" "$PTM_CONFIG_FILE" >/dev/null 2>&1; then
+            echo -e "${gl_hong}端口不存在${gl_bai}"; break_end; return
+        fi
+        ptm_auto_reset_port "$port"
+        local reset_day
+        reset_day=$(jq -r ".ports.\"$port\".quota.reset_day // 1" "$PTM_CONFIG_FILE")
+        ptm_update_config ".ports.\"$port\".quota.last_reset_cycle = \"$(ptm_get_billing_cycle_start "$reset_day")\""
+        echo -e "${gl_lv}✓ 端口 $port 流量已重置${gl_bai}"
+    fi
+    break_end
+}
+
+# 删除端口监控（对应dog原版 remove_port_monitoring：多选+确认+清理日志与conntrack）
+ptm_menu_remove_port() {
+    ptm_init_config
+    echo -e "${gl_kjlan}=== 删除端口监控 ===${gl_bai}"
+    ptm_pick_ports "请选择要删除的端口（多端口用逗号,分隔） [序号]: " || { echo -e "${gl_huang}未选择有效端口${gl_bai}"; break_end; return; }
+
+    echo ""
+    echo "将删除以下端口的监控:"
+    local port
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        echo "  端口 $port"
+    done
+    echo ""
+    read -e -p "确认删除这些端口的监控? [y/N]: " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "取消删除"; break_end; return
+    fi
+
+    local deleted_count=0
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        ptm_remove_nftables_rules "$port"
+        ptm_remove_quota "$port"
+        ptm_remove_tc_limit "$port"
+        ptm_update_config "del(.ports.\"$port\")"
+
+        if [ -f "$PTM_RESET_HISTORY_LOG" ]; then
+            grep -v "|${port}|" "$PTM_RESET_HISTORY_LOG" > "${PTM_RESET_HISTORY_LOG}.tmp" 2>/dev/null || true
+            mv "${PTM_RESET_HISTORY_LOG}.tmp" "$PTM_RESET_HISTORY_LOG" 2>/dev/null || true
+        fi
+        if [ -f "$PTM_NOTIFICATION_LOG" ]; then
+            grep -vE "端口 ${port} " "$PTM_NOTIFICATION_LOG" > "${PTM_NOTIFICATION_LOG}.tmp" 2>/dev/null || true
+            mv "${PTM_NOTIFICATION_LOG}.tmp" "$PTM_NOTIFICATION_LOG" 2>/dev/null || true
+        fi
+
+        if command -v conntrack >/dev/null 2>&1; then
+            local p
+            for p in $(ptm_get_group_ports "$port"); do
+                conntrack -D -p tcp --dport "$p" 2>/dev/null || true
+                conntrack -D -p udp --dport "$p" 2>/dev/null || true
+            done
+        fi
+
+        echo -e "${gl_lv}端口 $port 监控及相关数据删除成功${gl_bai}"
+        deleted_count=$((deleted_count + 1))
+    done
+    echo ""
+    echo -e "${gl_lv}成功删除 $deleted_count 个端口监控${gl_bai}"
+    break_end
+}
+
+# 合并端口为组（对应dog原版 merge_ports_to_group）
+ptm_menu_merge_ports() {
+    ptm_init_config
+    echo -e "${gl_kjlan}=== 合并端口为组 ===${gl_bai}"
+    echo "此功能可将多个单独的端口合并为一个端口组，实现流量共享统计。"
+    echo ""
+    ptm_pick_ports "请选择要合并的端口（用逗号分隔，如1,2,3） [序号]: " "single_only" || {
+        echo -e "${gl_huang}需要至少2个单独端口才能合并为组${gl_bai}"; break_end; return
+    }
+    if [ "${#PTM_PICKED_PORTS[@]}" -lt 2 ]; then
+        echo -e "${gl_hong}至少需要选择2个端口才能合并${gl_bai}"; break_end; return
+    fi
+
+    # 检查计费模式是否一致
+    local first_port="${PTM_PICKED_PORTS[0]}"
+    local first_billing_mode
+    first_billing_mode=$(jq -r ".ports.\"$first_port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+    local mismatched_info="" port
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        local pb
+        pb=$(jq -r ".ports.\"$port\".billing_mode // \"double\"" "$PTM_CONFIG_FILE")
+        [ "$pb" != "$first_billing_mode" ] && mismatched_info="$mismatched_info $port:$pb"
+    done
+    if [ -n "$mismatched_info" ]; then
+        echo -e "${gl_hong}❌ 无法合并：端口计费模式不同${gl_bai}"
+        echo "第一个端口 $first_port 的计费模式: $first_billing_mode"
+        echo "计费模式不匹配的端口:$mismatched_info"
+        echo "请确保所有端口使用相同的计费模式后再合并"
+        break_end
+        return
+    fi
+
+    local group_key
+    group_key=$(IFS=','; echo "${PTM_PICKED_PORTS[*]}")
+
+    local total_input=0 total_output=0
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        local traffic=($(ptm_get_port_traffic "$port"))
+        total_input=$((total_input + ${traffic[0]:-0}))
+        total_output=$((total_output + ${traffic[1]:-0}))
+    done
+
+    # 继承第一个端口的配置作为模板
+    local quota_config bandwidth_config remark expiration_date email
+    quota_config=$(jq -c ".ports.\"$first_port\".quota // {\"enabled\":true,\"monthly_limit\":\"unlimited\"}" "$PTM_CONFIG_FILE")
+    bandwidth_config=$(jq -c ".ports.\"$first_port\".bandwidth_limit // {\"enabled\":false,\"rate\":\"unlimited\"}" "$PTM_CONFIG_FILE")
+    remark=$(jq -r ".ports.\"$first_port\".remark // \"\"" "$PTM_CONFIG_FILE")
+    expiration_date=$(jq -r ".ports.\"$first_port\".expiration_date // \"\"" "$PTM_CONFIG_FILE")
+    email=$(jq -r ".ports.\"$first_port\".email // \"\"" "$PTM_CONFIG_FILE")
+
+    local total_traffic
+    total_traffic=$(ptm_calculate_total_traffic "$total_input" "$total_output" "$first_billing_mode")
+    echo ""
+    echo "将合并以下端口为组: $group_key"
+    echo "合并后总流量: $(ptm_format_bytes "$total_traffic")"
+    echo "将继承端口 $first_port 的配置: 计费模式、配额、带宽限制、备注、租期、邮箱"
+    read -e -p "确认合并? [y/N]: " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo "取消合并"; break_end; return
+    fi
+
+    # 先清理各成员端口的 nft/tc（config 暂不删除，等端口组配置确认写入成功后再删，避免中途失败丢配置）
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        ptm_remove_nftables_rules "$port" >/dev/null 2>&1
+        ptm_remove_quota "$port" >/dev/null 2>&1
+        ptm_remove_tc_limit "$port" >/dev/null 2>&1
+    done
+
+    local port_json
+    port_json=$(jq -n \
+        --arg remark "$remark" --arg mode "$first_billing_mode" \
+        --arg created "$(ptm_beijing_time -Iseconds)" \
+        --argjson bandwidth "$bandwidth_config" --argjson quota "$quota_config" \
+        '{remark: $remark, billing_mode: $mode, email: "", created_at: $created,
+          expiration_date: "", bandwidth_limit: $bandwidth, quota: $quota}')
+
+    if [ -z "$port_json" ] || ! ptm_update_config ".ports.\"$group_key\" = $port_json"; then
+        echo -e "${gl_hong}端口组配置写入失败，正在回滚（成员端口配置保留，恢复其监控）...${gl_bai}"
+        for port in "${PTM_PICKED_PORTS[@]}"; do
+            ptm_add_nftables_rules "$port" >/dev/null 2>&1
+            local rb_limit
+            rb_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE" 2>/dev/null)
+            [ -n "$rb_limit" ] && [ "$rb_limit" != "unlimited" ] && [ "$rb_limit" != "null" ] && ptm_apply_quota "$port" "$rb_limit" >/dev/null 2>&1
+        done
+        break_end
+        return
+    fi
+
+    # 端口组配置已写入成功，安全删除各成员端口的 config
+    for port in "${PTM_PICKED_PORTS[@]}"; do
+        ptm_update_config "del(.ports.\"$port\")"
+    done
+    [ -n "$expiration_date" ] && [ "$expiration_date" != "null" ] && ptm_update_config ".ports.\"$group_key\".expiration_date = \"$expiration_date\""
+    [ -n "$email" ] && [ "$email" != "null" ] && ptm_update_config ".ports.\"$group_key\".email = \"$email\""
+
+    ptm_restore_counter_value "$group_key" "$total_input" "$total_output"
+    ptm_add_nftables_rules "$group_key"
+    local monthly_limit
+    monthly_limit=$(echo "$quota_config" | jq -r '.monthly_limit // "unlimited"')
+    [ "$monthly_limit" != "unlimited" ] && ptm_apply_quota "$group_key" "$monthly_limit"
+    local rate_limit rate_enabled
+    rate_limit=$(echo "$bandwidth_config" | jq -r '.rate // "unlimited"')
+    rate_enabled=$(echo "$bandwidth_config" | jq -r '.enabled // false')
+    if [ "$rate_enabled" = "true" ] && [ "$rate_limit" != "unlimited" ]; then
+        ptm_apply_tc_limit "$group_key" "$(ptm_rate_to_tc "$rate_limit")"
+    fi
+
+    echo -e "${gl_lv}✓ 端口组 $group_key 合并完成${gl_bai}"
+    break_end
+}
+
+ptm_menu_configure_notify() {
+    ptm_init_config
+    echo -e "${gl_kjlan}== 邮件通知设置 (Resend API) ==${gl_bai}"
+    echo "未配置 Resend API Key 时，到期/配额提醒邮件会静默跳过（不影响封锁/重置等核心功能）"
+    read -e -p "Resend API Key (留空不改): " api_key
+    read -e -p "发件邮箱地址 (留空不改): " email_from
+    read -e -p "发件人显示名称 (留空不改): " email_from_name
+    read -e -p "管理员邮箱 (接收系统级通知，留空不改): " admin_email
+
+    [ -n "$api_key" ] && ptm_update_config ".notify.resend_api_key = \"$api_key\" | .notify.enabled = true"
+    [ -n "$email_from" ] && ptm_update_config ".notify.email_from = \"$email_from\""
+    [ -n "$email_from_name" ] && ptm_update_config ".notify.email_from_name = \"$email_from_name\""
+    [ -n "$admin_email" ] && ptm_update_config ".notify.admin_email = \"$admin_email\""
+    echo -e "${gl_lv}✓ 通知设置已保存${gl_bai}"
+    break_end
+}
+
+ptm_menu_diagnose() {
+    ptm_init_config
+    echo -e "${gl_kjlan}== 配置诊断 ==${gl_bai}"
+    local ports
+    ports=$(ptm_get_active_ports)
+    if [ -z "$ports" ]; then
+        echo -e "${gl_huang}暂无监控端口${gl_bai}"; break_end; return
+    fi
+    local port
+    for port in $ports; do
+        echo -n "端口 $port: "
+        local ok=true
+        if ! ptm_is_port_rules_exist "$port"; then
+            echo -n "❌流量规则缺失 "
+            ok=false
+        fi
+        local quota_limit
+        quota_limit=$(jq -r ".ports.\"$port\".quota.monthly_limit // \"unlimited\"" "$PTM_CONFIG_FILE")
+        if [ "$quota_limit" != "unlimited" ]; then
+            local port_safe
+            port_safe=$(ptm_safe_name "$port")
+            if ! nft list quota $PTM_TABLE_FAMILY $PTM_TABLE_NAME "port_${port_safe}_quota" &>/dev/null; then
+                echo -n "❌配额对象缺失 "
+                ok=false
+            fi
+        fi
+        local email
+        email=$(jq -r ".ports.\"$port\".email // \"\"" "$PTM_CONFIG_FILE")
+        [ -z "$email" ] || [ "$email" = "null" ] && echo -n "⚠️未配置客户邮箱 "
+        [ "$ok" = true ] && echo -n "✅正常"
+        echo ""
+    done
+    echo ""
+    if crontab -l 2>/dev/null | grep -q "# ptm每日检查"; then
+        echo -e "${gl_lv}✅ 每日检查定时任务已注册${gl_bai}"
+    else
+        echo -e "${gl_huang}⚠️ 每日检查定时任务未注册（新增一个端口即可自动注册）${gl_bai}"
+    fi
+    if crontab -l 2>/dev/null | grep -q "# ptm每日重置"; then
+        echo -e "${gl_lv}✅ 每日重置定时任务已注册${gl_bai}"
+    else
+        echo -e "${gl_huang}⚠️ 每日重置定时任务未注册（新增一个端口即可自动注册）${gl_bai}"
+    fi
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled ptm-boot-restore.service >/dev/null 2>&1; then
+        echo -e "${gl_lv}✅ 开机恢复服务已启用（重启后会自动重建规则/配额/限速）${gl_bai}"
+    else
+        echo -e "${gl_huang}⚠️ 开机恢复服务未启用，重启VPS后监控规则不会自动恢复（新增一个端口即可自动注册）${gl_bai}"
+    fi
+    local notify_enabled
+    notify_enabled=$(jq -r '.notify.enabled // false' "$PTM_CONFIG_FILE")
+    if [ "$notify_enabled" = "true" ]; then
+        echo -e "${gl_lv}✅ 邮件通知已配置${gl_bai}"
+    else
+        echo -e "${gl_huang}⚠️ 邮件通知未配置（菜单 4 可配置，不配置则仅静默跳过通知）${gl_bai}"
+    fi
+    break_end
+}
+
+ptm_menu_uninstall() {
+    echo -e "${gl_hong}此操作将删除所有端口监控、nftables 规则、tc 限速、定时任务及 ${PTM_CONFIG_DIR} 配置目录${gl_bai}"
+    read -e -p "确认完全卸载？输入 YES 确认: " confirm
+    if [ "$confirm" != "YES" ]; then
+        echo "已取消"; break_end; return
+    fi
+    local port
+    for port in $(ptm_get_active_ports 2>/dev/null); do
+        ptm_remove_nftables_rules "$port"
+        ptm_remove_quota "$port"
+        ptm_remove_tc_limit "$port"
+    done
+    nft delete table $PTM_TABLE_FAMILY $PTM_TABLE_NAME 2>/dev/null || true
+    ptm_remove_cron
+    rm -rf "$PTM_CONFIG_DIR"
+    echo -e "${gl_lv}✓ 已完全卸载端口流量计费管理${gl_bai}"
+    break_end
+}
+
+# 1. 添加/删除端口监控（对应 dog 原版 manage_port_monitoring）
+ptm_menu_port_monitoring() {
     while true; do
         clear
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo -e "${gl_kjlan}  OAI2 部署管理 (令牌注册面板)${gl_bai}"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-        echo ""
-
-        # 显示当前状态
-        local status=$(oai2_check_status)
-        local api_port=$(oai2_get_port)
-
-        case "$status" in
-            "running")
-                echo -e "当前状态: ${gl_lv}✅ 运行中${gl_bai} (端口: ${api_port})"
-                ;;
-            "stopped")
-                echo -e "当前状态: ${gl_hong}❌ 已停止${gl_bai}"
-                ;;
-            "installed_no_service")
-                echo -e "当前状态: ${gl_huang}⚠️ 已安装但服务未创建${gl_bai}"
-                ;;
-            "not_installed")
-                echo -e "当前状态: ${gl_hui}未安装${gl_bai}"
-                ;;
-        esac
-
-        echo ""
-        echo -e "${gl_kjlan}[部署与更新]${gl_bai}"
-        echo "1. 一键部署（首次安装）"
-        echo "2. 更新版本（替换二进制）"
-        echo ""
-        echo -e "${gl_kjlan}[服务管理]${gl_bai}"
-        echo "3. 查看状态"
-        echo "4. 查看日志"
-        echo "5. 启动服务"
-        echo "6. 停止服务"
-        echo "7. 重启服务"
-        echo ""
-        echo -e "${gl_kjlan}[配置与信息]${gl_bai}"
-        echo "8. 查看配置信息"
-        echo "9. 修改端口"
-        echo "10. 修改登录 Token"
-        echo ""
-        echo -e "${gl_kjlan}[卸载]${gl_bai}"
-        echo -e "${gl_hong}99. 卸载${gl_bai}"
-        echo ""
-        echo "0. 返回上级菜单"
-        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
-
-        read -e -p "请选择操作 [0-10, 99]: " choice
-
-        case $choice in
-            1) oai2_deploy ;;
-            2) oai2_update ;;
-            3) oai2_status ;;
-            4) oai2_logs ;;
-            5) oai2_start ;;
-            6) oai2_stop ;;
-            7) oai2_restart ;;
-            8) oai2_show_config ;;
-            9) oai2_change_port ;;
-            10) oai2_change_token ;;
-            99) oai2_uninstall ;;
+        echo -e "${gl_kjlan}=== 端口监控管理 ===${gl_bai}"
+        echo "1. 快速开通端口"
+        echo "2. 删除端口监控"
+        echo "3. 合并端口为组"
+        echo "0. 返回主菜单"
+        read -e -p "请选择操作 [0-3]: " choice
+        case "$choice" in
+            1) ptm_menu_add_port ;;
+            2) ptm_menu_remove_port ;;
+            3) ptm_menu_merge_ports ;;
             0) return ;;
-            *) echo "无效的选择"; sleep 1 ;;
+            *) echo "无效选择"; sleep 1 ;;
+        esac
+    done
+}
+
+# 2. 端口限制设置管理（对应 dog 原版 manage_traffic_limits）
+ptm_menu_limits() {
+    while true; do
+        clear
+        echo -e "${gl_kjlan}=== 端口限制设置管理 ===${gl_bai}"
+        echo "1. 设置端口带宽限制（速率控制）"
+        echo "2. 设置端口流量配额（总量控制）"
+        echo "3. 管理端口租期（自动到期停机）"
+        echo "0. 返回主菜单"
+        read -e -p "请选择操作 [0-3]: " choice
+        case "$choice" in
+            1) ptm_menu_set_bandwidth ;;
+            2) ptm_menu_set_quota ;;
+            3) ptm_menu_manage_lease ;;
+            0) return ;;
+            *) echo "无效选择"; sleep 1 ;;
+        esac
+    done
+}
+
+# 3. 流量重置管理（对应 dog 原版 manage_traffic_reset）
+ptm_menu_reset_mgmt() {
+    while true; do
+        clear
+        echo -e "${gl_kjlan}=== 流量重置管理 ===${gl_bai}"
+        echo "1. 重置流量月重置日设置"
+        echo "2. 立即重置"
+        echo "0. 返回主菜单"
+        read -e -p "请选择操作 [0-2]: " choice
+        case "$choice" in
+            1) ptm_menu_set_reset_day ;;
+            2) ptm_menu_reset_now ;;
+            0) return ;;
+            *) echo "无效选择"; sleep 1 ;;
+        esac
+    done
+}
+
+# 主菜单：结构对应 dog 原版 show_main_menu（银行1添加/删除、2限制设置、3重置管理、
+# 4通知管理、5配置检测、99卸载），去掉了 dog 原版里超出本次移植范围的
+# "4.一键导出/导入配置"(GitHub备份) 与 "7.扩展工具"(与流量计费无关的个人工具)
+ptm_menu() {
+    ptm_init_config
+    while true; do
+        clear
+        local port_count daily_total
+        port_count=$(ptm_get_active_ports 2>/dev/null | grep -c .)
+        daily_total=$(ptm_format_bytes "$(ptm_get_daily_total_traffic)")
+        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+        echo -e "${gl_kjlan}  端口流量计费与到期管理${gl_bai}"
+        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+        echo -e "${gl_lv}状态: 监控中${gl_bai} | 守护端口: ${port_count}个 | ${gl_huang}端口总流量: ${daily_total}${gl_bai}"
+        echo "────────────────────────────────────────────────────────"
+        ptm_render_port_table
+        echo "────────────────────────────────────────────────────────"
+        echo "1. 添加/删除端口监控    2. 端口限制设置管理"
+        echo "3. 流量重置管理         4. 通知管理"
+        echo "5. 配置诊断"
+        echo "99. 卸载                0. 返回主菜单"
+        echo -e "${gl_kjlan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${gl_bai}"
+        read -e -p "请选择操作 [0-5,99]: " choice
+        case $choice in
+            1) ptm_menu_port_monitoring ;;
+            2) ptm_menu_limits ;;
+            3) ptm_menu_reset_mgmt ;;
+            4) ptm_menu_configure_notify ;;
+            5) ptm_menu_diagnose ;;
+            99) ptm_menu_uninstall ;;
+            0) return ;;
+            *) echo "无效选择"; sleep 1 ;;
         esac
     done
 }
@@ -26101,6 +26964,7 @@ BBR v3 终极优化脚本 v${SCRIPT_VERSION}
   -h, --help      显示此帮助信息
   -v, --version   显示版本号
   -i, --install   直接安装 XanMod 内核（非交互）
+  --repair-boot-recovery  仅迁移DNS启动保护及检查IPv6冲突，不重启机器/网络
   --debug         启用调试模式（详细日志）
   -q, --quiet     静默模式（仅显示错误）
 
@@ -26144,6 +27008,9 @@ parse_args() {
                 LOG_LEVEL="ERROR"
                 shift
                 ;;
+            --repair-boot-recovery|--xray-uninstall|--xray-uninstall-check|--xray-uninstall-resume|--xray-uninstall-rollback)
+                break
+                ;;
             -*)
                 echo "未知选项: $1"
                 echo "使用 -h 或 --help 查看帮助"
@@ -26164,11 +27031,15 @@ main() {
     # 检查 root 权限
     check_root
 
-    # 自动清理旧版功能4的MTU优化残留
-    auto_cleanup_legacy_mtu
-
-    # Phase E:检测并迁移 CF Tunnel 老路径配置(空 VPS 会 fast-path 早退,耗时可忽略)
-    cf_helper_migrate_legacy 2>/dev/null
+    # 卸载专用入口必须在配置 source 和任何维护动作之前分流。
+    case "${1:-}" in
+        --repair-boot-recovery) shift; run_boot_recovery_repair "$@"; return $? ;;
+        --xray-uninstall) run_xray_safe_uninstall; return $? ;;
+        --xray-uninstall-check) run_xray_safe_uninstall --check; return $? ;;
+        --xray-uninstall-resume) run_xray_safe_uninstall --resume; return $? ;;
+        --xray-uninstall-rollback) run_xray_safe_uninstall --rollback; return $? ;;
+    esac
+    # 启动菜单不自动改 MTU 或迁移 CF；迁移留在 CF 管理入口。
 
     # 加载用户配置（如果存在）
     [ -f "/etc/net-tcp-tune.conf" ] && source "/etc/net-tcp-tune.conf"

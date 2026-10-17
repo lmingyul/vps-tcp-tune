@@ -1,20 +1,20 @@
 #!/bin/bash
 # Snell 一键升级补丁
 # 适用：已经用 net-tcp-tune.sh 部署过 Snell 的机器
-# 作用：把主脚本 fix（systemd start-limit + 内核保留端口）应用到现有 Snell 实例
-#       + 加每日北京时间 04:00 自动重启 cron
+# 作用：把主脚本 fix（systemd start-limit + Restart=always + 内核保留端口）应用到现有 Snell 实例
+#       + 加每日北京时间 04:00 自动重启 cron（只重启当前 active 的实例）
 # 不会卸载/重装任何 Snell 实例，不影响 BBR/DNS/IPv6 等其他配置
 #
 # 用法（VPS root 上跑）：
-#   bash <(curl -fsSL https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/snell-upgrade-patch.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/refs/heads/main/snell-upgrade-patch.sh)
 #
 # 卸载本补丁带来的改动：
-#   rm -rf /etc/systemd/system/snell-*.service.d/99-net-tcp-tune-fix.conf
+#   rm -f /etc/systemd/system/snell-*.service.d/99-net-tcp-tune-fix.conf /etc/systemd/system/snell.service.d/99-net-tcp-tune-fix.conf
 #   rm -f /etc/sysctl.d/99-zzz-snell-reserved-ports.conf
 #   rm -f /usr/local/bin/snell-daily-restart.sh
 #   crontab -l | grep -v "# Snell每日重启" | crontab -
 #   systemctl daemon-reload
-#   for s in /etc/systemd/system/snell-*.service; do [ -f "$s" ] && systemctl restart "$(basename "$s")"; done
+#   for s in /etc/systemd/system/snell-*.service /etc/systemd/system/snell.service; do [ -f "$s" ] && systemctl restart "$(basename "$s")"; done
 
 set +e
 
@@ -34,15 +34,92 @@ echo -e "  Snell 一键升级补丁"
 echo -e "====================================================${NC}"
 echo ""
 
-# === 1. 给现有 snell-*.service 加 systemd drop-in ===
-echo -e "${YELLOW}[1/4] 修补 systemd 服务配置（防止 5 次失败永久死锁）${NC}"
+snell_valid_port() {
+    local port="$1"
+    [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ]
+}
+
+snell_list_units() {
+    {
+        local svc_file
+        for svc_file in \
+            /etc/systemd/system/snell-*.service \
+            /lib/systemd/system/snell-*.service \
+            /usr/lib/systemd/system/snell-*.service \
+            /etc/systemd/system/snell.service \
+            /lib/systemd/system/snell.service \
+            /usr/lib/systemd/system/snell.service; do
+            [ -f "$svc_file" ] || continue
+            basename "$svc_file"
+        done
+
+        systemctl list-unit-files 'snell*.service' --no-legend --no-pager 2>/dev/null \
+            | awk '{u=$1; if (u=="●") u=$2; print u}'
+        systemctl list-units 'snell*.service' --all --no-legend --no-pager 2>/dev/null \
+            | awk '{u=$1; if (u=="●") u=$2; print u}'
+    } | awk '/^snell\.service$/ || /^snell-[0-9]+\.service$/ { if (!seen[$1]++) print $1 }'
+}
+
+snell_unit_port() {
+    local unit="$1"
+    local port=""
+    case "$unit" in
+        snell-[0-9]*.service)
+            port="${unit#snell-}"
+            port="${port%.service}"
+            ;;
+        snell.service)
+            if [ -f "/etc/snell/snell-server.conf" ]; then
+                port=$(grep -E '^[[:space:]]*listen[[:space:]]*=' /etc/snell/snell-server.conf 2>/dev/null \
+                       | tail -n 1 | sed -E 's/.*:([0-9]+).*/\1/')
+            fi
+            ;;
+    esac
+    if snell_valid_port "$port"; then
+        echo "$port"
+        return 0
+    fi
+    return 1
+}
+
+snell_should_restart_unit() {
+    local unit="$1"
+    local active_state enabled_state
+    active_state=$(systemctl is-active "$unit" 2>/dev/null)
+    enabled_state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$active_state" = "active" ] || { [ "$active_state" = "failed" ] && [ "$enabled_state" = "enabled" ]; }
+}
+
+normalize_reserved_ports() {
+    tr ',' '\n' | sed 's/[[:space:]]//g' | awk '
+        $0 == "" { next }
+        /^[0-9]+$/ {
+            port = $0 + 0
+            if (port >= 1 && port <= 65535 && !seen[port]++) values[++n] = port
+            next
+        }
+        /^[0-9]+-[0-9]+$/ {
+            split($0, range, "-")
+            start = range[1] + 0
+            end = range[2] + 0
+            if (start >= 1 && end <= 65535 && start <= end) {
+                key = start "-" end
+                if (!seen[key]++) values[++n] = key
+            }
+        }
+        END {
+            for (i = 1; i <= n; i++) printf "%s%s", (i > 1 ? "," : ""), values[i]
+        }
+    '
+}
+
+# === 1. 给现有 Snell systemd 服务加 drop-in ===
+echo -e "${YELLOW}[1/4] 修补 Snell systemd 服务配置（防止 5 次失败永久死锁）${NC}"
 PORTS=""
 PATCHED=0
-for svc in /etc/systemd/system/snell-*.service; do
-    [ -f "$svc" ] || continue
-    name=$(basename "$svc")
-    port=$(echo "$name" | sed -E 's/snell-([0-9]+)\.service/\1/')
-    [[ "$port" =~ ^[0-9]+$ ]] || continue
+while IFS= read -r name; do
+    port=$(snell_unit_port "$name" 2>/dev/null || true)
+    snell_valid_port "$port" || continue
     PORTS="${PORTS:+$PORTS,}${port}"
     drop_dir="/etc/systemd/system/${name}.d"
     mkdir -p "$drop_dir"
@@ -55,6 +132,7 @@ StartLimitInterval=0
 StartLimitBurst=0
 
 [Service]
+Restart=always
 RestartSec=10
 EOF
     then
@@ -63,10 +141,10 @@ EOF
     fi
     PATCHED=$((PATCHED + 1))
     echo -e "  ${GREEN}✓${NC} 已修补 $name (端口 $port)"
-done
+done < <(snell_list_units)
 
 if [ "$PATCHED" -eq 0 ]; then
-    echo -e "  ${YELLOW}⚠ 未找到任何 snell-*.service，跳过${NC}"
+    echo -e "  ${YELLOW}⚠ 未找到任何 Snell systemd 服务，跳过${NC}"
 fi
 echo ""
 
@@ -87,10 +165,10 @@ if [ -n "$PORTS" ]; then
 
     # 合并 Snell 端口 + 其他端口，去重排序
     if [ -n "$EXTRA_PORTS" ]; then
-        ALL_PORTS=$(echo "${PORTS},${EXTRA_PORTS}" | tr ',' '\n' | grep -E '^[0-9]+$' | sort -un | paste -sd, -)
+        ALL_PORTS=$(printf '%s,%s\n' "${PORTS}" "${EXTRA_PORTS}" | normalize_reserved_ports)
         echo -e "  ${CYAN}ℹ${NC} 检测到其他 sysctl 文件已设保留端口: ${EXTRA_PORTS}，已合并保留"
     else
-        ALL_PORTS="$PORTS"
+        ALL_PORTS=$(printf '%s\n' "$PORTS" | normalize_reserved_ports)
     fi
 
     if ! cat > /etc/sysctl.d/99-zzz-snell-reserved-ports.conf <<EOF
@@ -111,28 +189,28 @@ else
 fi
 echo ""
 
-# === 3. 重载 systemd + 重启所有 Snell ===
+# === 3. 重载 systemd + 重启需要恢复的 Snell ===
 # 修复 Bug 2: systemctl glob 'snell-*.service' 在 systemd <252 不展开,
 # 在 Ubuntu 20.04 / Debian 11 / CentOS 8 / Rocky 8 上会静默失败。
 # 改用 for 循环逐个处理,所有 systemd 版本通用。
-echo -e "${YELLOW}[3/4] 应用配置 + 重启所有 Snell 实例${NC}"
+echo -e "${YELLOW}[3/4] 应用配置 + 重启 active 或 failed+enabled 的 Snell 实例${NC}"
 if [ "$PATCHED" -gt 0 ]; then
     systemctl daemon-reload
-    for svc_file in /etc/systemd/system/snell-*.service; do
-        [ -f "$svc_file" ] || continue
-        svc_name=$(basename "$svc_file")
+    while IFS= read -r svc_name; do
         systemctl reset-failed "$svc_name" 2>/dev/null
-        systemctl restart "$svc_name"
-    done
+        if snell_should_restart_unit "$svc_name"; then
+            systemctl restart "$svc_name"
+        else
+            echo -e "  ${CYAN}ℹ${NC} ${svc_name} 当前不是 active/failed+enabled，保持原状态"
+        fi
+    done < <(snell_list_units)
     sleep 2
     ACTIVE=0
-    for svc_file in /etc/systemd/system/snell-*.service; do
-        [ -f "$svc_file" ] || continue
-        svc_name=$(basename "$svc_file")
+    while IFS= read -r svc_name; do
         if systemctl is-active --quiet "$svc_name" 2>/dev/null; then
             ACTIVE=$((ACTIVE + 1))
         fi
-    done
+    done < <(snell_list_units)
     echo -e "  ${GREEN}✓${NC} 已重载 + 重启，当前 active 实例: ${ACTIVE}/${PATCHED}"
 else
     echo -e "  ${YELLOW}⚠ 跳过${NC}"
@@ -185,11 +263,42 @@ else
     cat > /usr/local/bin/snell-daily-restart.sh <<'WRAPPER'
 #!/bin/sh
 # Snell 每日重启 wrapper(由 snell-upgrade-patch.sh 自动生成,请勿手动修改)
-# 使用 for 循环逐个 restart,兼容所有 systemd 版本(避免 glob 在旧 systemd 不展开)
-for svc in /etc/systemd/system/snell-*.service; do
-    [ -f "$svc" ] || continue
-    /bin/systemctl restart "$(basename "$svc")"
-done
+# 只重启当前 active 的 Snell，不会拉起用户手动停止/禁用的实例。
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SYSTEMCTL_BIN=$(command -v systemctl 2>/dev/null || echo /bin/systemctl)
+LOCK_FILE="/tmp/net-tcp-tune-snell.lock"
+
+restart_active_snell() {
+    seen_units=""
+    for dir in /etc/systemd/system /lib/systemd/system /usr/lib/systemd/system; do
+        for svc in "$dir"/snell-*.service "$dir"/snell.service; do
+            [ -f "$svc" ] || continue
+            unit=$(basename "$svc")
+            case "$unit" in
+                snell.service) ;;
+                snell-[0-9]*.service)
+                    echo "$unit" | grep -Eq '^snell-[0-9]+\.service$' || continue
+                    ;;
+                *) continue ;;
+            esac
+            case " $seen_units " in
+                *" $unit "*) continue ;;
+            esac
+            seen_units="$seen_units $unit"
+            "$SYSTEMCTL_BIN" is-active --quiet "$unit" 2>/dev/null && \
+                "$SYSTEMCTL_BIN" restart "$unit" >/dev/null 2>&1
+        done
+    done
+}
+
+if command -v flock >/dev/null 2>&1; then
+    (
+        flock -n 9 || exit 0
+        restart_active_snell
+    ) 9>"$LOCK_FILE"
+else
+    restart_active_snell
+fi
 WRAPPER
     chmod +x /usr/local/bin/snell-daily-restart.sh
 
@@ -201,7 +310,7 @@ WRAPPER
         rm -f "$TMP_CRON"
         echo -e "  ${GREEN}✓${NC} 已注册：北京时间 04:00 = 本地时间 ${LOCAL_H}:${LOCAL_M}"
         # 检查 cron 服务是否运行
-        if ! (systemctl is-active --quiet cron 2>/dev/null || systemctl is-active --quiet crond 2>/dev/null); then
+        if ! (systemctl is-active --quiet cron 2>/dev/null || systemctl is-active --quiet crond 2>/dev/null || systemctl is-active --quiet cronie 2>/dev/null || systemctl is-active --quiet cronie.service 2>/dev/null); then
             echo -e "  ${YELLOW}⚠${NC} cron 服务未运行，定时任务不会触发"
             echo -e "      Debian/Ubuntu: ${CYAN}systemctl enable --now cron${NC}"
             echo -e "      CentOS/Rocky:  ${CYAN}systemctl enable --now crond${NC}"
@@ -220,12 +329,10 @@ echo ""
 echo -e "${CYAN}Snell 实例状态:${NC}"
 if [ "$PATCHED" -gt 0 ]; then
     # 修复 Bug 2: glob 在旧 systemd 不展开,改 for 循环
-    for svc_file in /etc/systemd/system/snell-*.service; do
-        [ -f "$svc_file" ] || continue
-        svc_name=$(basename "$svc_file")
+    while IFS= read -r svc_name; do
         active_state=$(systemctl is-active "$svc_name" 2>/dev/null)
         echo "  ${svc_name}: ${active_state}"
-    done
+    done < <(snell_list_units)
 else
     echo "  （无）"
 fi

@@ -1,10 +1,20 @@
-# BBR v3 优化脚本 - Ultimate Edition v5.0.2
+# BBR v3 优化脚本 - Ultimate Edition v5.4.14
 
 **XanMod 内核 + BBR v3 + 全方位 VPS 管理工具集**
 
-一键安装 XanMod 内核，启用 BBR v3 拥塞控制，集成 32 项实用功能，优化你的 VPS 服务器。
+一键安装 XanMod 内核，启用 BBR v3 拥塞控制，集成 33 项实用功能，优化你的 VPS 服务器。
 
-> **版本**: v5.0.2 - 修复 Debian 12 bookworm 仅提供 XanMod LTS 元包导致功能 66 安装失败的问题
+> **版本**: v5.4.14：修复 DNS 启动依赖循环，增加业务启动前的 DNS 就绪检查与本地恢复；保留 Xray 卸载及 Snell 保护。
+
+本 fork 保留下载地址、Ghostty 清屏兼容、功能 66 安装阶段日志，以及 XanMod 同等级内核包不可用时向较低等级 LTS 包回退的策略。
+
+### 已安装机器的开机恢复迁移
+
+使用新版脚本执行 `bbr --repair-boot-recovery`，或对已下载的新版文件执行 `bash net-tcp-tune.sh --repair-boot-recovery`。该入口只修复本脚本的 DNS 启动配置及已安装 Snell/Xray 的恢复机制，不下载或升级服务程序，不更换内核，不重启整机或网卡，也不启用、拉起用户手动停止的业务服务。
+
+迁移会备份并移除本脚本旧版生成的 `systemd-resolved.service.d/dbus-fix.conf`；自定义同名文件会保留并报告冲突。Snell/Xray 启动前会等待有效的解析配置及实际 DNS 查询成功，失败时保留日志并重试。定时检查仅处理启用且正在运行、日志明确选中了无监听本地 DNS 的 Snell，避免因公网短断反复重启。
+
+首次部署或迁移后，应在维护窗口检查服务日志与实际域名请求；只有进程 `active` 不代表代理业务验证完成。永久禁用 IPv6 前若发现 ifupdown 仍配置 `inet6`，脚本会拒绝产生冲突，需先在有控制台和回退方案的情况下协调网络配置。
 
 ---
 
@@ -22,7 +32,7 @@ apt update -y && apt install curl -y
 
 ```bash
 # 安装别名
-bash <(curl -fsSL "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/install-alias.sh?$(date +%s)")
+bash <(curl -q -fsSL "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/refs/heads/main/install-alias.sh?$(date +%s)")
 
 # 重新加载配置
 source ~/.bashrc  # 或 source ~/.zshrc
@@ -44,17 +54,19 @@ bbr
 ### 方式2：在线运行（临时使用）
 
 ```bash
-# 推荐：使用时间戳参数确保获取最新版本（无缓存）
-bash <(curl -fsSL "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/net-tcp-tune.sh?$(date +%s)")
+# 推荐：使用 -q 忽略本机 curlrc，并用时间戳参数确保获取最新版本（无缓存）
+bash <(curl -q -fsSL "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/refs/heads/main/net-tcp-tune.sh?$(date +%s)")
 ```
 
 ### 方式3：下载到本地
 
 ```bash
-wget -O net-tcp-tune.sh "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/main/net-tcp-tune.sh?$(date +%s)"
+wget -O net-tcp-tune.sh "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/refs/heads/main/net-tcp-tune.sh?$(date +%s)"
 chmod +x net-tcp-tune.sh
 ./net-tcp-tune.sh
 ```
+
+> 本地下载的脚本不会自动更新；需要新版时请重新执行上面的 `wget` 命令，或优先使用 `bbr` 快捷别名。
 
 </details>
 
@@ -70,7 +82,6 @@ chmod +x net-tcp-tune.sh
 
 - 执行 **功能 1**：安装 XanMod 内核 + BBR v3
 - **注意**：安装完成后**必须重启 VPS** 才能生效
-- **系统要求**：功能 1 依赖 XanMod 官方 apt 源；Debian 12 (bookworm) 会自动使用 XanMod LTS 元包，Ubuntu 22.04 (jammy) 当前已不再提供 `linux-xanmod` 元包，建议使用 Ubuntu 24.04 (noble) 或 Debian 12 (bookworm) 及更新版本。
 
 ### 第二步：BBR 调优（核心步骤）
 
@@ -95,7 +106,7 @@ chmod +x net-tcp-tune.sh
 
 ## 功能菜单概览
 
-本脚本包含 **32** 项功能，涵盖内核优化、网络加速、代理部署、系统管理等全方位需求。
+本脚本包含 **33** 项功能，涵盖内核优化、网络加速、代理部署、系统管理等全方位需求。
 
 ### 核心功能
 
@@ -128,7 +139,7 @@ chmod +x net-tcp-tune.sh
 | 编号 | 功能名称                     | 说明                                            |
 | :--: | ---------------------------- | ----------------------------------------------- |
 |  12  | **星辰大海 Snell 协议**      | 推荐，v5.0.1 内核，支持多实例/多端口            |
-|  13  | **星辰大海 Xray 一键多协议** | 推荐，VLESS+Reality + SS2022 + TUIC v5 + AnyTLS |
+|  13  | **星辰大海 Xray 一键多协议** | 推荐，VLESS+Reality + SS2022 + SOCKS5 链式代理 |
 |  14  | 禁止端口通过中国大陆直连     | 安全防护，防止被扫                              |
 |  15  | 一键部署 SOCKS5 代理         | 快速搭建 SOCKS5 服务                            |
 |  16  | Sub-Store 多实例管理         | 强大的订阅转换工具                              |
@@ -164,6 +175,12 @@ chmod +x net-tcp-tune.sh
 | :--: | ----------------- | -------------------- |
 |  32  | **AI 代理工具箱** | 推荐，包含以下子功能 |
 
+### 流量与端口管理
+
+| 编号 | 功能名称                       | 说明                               |
+| :--: | ------------------------------ | ---------------------------------- |
+|  33  | **端口流量计费与到期管理 🆕** | 按端口计费/配额/限速/到期自动停机  |
+
 ### 一键优化
 
 | 编号 | 功能名称                                  | 说明                           |
@@ -172,18 +189,13 @@ chmod +x net-tcp-tune.sh
 
 AI 代理工具箱包含：
 
-- **Antigravity Claude Proxy**：Claude Code 反代服务，systemd 托管
 - **Open WebUI**：AI 聊天界面，Docker 容器化
 - **CRS 部署管理**：Claude API 多账户中转/拼车服务
 - **Fuclaude**：Claude 网页版共享工具
 - **Sub2API 部署管理**：订阅链接转 API 工具
 - **Caddy 多域名反代**：HTTPS 反向代理，自动 SSL 证书
 - **🆕 Cloudflare Tunnel 管理**（v5.0.0 新增）：一键部署 + 12 项完整管理功能
-- **OpenClaw 部署管理**：AI 多渠道消息网关，支持 Telegram/WhatsApp/Discord/Slack
-- **OpenAI Responses API 转换代理**：Chat Completions → Responses API 转换
-- **Codex Console 部署管理**：OpenAI 批量注册
-- **CLIProxyAPI 部署管理**：CLI 转 API 代理
-- **OAI2 部署管理**：令牌注册面板
+- **OpenAI Responses API 转换代理**：Chat Completions → Responses API 转换（v5.4.5 起自带访问密钥鉴权：部署时自动生成密钥并在结果页展示，客户端需以 `Authorization: Bearer <访问密钥>` 调用；查看密钥可进实例的「查看状态」，旧实例进「修改配置」重启后即启用鉴权）
 
 ---
 
@@ -195,8 +207,10 @@ AI 代理工具箱包含：
 
 - **多实例支持**：可以在同一台机器上通过不同端口运行多个 Snell 节点
 - **自定义配置**：支持自定义端口、自定义节点名称
-- **智能更新**：一键更新所有运行中的 Snell 实例到最新内核，无需手动逐个重启
+- **一键修复**：菜单 12-4 自动补齐旧实例 systemd 防死锁、端口保留、每日重启兜底并恢复异常节点
+- **智能更新**：保留低频核心程序更新入口，更新前也会补齐旧实例稳定性防护
 - **双栈支持**：可选 IPv4 / IPv6 / 双栈监听模式
+- **🆕 v6 RC 测试专区 (菜单 12-8)**：独立部署 Snell v6.0.0rc，与 v5 **完全隔离**（独立二进制 `snell-server-v6`、服务 `snellv6-*.service`、配置目录 `/etc/snell-v6/`、保留端口文件），互不影响。含安装/卸载/查看配置/更新+修复/健康检查/检查更新；安装时会先自检 v6 二进制，若官方包缺运行库，会自动或提示安装兼容依赖。配置默认写入 `mode = default`（流量混淆 + AES 加密，v6 的抗指纹特性），可按需改为 `unshaped`（关混淆仅加密，约快 10%）。⚠️ v6 仍是官方预发布(RC)，客户端需 Surge Mac Beta 渠道或 iOS TestFlight，App Store 正式版无法连接，建议仅用于测试节点
 
 ### 2. BBR v3 + 智能带宽优化 (功能 3)
 
@@ -224,7 +238,7 @@ AI 代理工具箱包含：
 - 为 HTTP 服务快速添加 HTTPS 支持
 - 多个后端服务统一使用 443 端口对外
 
-### 4. 🆕 Cloudflare Tunnel 管理 (功能 32-7，v5.0.0 新增)
+### 4. 🆕 Cloudflare Tunnel 管理 (功能 32-6，v5.0.0 新增)
 
 完整的 Cloudflare Tunnel 部署与全生命周期管理,无需开放 VPS 80/443 端口,自动 HTTPS:
 
@@ -245,17 +259,22 @@ AI 代理工具箱包含：
 - 自建服务通过自己的域名访问(Sub-Store / NAS 面板 / 内网管理界面)
 - 不想花钱买 SSL 证书,让 Cloudflare 统一托管 HTTPS
 
-### 5. OpenClaw AI 多渠道消息网关 (功能 32 子菜单)
+### 5. 🆕 端口流量计费与到期管理 (功能 33)
 
-自托管的 AI 多渠道消息网关，让你通过 Telegram/WhatsApp/Discord/Slack 与 AI 对话：
+基于 nftables 计数器/配额 + tc 限速,实现按端口的流量计费、配额管控与到期自动停机,适合合租/转售 VPS 端口的场景:
 
-- **一键部署**: 自动安装 Node.js 22+、npm 全局安装、systemd 服务配置
-- **多渠道支持**: Telegram Bot、WhatsApp、Discord Bot、Slack App 一键配置
-- **灵活模型接入**: 支持 Anthropic 直连/反代、OpenAI 兼容中转（new-api/one-api/LiteLLM）、OpenRouter
-- **Antigravity 预设**: 内置 Antigravity Claude Proxy 快速接入模板
-- **快速替换 API**: 一键更换反代地址和 API Key，无需重新配置
-- **sub2api 兼容补丁**: 部署/更新/切换 API 时自动打补丁，支持手动重打
-- **部署信息查看**: 格式化展示当前配置、SSH 隧道命令、管理命令
+- **三种计费模式**: `double`(双向流量×2,适合全程走公网转发)/ `premium`(内网中转×1)/ `single`(仅出站×2)
+- **端口三种粒度**: 单端口 / 端口段(如 `8000-8100`) / 端口组(逗号分隔,共享配额,合租场景)
+- **配额与限速**: 月度流量配额(nftables quota 对象,达量自动阻断)+ 可选 tc 带宽限速
+- **到期自动化**: 到期前 3 天邮件预警 → 到期当天自动停机 → 超期 3 天自动清理监控(过期封锁复用 quota 机制,瞬间生效)
+- **计费周期重置**: 按"计费周期起点"而非"今天是否等于重置日"判定,自动补偿关机/cron 漏跑导致的错过重置
+- **邮件通知(可选)**: 配置自己的 Resend API Key 后可收到到期/配额预警邮件,不配置则静默跳过,不影响封锁/重置等核心功能
+- **诊断自愈**: 一键检测所有端口的规则/配额/定时任务状态是否正常
+
+**典型使用场景**:
+
+- 合租 VPS,按端口分别计费、设置到期日和流量配额
+- 出租带宽/端口转发服务,到期自动停机无需人工干预
 
 ---
 
@@ -265,9 +284,24 @@ AI 代理工具箱包含：
 
 A: 请执行 `source ~/.bashrc` 重新加载配置，或者断开 SSH 重连即可。
 
+**Q: 运行 `bbr` 提示 `curl: (22) The requested URL returned error: 401`？**
+
+A: 通常是该机器旧别名或本机 `~/.curlrc` 带了异常 Authorization。请重新安装别名：
+
+```bash
+unalias bbr 2>/dev/null || true
+unset -f bbr 2>/dev/null || true
+bash <(curl -q -fsSL "https://raw.githubusercontent.com/lmingyul/vps-tcp-tune/refs/heads/main/install-alias.sh?$(date +%s)")
+source ~/.bashrc
+```
+
 **Q: Snell 更新后旧版本还在？**
 
-A: 请使用脚本菜单中的更新 Snell 服务功能，脚本会自动停止所有旧进程、下载新内核并重启所有实例。
+A: 请使用脚本菜单中的 **更新 Snell 核心程序**。如果是节点偶发不通，优先使用 **12 → 4 一键修复 Snell 不通/掉线**，它会重启需要恢复的实例并补齐旧节点稳定性防护。
+
+**Q: 我的 VPS 是 ARM64（aarch64），能装 BBR v3 吗？**
+
+A: 目前不能，这不是脚本的限制。BBR v3 至今未合入 Linux 主线内核，必须使用打过补丁重新编译的内核，而 XanMod 官方只提供 x86-64 构建，ARM 平台没有官方方案。**但 ARM 机器请直接使用功能 3**：ARM 内核自带 BBR + fq 队列算法，功能 3 的带宽检测与缓冲区调优在 ARM 上原生可用，同样能获得明显提升。功能 1 在 ARM 上会直接提示这一点。
 
 **Q: 开启 BBR v3 需要重启吗？**
 
@@ -286,3 +320,20 @@ A: 是的，首次安装内核后必须重启服务器。后续修改参数（�
 <a href="https://star-history.com/#lmingyul/vps-tcp-tune&Date">
   <img src="https://api.star-history.com/svg?repos=lmingyul/vps-tcp-tune&type=Date" alt="Star History Chart" width="600">
 </a>
+
+## Xray 安全卸载（菜单 13 → 12）
+
+卸载为脚本内置逻辑，不联网、不自动安装依赖。支持默认目录中的临时 VLESS/Xray；发现其他协议、未知文件、目录链接/挂载、自定义服务钩子或停止联动时拒绝自动清理。公共日志轮转模板、共享依赖、Snell 和网络配置保留。
+
+先输入 `卸载Xray`；程序会暂存文件、核对 Snell 文件/服务/进程/监听。原有 Snell 正在运行时，还需使用原客户端验证代理请求并输入 `Snell已验证`，之后才清除恢复材料。取消验证会尝试恢复 Xray；恢复失败会保留事务并明确报告。清除恢复材料后不保证能回滚。
+
+独立入口绕过用户配置加载，适用于残缺安装及恢复：
+
+```bash
+sudo bash net-tcp-tune.sh --xray-uninstall-check     # 只读检查
+sudo bash net-tcp-tune.sh --xray-uninstall           # 交互卸载
+sudo bash net-tcp-tune.sh --xray-uninstall-resume    # 继续清理；早期中断先恢复
+sudo bash net-tcp-tune.sh --xray-uninstall-rollback  # 恢复尚未清除的材料
+```
+
+需要 Linux/systemd、`/usr/bin/python3`（3.8+）和 `ss`；缺少工具会停止。恢复记录在 `/var/lib/net-tcp-tune/xray-uninstall/`（root 专用），新安装/更新会登记核心归属。跨文件系统、不受 systemd 管理的核心或无法确认归属的遗留布局需要人工核实，不会扩大删除范围兜底。旧 MTU 残留改在菜单 4 明确确认后清理，CF 老配置仍在 CF 管理入口迁移。
