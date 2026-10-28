@@ -1,6 +1,7 @@
 """Fault tests for the published embedded helper, using only disposable trees.
 
 Run under root in an isolated Linux container:
+  useradd --system --user-group --no-create-home --home-dir /var/empty xray
   python3 -m unittest discover -s tests -p test_xray_uninstall.py -v
 Actual systemd/Snell integration is covered by test_xray_systemd.py separately.
 """
@@ -16,6 +17,7 @@ import shutil
 import tempfile
 import types
 import unittest
+from unittest import mock
 
 SCRIPT = (Path(__file__).resolve().parents[1] / "net-tcp-tune.sh").read_text()
 CODE = SCRIPT.split("<<'XRAY_SAFE_UNINSTALL_PY'\n", 1)[1].split("\nXRAY_SAFE_UNINSTALL_PY", 1)[0]
@@ -30,6 +32,27 @@ User=nobody
 ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
 Restart=on-failure
 RuntimeDirectory=xray
+[Install]
+WantedBy=multi-user.target
+"""
+OFFICIAL_XRAY_UNIT = """[Unit]
+Description=Xray Service
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+[Service]
+User=xray
+Group=xray
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+UMask=0077
+ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+RuntimeDirectory=xray
+RuntimeDirectoryMode=0755
 [Install]
 WantedBy=multi-user.target
 """
@@ -181,6 +204,200 @@ class UninstallTests(unittest.TestCase):
             "ExecStartPre": DNS_PRE,
         }
 
+    def official_owned_layout(self):
+        try:
+            account = MODULE.pwd.getpwnam("xray")
+        except KeyError:
+            self.fail("Create the dedicated xray account in the disposable test container first")
+        self.assertNotEqual(account.pw_uid, 0)
+        self.assertNotEqual(account.pw_gid, 0)
+        self.env.write("/etc/systemd/system/xray.service", OFFICIAL_XRAY_UNIT)
+        self.env.write("/etc/systemd/system/xray@.service", OFFICIAL_XRAY_UNIT.replace(
+            "config.json", "%i.json").replace("RuntimeDirectory=xray\n", "RuntimeDirectory=xray-%i\n"))
+        self.env.properties["xray.service"] = {"User": "xray", "Group": "xray"}
+        for name, mode in (("/usr/local/share/xray", 0o755), ("/var/log/xray", 0o700)):
+            path = self.env.path(name)
+            for item in [path, *path.iterdir()]:
+                os.chown(item, account.pw_uid, account.pw_gid)
+                item.chmod(mode if item == path else 0o600 if name == "/var/log/xray" else 0o644)
+        return account
+
+    def stage_official_owned_layout(self, phase="moving"):
+        account = self.official_owned_layout()
+        self.env.record_install()
+        plan = self.env.preflight()
+        self.assertEqual(plan["data_uid"], account.pw_uid)
+        plan["restore_files"] = {}
+        for name in plan["paths"]:
+            plan["restore_files"].update(self.env.tree(name))
+        self.env.state_prepare()
+        (self.env.state / "files").mkdir(mode=0o700)
+        self.env.command("stop", "xray.service")
+        self.env.command("disable", "--no-reload", "xray.service")
+        for i, name in enumerate(plan["paths"]):
+            os.rename(self.env.path(name), self.env.staged(i))
+        data = {"version": 1, "phase": phase, "plan": plan}
+        self.env.save(data)
+        return data
+
+    def fresh_fixture_environment(self):
+        fresh = FakeEnvironment.__new__(FakeEnvironment)
+        MODULE.Environment.__init__(fresh, self.directory.name)
+        for name in ("home", "answers", "active", "enabled", "properties", "fail", "mount_points",
+                     "extra_processes", "snell_changed", "interrupt_move"):
+            setattr(fresh, name, copy.deepcopy(getattr(self.env, name)))
+        fresh.calls = []
+        return fresh
+
+    def test_official_owned_directories_record_check_and_uninstall(self):
+        account = self.official_owned_layout()
+        self.env.record_install()
+        before = self.env.tree("/")
+        self.env.uninstall(check=True)
+        self.assertEqual(self.env.tree("/"), before)
+        self.assertEqual(self.env.calls, [])
+        self.assertEqual(self.env.preflight()["data_uid"], account.pw_uid)
+        self.env.uninstall()
+        for name in MODULE.XRAY_DATA_DIRS:
+            self.assertFalse(self.env.path(name).exists())
+        self.assert_snell()
+
+    def test_official_owned_directories_cancel_restores_exact_metadata(self):
+        self.official_owned_layout()
+        self.env.record_install()
+        for active, enabled in ((True, "enabled"), (False, "disabled")):
+            with self.subTest(active=active, enabled=enabled):
+                self.env.active["xray.service"] = active
+                self.env.enabled["xray.service"] = enabled
+                if not active:
+                    self.env.path("/etc/systemd/system/multi-user.target.wants/xray.service").unlink()
+                before = {name: self.env.tree(name) for name in self.env.candidates()}
+                calls_before = len(self.env.calls)
+                self.env.answers = ["卸载Xray", ""]
+                with self.assertRaises(MODULE.Refused):
+                    self.env.uninstall()
+                self.assertEqual({name: self.env.tree(name) for name in self.env.candidates()}, before)
+                self.assertEqual(self.env.active["xray.service"], active)
+                self.assertEqual(self.env.enabled["xray.service"], enabled)
+                if not active:
+                    self.assertNotIn(("start", "xray.service"), self.env.calls[calls_before:])
+                self.assertIsNone(self.env.read_state())
+                self.assert_snell()
+
+    def test_official_owned_interrupted_transaction_recovers_without_live_units(self):
+        data = self.stage_official_owned_layout()
+        self.assertFalse(self.env.path("/etc/systemd/system/xray.service").exists())
+        fresh = self.fresh_fixture_environment()
+        fresh.answers = ["恢复Xray"]
+        fresh.recover(rollback=True)
+        restored = {}
+        for name in data["plan"]["paths"]:
+            restored.update(fresh.tree(name))
+        self.assertEqual(restored, data["plan"]["restore_files"])
+        self.assertTrue(fresh.active["xray.service"])
+        self.assertEqual(fresh.enabled["xray.service"], "enabled")
+        self.assertIsNone(fresh.read_state())
+        self.assert_snell()
+
+    def test_official_owned_interrupted_transaction_can_resume_purge(self):
+        self.stage_official_owned_layout(phase="verifying")
+        fresh = self.fresh_fixture_environment()
+        fresh.answers = ["继续清理", "Snell已验证"]
+        fresh.recover()
+        self.assertIsNone(fresh.read_state())
+        self.assertFalse((fresh.state / "files").exists())
+        for name in fresh.candidates():
+            self.assertFalse(fresh.path(name).exists())
+        self.assert_snell()
+
+    def test_official_owned_staged_metadata_changes_refuse_restore(self):
+        data = self.stage_official_owned_layout()
+        index = data["plan"]["paths"].index("/var/log/xray")
+        staged = self.env.staged(index)
+        original = staged.stat()
+        for owner, mode in ((0, 0o700), (original.st_uid, 0o777)):
+            with self.subTest(owner=owner, mode=mode):
+                os.chown(staged, owner, original.st_gid)
+                staged.chmod(mode)
+                with self.assertRaises(MODULE.Refused):
+                    self.env.validate_staged(data)
+                self.assertTrue(staged.exists())
+                os.chown(staged, original.st_uid, original.st_gid)
+                staged.chmod(original.st_mode & 0o777)
+        (staged / "error.log").write_text("tampered")
+        with self.assertRaises(MODULE.Refused):
+            self.env.validate_staged(data)
+        self.assertTrue(staged.exists())
+        self.assert_snell()
+
+    def test_official_owned_directories_require_verified_unit_and_dedicated_data_account(self):
+        account = self.official_owned_layout()
+        # Official install-geodata is independent of the legacy runtime UID.
+        for user, group in (("nobody", "nogroup"), ("xray", "root"), ("root", "root")):
+            with self.subTest(user=user, group=group):
+                self.env.properties["xray.service"].update(User=user, Group=group)
+                self.env.uninstall(check=True)
+        self.env.write("/etc/systemd/system/xray.service", OFFICIAL_XRAY_UNIT + "ExecStop=/usr/bin/true\n")
+        self.assert_refused_without_mutations()
+        self.env.write("/etc/systemd/system/xray.service", OFFICIAL_XRAY_UNIT)
+        with mock.patch.object(MODULE.pwd, "getpwnam", side_effect=KeyError("xray")):
+            self.assert_refused_without_mutations()
+        with mock.patch.object(MODULE.pwd, "getpwnam", return_value=types.SimpleNamespace(pw_uid=0, pw_gid=account.pw_gid)):
+            self.assert_refused_without_mutations()
+
+    def test_official_owned_exceptions_never_extend_to_parents_or_other_paths(self):
+        account = self.official_owned_layout()
+        for name in ("/usr/local", "/usr/local/share", "/var/log", MODULE.STATE, "/opt/xray"):
+            with self.subTest(name=name):
+                path = self.env.path(name)
+                path.mkdir(parents=True, exist_ok=True)
+                original = path.stat()
+                os.chown(path, account.pw_uid, account.pw_gid)
+                with self.assertRaises(MODULE.Refused):
+                    self.env.safe_path(name, data_uid=account.pw_uid)
+                os.chown(path, original.st_uid, original.st_gid)
+        self.assertEqual(self.env.calls, [])
+        self.assert_snell()
+
+    def test_official_owned_directories_reject_unsafe_owner_modes_links_and_mounts(self):
+        account = self.official_owned_layout()
+        path = self.env.path("/usr/local/share/xray")
+        wrong_uid = account.pw_uid + 10000
+        for uid, mode in ((wrong_uid, 0o755), (account.pw_uid, 0o775), (account.pw_uid, 0o777)):
+            with self.subTest(uid=uid, mode=mode):
+                os.chown(path, uid, account.pw_gid)
+                path.chmod(mode)
+                self.assert_refused_without_mutations()
+        os.chown(path, account.pw_uid, account.pw_gid)
+        path.chmod(0o755)
+        item = path / "geoip.dat"
+        item.chmod(0o666)
+        self.assert_refused_without_mutations()
+        item.chmod(0o644)
+        os.chown(item, wrong_uid, account.pw_gid)
+        self.assert_refused_without_mutations()
+        os.chown(item, account.pw_uid, account.pw_gid)
+        self.env.mount_points = ["/usr/local/share/xray"]
+        self.assert_refused_without_mutations()
+        self.env.mount_points = []
+        item.unlink()
+        item.symlink_to(self.env.path("/etc/snell/snell-server.conf"))
+        self.assert_refused_without_mutations()
+        item.unlink()
+        os.link(self.env.path("/etc/snell/snell-server.conf"), item)
+        self.assert_refused_without_mutations()
+        item.unlink()
+        shutil.rmtree(path)
+        path.symlink_to(self.env.path("/etc/snell"))
+        self.assert_refused_without_mutations()
+
+    def test_root_owned_legacy_layout_does_not_require_xray_account(self):
+        with mock.patch.object(MODULE.pwd, "getpwnam", side_effect=KeyError("xray")):
+            self.env.record_install()
+            self.env.uninstall(check=True)
+        self.assertEqual(self.env.calls, [])
+        self.assert_snell()
+
     def test_managed_dns_guard_allows_uninstall_and_preserves_shared_helper(self):
         self.add_dns_guard()
         helper = self.env.tree(DNS_HELPER_PATH)
@@ -188,6 +405,15 @@ class UninstallTests(unittest.TestCase):
         self.assertFalse(self.env.path(DNS_GUARD_PATH).exists())
         self.assertEqual(self.env.tree(DNS_HELPER_PATH), helper)
         self.assert_snell()
+
+    def test_new_application_dns_guard_is_supported_without_loosening_exact_template(self):
+        self.add_dns_guard()
+        self.env.path(DNS_GUARD_PATH).write_text(DNS_GUARD.replace("--wait-dns 40", "--prepare-app-dns 40"))
+        self.env.properties["xray.service"]["ExecStartPre"] = DNS_PRE.replace("--wait-dns 40", "--prepare-app-dns 40")
+        self.env.uninstall(check=True)
+        self.assertEqual(self.env.calls, [])
+        self.env.path(DNS_GUARD_PATH).write_text(DNS_GUARD.replace("--wait-dns 40", "--prepare-app-dns 41"))
+        self.assert_refused_without_mutations()
 
     def test_managed_dns_guard_client_cancel_restores_xray(self):
         self.add_dns_guard()
@@ -241,6 +467,52 @@ class UninstallTests(unittest.TestCase):
         os.link(self.env.path("/usr/local/bin/snell-server"), helper)
         self.assert_refused_without_mutations()
 
+    def test_daemon_reload_cached_snell_exec_fields_do_not_block_safe_uninstall(self):
+        unit = "snell-12345.service"
+        command = self.env.show(unit)["ExecStart"].rsplit(" ;", 1)[0]
+        running = command + " ; start_time=[Tue 2026-10-20 00:00:00 UTC] ; stop_time=[n/a] ; pid=2345 ; code=(null) ; status=0/0 }"
+        reloaded = command + " ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }"
+        self.env.properties[unit] = {"ExecStart": running}
+        self.snell = self.env.snell_snapshot()
+        execute = self.env.command
+        def reload_changes_cached_fields(*args, **kwargs):
+            if args[0] == "daemon-reload":
+                self.env.properties[unit]["ExecStart"] = reloaded
+            return execute(*args, **kwargs)
+        self.env.command = reload_changes_cached_fields
+        self.env.uninstall()
+        self.assert_snell()
+
+    def test_snell_argv_runtime_like_literals_are_preserved(self):
+        unit = "snell-12345.service"
+        for argument in ("prefix ; status=1 ; suffix",
+                         "prefix ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=1 ; code=(null) ; status=0/0 } suffix"):
+            with self.subTest(argument=argument):
+                command = ("{ path=/usr/local/bin/snell-server ; argv[]=/usr/local/bin/snell-server -c " + argument +
+                    " ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=2345 ; code=(null) ; status=0/0 }")
+                self.env.properties[unit] = {"ExecStart": command}
+                before = self.env.snell_snapshot()
+                self.env.properties[unit]["ExecStart"] = command.replace("status=1", "status=2", 1) if "status=1" in argument else command.replace("pid=1", "pid=2", 1)
+                with self.assertRaises(MODULE.Refused):
+                    self.env.check_snell(before)
+
+    def test_snell_configured_command_and_process_identity_still_block_cleanup(self):
+        unit = "snell-12345.service"
+        command = self.env.show(unit)["ExecStart"]
+        self.env.properties[unit] = {"ExecStart": command}
+        before = self.env.snell_snapshot()
+        for changed in (command.replace(" -c ", " --changed -c "),
+                        command.replace("/usr/local/bin/snell-server", "/usr/local/bin/snell-server-v6"),
+                        command.replace("ignore_errors=no", "ignore_errors=yes")):
+            with self.subTest(command=changed):
+                self.env.properties[unit]["ExecStart"] = changed
+                with self.assertRaises(MODULE.Refused):
+                    self.env.check_snell(before)
+        self.env.properties[unit]["ExecStart"] = command
+        self.env.snell_changed = True
+        with self.assertRaises(MODULE.Refused):
+            self.env.check_snell(before)
+
     def test_default_uninstall_and_repeat(self):
         self.env.uninstall()
         self.assertFalse(self.env.path("/usr/local/bin/xray").exists())
@@ -257,6 +529,93 @@ class UninstallTests(unittest.TestCase):
         self.env.uninstall(check=True)
         self.assertEqual(self.env.tree("/"), before)
         self.assertEqual(self.env.calls, [])
+
+    def test_current_official_units_record_and_readonly_check(self):
+        for mask in ("0077", "077"):
+            with self.subTest(mask=mask):
+                unit = OFFICIAL_XRAY_UNIT.replace("UMask=0077", "UMask=" + mask)
+                self.env.write("/etc/systemd/system/xray.service", unit)
+                self.env.write("/etc/systemd/system/xray@.service", unit.replace(
+                    "config.json", "%i.json").replace("RuntimeDirectory=xray\n", "RuntimeDirectory=xray-%i\n"))
+                self.env.record_install()
+                self.assertTrue(self.env.path(MODULE.INSTALL_RECORD).is_file())
+                before = self.env.tree("/")
+                self.env.uninstall(check=True)
+                self.assertEqual(self.env.tree("/"), before)
+                self.assertEqual(self.env.calls, [])
+                self.assert_snell()
+
+    def test_install_record_does_not_bypass_uninstall_mask_checks(self):
+        for mask in ("0000", "0022", "0070", "00077", "77", "0o077", "u=rwx", "", "0078"):
+            with self.subTest(mask=mask):
+                self.env.write("/etc/systemd/system/xray.service", OFFICIAL_XRAY_UNIT.replace(
+                    "UMask=0077", "UMask=" + mask))
+                self.env.record_install()
+                before = self.env.tree("/")
+                self.assert_refused_without_mutations()
+                self.assertEqual(self.env.tree("/"), before)
+
+    def test_install_record_does_not_bypass_uninstall_hook_checks(self):
+        for hook in ("ExecStartPre=/usr/bin/true", "ExecStop=/usr/bin/true", "ExecStartPost=/usr/bin/true"):
+            with self.subTest(hook=hook):
+                self.env.write("/etc/systemd/system/xray.service", OFFICIAL_XRAY_UNIT.replace(
+                    "[Service]\n", "[Service]\n" + hook + "\n"))
+                self.env.record_install()
+                before = self.env.tree("/")
+                self.assert_refused_without_mutations()
+                self.assertEqual(self.env.tree("/"), before)
+
+    def test_legacy_nobody_units_still_record_and_readonly_check(self):
+        self.env.record_install()
+        before = self.env.tree("/")
+        self.env.uninstall(check=True)
+        self.assertEqual(self.env.tree("/"), before)
+        self.assertEqual(self.env.calls, [])
+        self.assert_snell()
+
+    def test_legacy_unit_with_official_xray_owned_data_records_and_uninstalls(self):
+        self.official_owned_layout()
+        self.env.write("/etc/systemd/system/xray.service", UNIT)
+        self.env.write("/etc/systemd/system/xray@.service", UNIT.replace("config.json", "%i.json"))
+        self.env.properties["xray.service"] = {"User": "nobody", "Group": "nogroup"}
+        self.env.record_install()
+        self.env.uninstall()
+        self.assertFalse(self.env.path("/usr/local/bin/xray").exists())
+        self.assert_snell()
+
+    def test_resource_dropin_does_not_block_nondestructive_install_record(self):
+        self.official_owned_layout()
+        extra = "/etc/systemd/system/xray.service.d/resources.conf"
+        self.env.write(extra, "[Service]\nCPUQuota=50%\nMemoryMax=512M\n")
+        self.env.properties["xray.service"]["DropInPaths"] = extra
+        before = self.env.tree("/etc/systemd/system")
+        self.env.record_install()
+        self.assertEqual(self.env.tree("/etc/systemd/system"), before)
+        self.assertEqual(self.env.calls, [])
+        # A successful install record must not weaken the destructive unit check.
+        self.assert_refused_without_mutations()
+
+    def test_supported_ss_and_dual_protocol_uninstall_including_backups(self):
+        for protocols in (("shadowsocks",), ("vless", "shadowsocks")):
+            with self.subTest(protocols=protocols), tempfile.TemporaryDirectory() as directory:
+                self.env = FakeEnvironment(directory)
+                self.snell = self.env.snell_snapshot()
+                config = json.dumps({"inbounds": [{"protocol": p} for p in protocols]})
+                self.env.write("/usr/local/etc/xray/config.json", config)
+                self.env.write("/usr/local/etc/xray/config.json.bak.20261020", config)
+                self.env.write("/root/xray_subscription_info.txt", "\n".join(
+                    ("vless://dummy" if p == "vless" else "ss://dummy") for p in protocols) + "\n")
+                self.env.uninstall()
+                self.assertFalse(self.env.path("/usr/local/bin/xray").exists())
+                self.assertFalse(self.env.path("/usr/local/etc/xray").exists())
+                self.assertFalse(self.env.path("/root/xray_subscription_info.txt").exists())
+                self.assert_snell()
+
+    def test_official_copytruncate_logrotate_is_supported(self):
+        self.env.write("/etc/logrotate.d/xray", "/var/log/xray/*.log {\n daily\n rotate 7\n missingok\n notifempty\n compress\n delaycompress\n copytruncate\n}\n")
+        self.env.uninstall()
+        self.assertFalse(self.env.path("/etc/logrotate.d/xray").exists())
+        self.assert_snell()
 
     def test_all_nonexact_confirmation_inputs_cancel(self):
         for answer in ["", "y", "Y", "no", "n", "N", "mistyped"]:
@@ -292,9 +651,9 @@ class UninstallTests(unittest.TestCase):
         self.env.path("/etc/systemd/system/xray@.service").unlink()
         self.assert_refused_without_mutations()
 
-    def test_non_vless_configuration_and_subscription_are_refused(self):
+    def test_unsupported_configuration_and_subscription_are_refused(self):
         config = self.env.path("/usr/local/etc/xray/config.json")
-        config.write_text(json.dumps({"inbounds": [{"protocol": "shadowsocks"}]}))
+        config.write_text(json.dumps({"inbounds": [{"protocol": "vmess"}]}))
         self.assert_refused_without_mutations()
         config.write_text(json.dumps({"inbounds": [{"protocol": "vless"}]}))
         self.env.path("/root/xray_subscription_info.txt").write_text("snell://dummy")
